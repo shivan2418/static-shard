@@ -1,7 +1,7 @@
 /**
  * Generate sample product data for the demo
  */
-
+import fs from 'fs'
 const categories = ["Electronics", "Clothing", "Home & Garden", "Sports", "Books"];
 const brands = ["TechCorp", "StyleCo", "HomeBasics", "SportsPro", "ReadMore"];
 const colors = ["Red", "Blue", "Green", "Black", "White", "Silver"];
@@ -42,7 +42,6 @@ function generateProducts(count) {
 const products = generateProducts(5000);
 
 // Write to file
-const fs = require("fs");
 fs.writeFileSync("products.json", JSON.stringify(products, null, 2));
 
 console.log(`Generated ${products.length} products to products.json`);
