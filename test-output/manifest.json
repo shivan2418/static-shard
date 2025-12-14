@@ -1,0 +1,240 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2025-12-14T01:39:15.169Z",
+  "schema": {
+    "fields": [
+      {
+        "name": "id",
+        "type": "string",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": "1",
+          "max": "9",
+          "cardinality": 10,
+          "nullCount": 0,
+          "sampleValues": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ]
+        }
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "nullable": false,
+        "indexed": true,
+        "stats": {
+          "cardinality": 2,
+          "nullCount": 0,
+          "sampleValues": [
+            true,
+            false
+          ]
+        }
+      },
+      {
+        "name": "age",
+        "type": "number",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": 25,
+          "max": 45,
+          "cardinality": 10,
+          "nullCount": 0,
+          "sampleValues": [
+            30,
+            25,
+            35,
+            28,
+            32
+          ]
+        }
+      },
+      {
+        "name": "city",
+        "type": "string",
+        "nullable": false,
+        "indexed": true,
+        "stats": {
+          "min": "Chicago",
+          "max": "New York",
+          "cardinality": 3,
+          "nullCount": 0,
+          "sampleValues": [
+            "New York",
+            "Los Angeles",
+            "Chicago"
+          ]
+        }
+      },
+      {
+        "name": "createdAt",
+        "type": "date",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": "2024-01-15T10:00:00Z",
+          "max": "2024-01-24T19:00:00Z",
+          "cardinality": 10,
+          "nullCount": 0,
+          "sampleValues": [
+            "2024-01-15T10:00:00Z",
+            "2024-01-16T11:00:00Z",
+            "2024-01-17T12:00:00Z",
+            "2024-01-18T13:00:00Z",
+            "2024-01-19T14:00:00Z"
+          ]
+        }
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": "Alice",
+          "max": "Jack",
+          "cardinality": 10,
+          "nullCount": 0,
+          "sampleValues": [
+            "Alice",
+            "Bob",
+            "Charlie",
+            "Diana",
+            "Eve"
+          ]
+        }
+      }
+    ],
+    "primaryField": "id"
+  },
+  "chunks": [
+    {
+      "id": "0",
+      "path": "chunks/0.json",
+      "count": 4,
+      "byteSize": 414,
+      "fieldRanges": {
+        "id": {
+          "min": "1",
+          "max": "3"
+        },
+        "age": {
+          "min": 25,
+          "max": 35
+        },
+        "city": {
+          "min": "Chicago",
+          "max": "New York"
+        },
+        "createdAt": {
+          "min": "2024-01-15T10:00:00Z",
+          "max": "2024-01-24T19:00:00Z"
+        },
+        "name": {
+          "min": "Alice",
+          "max": "Jack"
+        }
+      }
+    },
+    {
+      "id": "1",
+      "path": "chunks/1.json",
+      "count": 4,
+      "byteSize": 411,
+      "fieldRanges": {
+        "id": {
+          "min": "4",
+          "max": "7"
+        },
+        "age": {
+          "min": 27,
+          "max": 45
+        },
+        "city": {
+          "min": "Chicago",
+          "max": "New York"
+        },
+        "createdAt": {
+          "min": "2024-01-18T13:00:00Z",
+          "max": "2024-01-21T16:00:00Z"
+        },
+        "name": {
+          "min": "Diana",
+          "max": "Grace"
+        }
+      }
+    },
+    {
+      "id": "2",
+      "path": "chunks/2.json",
+      "count": 2,
+      "byteSize": 206,
+      "fieldRanges": {
+        "id": {
+          "min": "8",
+          "max": "9"
+        },
+        "age": {
+          "min": 29,
+          "max": 38
+        },
+        "city": {
+          "min": "Chicago",
+          "max": "Los Angeles"
+        },
+        "createdAt": {
+          "min": "2024-01-22T17:00:00Z",
+          "max": "2024-01-23T18:00:00Z"
+        },
+        "name": {
+          "min": "Henry",
+          "max": "Ivy"
+        }
+      }
+    }
+  ],
+  "indices": {
+    "active": {
+      "true": [
+        "0",
+        "1",
+        "2"
+      ],
+      "false": [
+        "0",
+        "1"
+      ]
+    },
+    "city": {
+      "New York": [
+        "0",
+        "1"
+      ],
+      "Los Angeles": [
+        "0",
+        "1",
+        "2"
+      ],
+      "Chicago": [
+        "0",
+        "1",
+        "2"
+      ]
+    }
+  },
+  "totalRecords": 10,
+  "config": {
+    "chunkSize": 500,
+    "chunkBy": "id",
+    "indexedFields": [
+      "active",
+      "city"
+    ]
+  }
+}
