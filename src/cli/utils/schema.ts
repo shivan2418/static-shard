@@ -198,9 +198,10 @@ function shouldIndex(
     return false;
   }
 
-  // Good candidates: booleans, low-cardinality strings, enums
+  // Good candidates: booleans with both true/false values, low-cardinality strings, enums
+  // Note: cardinality check at top already excludes cardinality <= 1
   if (type === "boolean") {
-    return true;
+    return cardinality >= 2; // Only index if has both true and false
   }
 
   // Low cardinality is good for filtering

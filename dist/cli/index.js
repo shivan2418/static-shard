@@ -542,7 +542,7 @@ function shouldIndex(name, type, cardinality, totalRecords, stats) {
     return false;
   }
   if (type === "boolean") {
-    return true;
+    return cardinality >= 2;
   }
   return cardinality >= 2 && cardinality <= 500;
 }
@@ -1137,7 +1137,20 @@ async function buildInMemory(inputFile, options, startTime) {
   }
   const targetChunkSize = parseSize(options.chunkSize);
   console.log(`Target chunk size: ${formatBytes(targetChunkSize)}`);
-  const indexedFields = options.index ? options.index.split(",").map((f) => f.trim()) : schema.fields.filter((f) => f.indexed).map((f) => f.name);
+  const MAX_AUTO_INDEX_FIELDS = 10;
+  let indexedFields;
+  if (options.index) {
+    indexedFields = options.index.split(",").map((f) => f.trim());
+  } else {
+    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
+    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
+      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
+      console.log(`Use --index to specify which fields to index`);
+      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
+    } else {
+      indexedFields = autoIndexed;
+    }
+  }
   if (indexedFields.length > 0) {
     console.log(`Indexing fields: ${indexedFields.join(", ")}`);
   }
@@ -1181,7 +1194,7 @@ async function buildInMemory(inputFile, options, startTime) {
   await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
-  const sampleForTypes = records.slice(0, 1e3);
+  const sampleForTypes = records.slice(0, 100);
   const clientCode = generateClient(schema, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs2.promises.writeFile(clientPath, clientCode);
@@ -1215,9 +1228,22 @@ async function buildStreaming(inputFile, options, startTime) {
   let schema = null;
   let indexedFields = [];
   let chunkBy = null;
+  const estimateRecordSize2 = (record) => {
+    let size = 2;
+    for (const key in record) {
+      const value = record[key];
+      size += key.length + 3;
+      if (value === null) size += 4;
+      else if (typeof value === "string") size += value.length + 2;
+      else if (typeof value === "number") size += String(value).length;
+      else if (typeof value === "boolean") size += value ? 4 : 5;
+      else size += 20;
+    }
+    return size;
+  };
   const processRecord = (record) => {
     currentChunk.push(record);
-    currentChunkSize += JSON.stringify(record).length;
+    currentChunkSize += estimateRecordSize2(record);
     if (currentChunkSize >= targetChunkSize) {
       flushChunk();
     }
@@ -1295,7 +1321,19 @@ async function buildStreaming(inputFile, options, startTime) {
   if (chunkBy) {
     console.log(`Chunking by field: ${chunkBy}`);
   }
-  indexedFields = options.index ? options.index.split(",").map((f) => f.trim()) : schema.fields.filter((f) => f.indexed).map((f) => f.name);
+  const MAX_AUTO_INDEX_FIELDS = 10;
+  if (options.index) {
+    indexedFields = options.index.split(",").map((f) => f.trim());
+  } else {
+    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
+    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
+      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
+      console.log(`Use --index to specify which fields to index`);
+      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
+    } else {
+      indexedFields = autoIndexed;
+    }
+  }
   if (indexedFields.length > 0) {
     console.log(`Indexing fields: ${indexedFields.join(", ")}`);
   }
@@ -1331,7 +1369,8 @@ Processed ${count.toLocaleString()} records (format: ${format})`);
   await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
-  const clientCode = generateClient(schema, manifest, sample);
+  const sampleForTypes = sample.slice(0, 100);
+  const clientCode = generateClient(schema, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs2.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);
@@ -1359,7 +1398,9 @@ function formatBytes(bytes) {
 
 // src/cli/commands/inspect.ts
 import * as fs3 from "fs";
+import { checkbox, confirm, input, select } from "@inquirer/prompts";
 var STREAMING_THRESHOLD3 = 100 * 1024 * 1024;
+var INDEX_PROMPT_THRESHOLD = 5;
 async function inspect(inputFile, options) {
   if (!fs3.existsSync(inputFile)) {
     throw new Error(`Input file not found: ${inputFile}`);
@@ -1462,22 +1503,6 @@ Fields (${schema.fields.length}):
       console.log(`    examples: ${samples}`);
     }
   }
-  console.log("\n" + "=".repeat(60));
-  console.log("RECOMMENDATIONS");
-  console.log("=".repeat(60));
-  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
-  if (suggestedChunkField) {
-    console.log(`
-Recommended --chunk-by: ${suggestedChunkField}`);
-  } else {
-    console.log("\nNo specific chunk field recommended (will chunk by record order)");
-  }
-  const indexableFields = getIndexableFields(schema);
-  if (indexableFields.length > 0) {
-    console.log(`Recommended --index: ${indexableFields.join(",")}`);
-  } else {
-    console.log("No fields recommended for indexing");
-  }
   const avgRecordSize = fileSize / totalRecords;
   const targetChunkSize = 5 * 1024 * 1024;
   const estimatedChunks = Math.ceil(fileSize / targetChunkSize);
@@ -1486,23 +1511,150 @@ Recommended --chunk-by: ${suggestedChunkField}`);
   console.log("=".repeat(60));
   console.log(`
 Average record size: ${formatBytes2(avgRecordSize)}`);
-  console.log(`
-With default 5MB chunks:`);
-  console.log(`  Estimated chunks: ${estimatedChunks}`);
-  console.log(`  Records per chunk: ~${Math.ceil(totalRecords / estimatedChunks).toLocaleString()}`);
+  console.log(`With default 5MB chunks: ~${estimatedChunks} chunks`);
   console.log("\n" + "=".repeat(60));
-  console.log("EXAMPLE COMMAND");
+  console.log("BUILD CONFIGURATION");
   console.log("=".repeat(60));
-  let cmd = `npx static-shard build ${inputFile} --output ./dist`;
-  if (suggestedChunkField) {
-    cmd += ` --chunk-by ${suggestedChunkField}`;
+  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
+  const chunkableFields = schema.fields.filter((f) => f.type === "number" || f.type === "string" || f.type === "date").map((f) => f.name);
+  let selectedChunkField = null;
+  if (chunkableFields.length > 0) {
+    const chunkFieldChoices = [
+      { name: "(none - chunk by record order)", value: "" },
+      ...chunkableFields.map((f) => ({
+        name: f === suggestedChunkField ? `${f} (recommended)` : f,
+        value: f
+      }))
+    ];
+    chunkFieldChoices.sort((a, b) => {
+      if (a.value === suggestedChunkField) return -1;
+      if (b.value === suggestedChunkField) return 1;
+      if (a.value === "") return 1;
+      if (b.value === "") return -1;
+      return 0;
+    });
+    selectedChunkField = await select({
+      message: "Sort and chunk records by which field?",
+      choices: chunkFieldChoices,
+      default: suggestedChunkField || ""
+    });
+    if (selectedChunkField === "") {
+      selectedChunkField = null;
+    }
   }
+  const indexableFields = getIndexableFields(schema);
+  let selectedIndexes = [];
   if (indexableFields.length > 0) {
-    cmd += ` --index "${indexableFields.join(",")}"`;
+    if (indexableFields.length <= INDEX_PROMPT_THRESHOLD) {
+      const useRecommended = await confirm({
+        message: `Use recommended indexes? (${indexableFields.join(", ")})`,
+        default: true
+      });
+      if (useRecommended) {
+        selectedIndexes = indexableFields;
+      } else {
+        selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+      }
+    } else {
+      console.log(`
+Found ${indexableFields.length} indexable fields.`);
+      selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+    }
+  }
+  const outputDir = await input({
+    message: "Output directory:",
+    default: "./output"
+  });
+  const chunkSizeAnswer = await select({
+    message: "Target chunk size:",
+    choices: [
+      { name: "1 MB (more chunks, faster queries)", value: "1mb" },
+      { name: "5 MB (balanced) - recommended", value: "5mb" },
+      { name: "10 MB (fewer chunks, larger downloads)", value: "10mb" },
+      { name: "Custom", value: "custom" }
+    ],
+    default: "5mb"
+  });
+  let chunkSize = chunkSizeAnswer;
+  if (chunkSizeAnswer === "custom") {
+    chunkSize = await input({
+      message: "Enter chunk size (e.g., 2mb, 500kb):",
+      default: "5mb"
+    });
+  }
+  console.log("\n" + "=".repeat(60));
+  console.log("CONFIGURATION SUMMARY");
+  console.log("=".repeat(60));
+  console.log(`
+Input: ${inputFile}`);
+  console.log(`Output: ${outputDir}`);
+  console.log(`Chunk size: ${chunkSize}`);
+  console.log(`Chunk by: ${selectedChunkField || "(record order)"}`);
+  console.log(`Indexes: ${selectedIndexes.length > 0 ? selectedIndexes.join(", ") : "(none)"}`);
+  let cmd = `npx static-shard build "${inputFile}" -o "${outputDir}" -s ${chunkSize}`;
+  if (selectedChunkField) {
+    cmd += ` -c ${selectedChunkField}`;
+  }
+  if (selectedIndexes.length > 0) {
+    cmd += ` -i "${selectedIndexes.join(",")}"`;
   }
   console.log(`
-${cmd}
-`);
+Equivalent command:
+  ${cmd}`);
+  const runBuild = await confirm({
+    message: "Run build now?",
+    default: true
+  });
+  if (runBuild) {
+    console.log("\n");
+    await build(inputFile, {
+      output: outputDir,
+      chunkSize,
+      chunkBy: selectedChunkField || void 0,
+      index: selectedIndexes.length > 0 ? selectedIndexes.join(",") : void 0,
+      format: options.format
+    });
+  } else {
+    console.log("\nBuild skipped. Run the command above when ready.\n");
+  }
+}
+async function promptIndexSelection(allFields, recommendedFields) {
+  const booleanFields = allFields.filter((f) => f.type === "boolean").map((f) => f.name);
+  const enumLikeFields = allFields.filter(
+    (f) => f.type === "string" && f.stats.cardinality <= 100 && !booleanFields.includes(f.name)
+  ).map((f) => f.name);
+  const numericFields = allFields.filter((f) => f.type === "number").map((f) => f.name);
+  const choices = allFields.filter((f) => {
+    if (f.stats.cardinality < 2) return false;
+    if (f.type === "boolean") return true;
+    if (f.stats.cardinality <= 500) return true;
+    return false;
+  }).map((f) => {
+    const isRecommended = recommendedFields.includes(f.name);
+    const cardinalityInfo = f.stats.cardinality ? ` (${f.stats.cardinality} values)` : "";
+    return {
+      name: `${f.name}${cardinalityInfo}${isRecommended ? " *" : ""}`,
+      value: f.name,
+      checked: isRecommended
+    };
+  }).sort((a, b) => {
+    const aRec = recommendedFields.includes(a.value) ? 0 : 1;
+    const bRec = recommendedFields.includes(b.value) ? 0 : 1;
+    return aRec - bRec;
+  });
+  if (choices.length === 0) {
+    return [];
+  }
+  console.log("\n  * = recommended for indexing");
+  console.log("  Controls: <space> toggle, <a> all, <i> invert, <enter> confirm\n");
+  const selected = await checkbox({
+    message: "Select fields to index (or none):",
+    choices,
+    pageSize: 15,
+    instructions: false
+    // We provide our own instructions above
+  });
+  return selected;
 }
 function formatBytes2(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -1568,7 +1720,8 @@ async function types(inputFile, options) {
   console.error(`Format: ${format}`);
   console.error(`Sampled ${samples.length} records
 `);
-  const rawTypes = json2ts2(JSON.stringify(samples), { rootName: "Item" });
+  const typeSamples = samples.slice(0, 100);
+  const rawTypes = json2ts2(JSON.stringify(typeSamples), { rootName: "Item" });
   const types2 = cleanupTypes2(rawTypes);
   const fieldNames = generateFieldNamesType2(samples);
   const output = `/**
@@ -1592,9 +1745,9 @@ ${fieldNames}
 // src/cli/index.ts
 var program = new Command();
 program.name("static-shard").description("Query large static datasets efficiently by splitting them into chunks").version("0.1.0");
-program.command("build").description("Build chunks and client from a data file").argument("<input>", "Input data file (JSON, NDJSON, or CSV)").requiredOption("-o, --output <dir>", "Output directory").option("-s, --chunk-size <size>", "Target chunk size (e.g., 5mb)", "5mb").option("-c, --chunk-by <field>", "Field to sort and chunk by").option("-i, --index <fields>", "Comma-separated fields to index").option("-f, --format <format>", "Input format (json, ndjson, csv)").action(async (input, options) => {
+program.command("build").description("Build chunks and client from a data file").argument("<input>", "Input data file (JSON, NDJSON, or CSV)").requiredOption("-o, --output <dir>", "Output directory").option("-s, --chunk-size <size>", "Target chunk size (e.g., 5mb)", "5mb").option("-c, --chunk-by <field>", "Field to sort and chunk by").option("-i, --index <fields>", "Comma-separated fields to index").option("-f, --format <format>", "Input format (json, ndjson, csv)").action(async (input2, options) => {
   try {
-    await build(input, {
+    await build(input2, {
       output: options.output,
       chunkSize: options.chunkSize,
       chunkBy: options.chunkBy,
@@ -1606,9 +1759,9 @@ program.command("build").description("Build chunks and client from a data file")
     process.exit(1);
   }
 });
-program.command("inspect").description("Analyze a data file and suggest chunking strategy").argument("<input>", "Input data file").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("--fast", "Fast mode: estimate record count instead of reading entire file").action(async (input, options) => {
+program.command("inspect").description("Analyze a data file and suggest chunking strategy").argument("<input>", "Input data file").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("--fast", "Fast mode: estimate record count instead of reading entire file").action(async (input2, options) => {
   try {
-    await inspect(input, {
+    await inspect(input2, {
       sample: parseInt(options.sample, 10),
       format: options.format,
       fast: options.fast
@@ -1618,9 +1771,9 @@ program.command("inspect").description("Analyze a data file and suggest chunking
     process.exit(1);
   }
 });
-program.command("types").description("Generate TypeScript types from a data file").argument("<input>", "Input data file (JSON, NDJSON, or CSV)").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("-o, --output <file>", "Output file (default: stdout)").action(async (input, options) => {
+program.command("types").description("Generate TypeScript types from a data file").argument("<input>", "Input data file (JSON, NDJSON, or CSV)").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("-o, --output <file>", "Output file (default: stdout)").action(async (input2, options) => {
   try {
-    await types(input, {
+    await types(input2, {
       sample: parseInt(options.sample, 10),
       format: options.format,
       output: options.output

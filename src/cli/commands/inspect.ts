@@ -1,15 +1,20 @@
 /**
- * Inspect command - analyze data file and suggest chunking strategy
- * Supports streaming for large files
+ * Inspect command - analyze data file and guide through build setup
+ * Interactive wizard for selecting indexes and build options
  */
 
 import * as fs from "node:fs";
-import type { InspectOptions } from "../../types/index.js";
+import { checkbox, confirm, input, select } from "@inquirer/prompts";
+import type { InspectOptions, FieldSchema } from "../../types/index.js";
 import { getFileSize, parseFile, streamFile } from "../utils/parsers.js";
 import { inferSchema, suggestChunkField, getIndexableFields } from "../utils/schema.js";
+import { build } from "./build.js";
 
 // Use streaming for files larger than 100MB
 const STREAMING_THRESHOLD = 100 * 1024 * 1024;
+
+// Threshold for prompting index selection
+const INDEX_PROMPT_THRESHOLD = 5;
 
 export async function inspect(
   inputFile: string,
@@ -104,6 +109,7 @@ export async function inspect(
   // Infer schema
   const schema = inferSchema(sampleRecords);
 
+  // Show schema summary
   console.log("\n" + "=".repeat(60));
   console.log("SCHEMA");
   console.log("=".repeat(60));
@@ -144,27 +150,7 @@ export async function inspect(
     }
   }
 
-  console.log("\n" + "=".repeat(60));
-  console.log("RECOMMENDATIONS");
-  console.log("=".repeat(60));
-
-  // Suggest chunk field
-  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
-  if (suggestedChunkField) {
-    console.log(`\nRecommended --chunk-by: ${suggestedChunkField}`);
-  } else {
-    console.log("\nNo specific chunk field recommended (will chunk by record order)");
-  }
-
-  // Suggest indexed fields
-  const indexableFields = getIndexableFields(schema);
-  if (indexableFields.length > 0) {
-    console.log(`Recommended --index: ${indexableFields.join(",")}`);
-  } else {
-    console.log("No fields recommended for indexing");
-  }
-
-  // Estimate chunks
+  // Size estimates
   const avgRecordSize = fileSize / totalRecords;
   const targetChunkSize = 5 * 1024 * 1024; // 5MB
   const estimatedChunks = Math.ceil(fileSize / targetChunkSize);
@@ -174,24 +160,200 @@ export async function inspect(
   console.log("=".repeat(60));
 
   console.log(`\nAverage record size: ${formatBytes(avgRecordSize)}`);
-  console.log(`\nWith default 5MB chunks:`);
-  console.log(`  Estimated chunks: ${estimatedChunks}`);
-  console.log(`  Records per chunk: ~${Math.ceil(totalRecords / estimatedChunks).toLocaleString()}`);
+  console.log(`With default 5MB chunks: ~${estimatedChunks} chunks`);
 
-  // Show example command
+  // Interactive wizard
   console.log("\n" + "=".repeat(60));
-  console.log("EXAMPLE COMMAND");
+  console.log("BUILD CONFIGURATION");
   console.log("=".repeat(60));
 
-  let cmd = `npx static-shard build ${inputFile} --output ./dist`;
-  if (suggestedChunkField) {
-    cmd += ` --chunk-by ${suggestedChunkField}`;
-  }
-  if (indexableFields.length > 0) {
-    cmd += ` --index "${indexableFields.join(",")}"`;
+  // 1. Chunk field selection
+  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
+  const chunkableFields = schema.fields
+    .filter(f => f.type === "number" || f.type === "string" || f.type === "date")
+    .map(f => f.name);
+
+  let selectedChunkField: string | null = null;
+
+  if (chunkableFields.length > 0) {
+    const chunkFieldChoices = [
+      { name: "(none - chunk by record order)", value: "" },
+      ...chunkableFields.map(f => ({
+        name: f === suggestedChunkField ? `${f} (recommended)` : f,
+        value: f
+      }))
+    ];
+
+    // Sort to put recommended first
+    chunkFieldChoices.sort((a, b) => {
+      if (a.value === suggestedChunkField) return -1;
+      if (b.value === suggestedChunkField) return 1;
+      if (a.value === "") return 1;
+      if (b.value === "") return -1;
+      return 0;
+    });
+
+    selectedChunkField = await select({
+      message: "Sort and chunk records by which field?",
+      choices: chunkFieldChoices,
+      default: suggestedChunkField || ""
+    });
+
+    if (selectedChunkField === "") {
+      selectedChunkField = null;
+    }
   }
 
-  console.log(`\n${cmd}\n`);
+  // 2. Index selection
+  const indexableFields = getIndexableFields(schema);
+  let selectedIndexes: string[] = [];
+
+  if (indexableFields.length > 0) {
+    if (indexableFields.length <= INDEX_PROMPT_THRESHOLD) {
+      // Few fields - show simple yes/no for using recommended indexes
+      const useRecommended = await confirm({
+        message: `Use recommended indexes? (${indexableFields.join(", ")})`,
+        default: true
+      });
+
+      if (useRecommended) {
+        selectedIndexes = indexableFields;
+      } else {
+        // Let them pick manually
+        selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+      }
+    } else {
+      // Many fields - always show selection UI
+      console.log(`\nFound ${indexableFields.length} indexable fields.`);
+      selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+    }
+  }
+
+  // 3. Output directory
+  const outputDir = await input({
+    message: "Output directory:",
+    default: "./output"
+  });
+
+  // 4. Chunk size
+  const chunkSizeAnswer = await select({
+    message: "Target chunk size:",
+    choices: [
+      { name: "1 MB (more chunks, faster queries)", value: "1mb" },
+      { name: "5 MB (balanced) - recommended", value: "5mb" },
+      { name: "10 MB (fewer chunks, larger downloads)", value: "10mb" },
+      { name: "Custom", value: "custom" }
+    ],
+    default: "5mb"
+  });
+
+  let chunkSize = chunkSizeAnswer;
+  if (chunkSizeAnswer === "custom") {
+    chunkSize = await input({
+      message: "Enter chunk size (e.g., 2mb, 500kb):",
+      default: "5mb"
+    });
+  }
+
+  // Summary
+  console.log("\n" + "=".repeat(60));
+  console.log("CONFIGURATION SUMMARY");
+  console.log("=".repeat(60));
+
+  console.log(`\nInput: ${inputFile}`);
+  console.log(`Output: ${outputDir}`);
+  console.log(`Chunk size: ${chunkSize}`);
+  console.log(`Chunk by: ${selectedChunkField || "(record order)"}`);
+  console.log(`Indexes: ${selectedIndexes.length > 0 ? selectedIndexes.join(", ") : "(none)"}`);
+
+  // Build command for reference
+  let cmd = `npx static-shard build "${inputFile}" -o "${outputDir}" -s ${chunkSize}`;
+  if (selectedChunkField) {
+    cmd += ` -c ${selectedChunkField}`;
+  }
+  if (selectedIndexes.length > 0) {
+    cmd += ` -i "${selectedIndexes.join(",")}"`;
+  }
+
+  console.log(`\nEquivalent command:\n  ${cmd}`);
+
+  // 5. Run build?
+  const runBuild = await confirm({
+    message: "Run build now?",
+    default: true
+  });
+
+  if (runBuild) {
+    console.log("\n");
+    await build(inputFile, {
+      output: outputDir,
+      chunkSize,
+      chunkBy: selectedChunkField || undefined,
+      index: selectedIndexes.length > 0 ? selectedIndexes.join(",") : undefined,
+      format: options.format
+    });
+  } else {
+    console.log("\nBuild skipped. Run the command above when ready.\n");
+  }
+}
+
+/**
+ * Interactive prompt for selecting which fields to index
+ */
+async function promptIndexSelection(
+  allFields: FieldSchema[],
+  recommendedFields: string[]
+): Promise<string[]> {
+  // Group fields by category for better UX
+  const booleanFields = allFields.filter(f => f.type === "boolean").map(f => f.name);
+  const enumLikeFields = allFields.filter(f =>
+    f.type === "string" &&
+    f.stats.cardinality <= 100 &&
+    !booleanFields.includes(f.name)
+  ).map(f => f.name);
+  const numericFields = allFields.filter(f => f.type === "number").map(f => f.name);
+
+  const choices = allFields
+    .filter(f => {
+      // Only show fields that could reasonably be indexed
+      // Must have cardinality >= 2 (cardinality 1 = all same value, useless for filtering)
+      if (f.stats.cardinality < 2) return false;
+      if (f.type === "boolean") return true;
+      if (f.stats.cardinality <= 500) return true;
+      return false;
+    })
+    .map(f => {
+      const isRecommended = recommendedFields.includes(f.name);
+      const cardinalityInfo = f.stats.cardinality ? ` (${f.stats.cardinality} values)` : "";
+
+      return {
+        name: `${f.name}${cardinalityInfo}${isRecommended ? " *" : ""}`,
+        value: f.name,
+        checked: isRecommended
+      };
+    })
+    .sort((a, b) => {
+      // Sort: recommended first, then by cardinality
+      const aRec = recommendedFields.includes(a.value) ? 0 : 1;
+      const bRec = recommendedFields.includes(b.value) ? 0 : 1;
+      return aRec - bRec;
+    });
+
+  if (choices.length === 0) {
+    return [];
+  }
+
+  console.log("\n  * = recommended for indexing");
+  console.log("  Controls: <space> toggle, <a> all, <i> invert, <enter> confirm\n");
+
+  const selected = await checkbox({
+    message: "Select fields to index (or none):",
+    choices,
+    pageSize: 15,
+    instructions: false // We provide our own instructions above
+  });
+
+  return selected;
 }
 
 function formatBytes(bytes: number): string {

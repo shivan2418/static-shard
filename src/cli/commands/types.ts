@@ -85,8 +85,9 @@ export async function types(
   console.error(`Format: ${format}`);
   console.error(`Sampled ${samples.length} records\n`);
 
-  // Generate types using json-ts
-  const rawTypes = json2ts(JSON.stringify(samples), { rootName: "Item" });
+  // Generate types using json-ts (limit to 100 samples to avoid memory issues)
+  const typeSamples = samples.slice(0, 100);
+  const rawTypes = json2ts(JSON.stringify(typeSamples), { rootName: "Item" });
   const types = cleanupTypes(rawTypes);
   const fieldNames = generateFieldNamesType(samples);
 

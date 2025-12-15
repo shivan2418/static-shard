@@ -84,10 +84,21 @@ async function buildInMemory(
   const targetChunkSize = parseSize(options.chunkSize);
   console.log(`Target chunk size: ${formatBytes(targetChunkSize)}`);
 
-  // Parse indexed fields
-  const indexedFields = options.index
-    ? options.index.split(",").map((f) => f.trim())
-    : schema.fields.filter((f) => f.indexed).map((f) => f.name);
+  // Parse indexed fields (limit auto-detected to 10 to prevent memory issues)
+  const MAX_AUTO_INDEX_FIELDS = 10;
+  let indexedFields: string[];
+  if (options.index) {
+    indexedFields = options.index.split(",").map((f) => f.trim());
+  } else {
+    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
+    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
+      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
+      console.log(`Use --index to specify which fields to index`);
+      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
+    } else {
+      indexedFields = autoIndexed;
+    }
+  }
 
   if (indexedFields.length > 0) {
     console.log(`Indexing fields: ${indexedFields.join(", ")}`);
@@ -148,9 +159,9 @@ async function buildInMemory(
   await fs.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
 
-  // Generate client (use sample of records for type inference)
+  // Generate client (use small sample for type inference - 100 is enough)
   console.log("Generating client...");
-  const sampleForTypes = records.slice(0, 1000);
+  const sampleForTypes = records.slice(0, 100);
   const clientCode = generateClient(schema, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs.promises.writeFile(clientPath, clientCode);
@@ -200,10 +211,25 @@ async function buildStreaming(
   let indexedFields: string[] = [];
   let chunkBy: string | null = null;
 
+  // Estimate record size without full serialization (rough heuristic)
+  const estimateRecordSize = (record: DataRecord): number => {
+    let size = 2; // {}
+    for (const key in record) {
+      const value = record[key];
+      size += key.length + 3; // "key":
+      if (value === null) size += 4;
+      else if (typeof value === "string") size += value.length + 2;
+      else if (typeof value === "number") size += String(value).length;
+      else if (typeof value === "boolean") size += value ? 4 : 5;
+      else size += 20; // rough estimate for complex values
+    }
+    return size;
+  };
+
   // Process each record as it streams in
   const processRecord = (record: DataRecord) => {
     currentChunk.push(record);
-    currentChunkSize += JSON.stringify(record).length;
+    currentChunkSize += estimateRecordSize(record);
 
     // When chunk reaches target size, flush it
     if (currentChunkSize >= targetChunkSize) {
@@ -305,10 +331,20 @@ async function buildStreaming(
     console.log(`Chunking by field: ${chunkBy}`);
   }
 
-  // Parse indexed fields
-  indexedFields = options.index
-    ? options.index.split(",").map((f) => f.trim())
-    : schema.fields.filter((f) => f.indexed).map((f) => f.name);
+  // Parse indexed fields (limit auto-detected to 10 to prevent memory issues)
+  const MAX_AUTO_INDEX_FIELDS = 10;
+  if (options.index) {
+    indexedFields = options.index.split(",").map((f) => f.trim());
+  } else {
+    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
+    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
+      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
+      console.log(`Use --index to specify which fields to index`);
+      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
+    } else {
+      indexedFields = autoIndexed;
+    }
+  }
 
   if (indexedFields.length > 0) {
     console.log(`Indexing fields: ${indexedFields.join(", ")}`);
@@ -357,9 +393,10 @@ async function buildStreaming(
   await fs.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
 
-  // Generate client (use sample for type inference)
+  // Generate client (use small sample for type inference - 100 is enough)
   console.log("Generating client...");
-  const clientCode = generateClient(schema!, manifest, sample);
+  const sampleForTypes = sample.slice(0, 100);
+  const clientCode = generateClient(schema!, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);
