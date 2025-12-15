@@ -1,11 +1,15 @@
 /**
  * Inspect command - analyze data file and suggest chunking strategy
+ * Supports streaming for large files
  */
 
 import * as fs from "node:fs";
 import type { InspectOptions } from "../../types/index.js";
-import { getFileSize, parseFile } from "../utils/parsers.js";
+import { getFileSize, parseFile, streamFile } from "../utils/parsers.js";
 import { inferSchema, suggestChunkField, getIndexableFields } from "../utils/schema.js";
+
+// Use streaming for files larger than 100MB
+const STREAMING_THRESHOLD = 100 * 1024 * 1024;
 
 export async function inspect(
   inputFile: string,
@@ -20,24 +24,82 @@ export async function inspect(
   console.log(`\nFile: ${inputFile}`);
   console.log(`Size: ${formatBytes(fileSize)}`);
 
-  console.log("\nParsing file...");
+  let totalRecords: number;
+  let sampleRecords: unknown[];
+  let format: string;
+  let isEstimated = false;
 
-  // Parse the file
-  const { records, format } = await parseFile(inputFile, options.format);
+  // Use streaming for large files
+  if (fileSize > STREAMING_THRESHOLD) {
+    console.log("\nUsing streaming mode for large file...");
 
-  console.log(`Format: ${format}`);
-  console.log(`Total records: ${records.length}`);
+    const sampleSize = options.sample || 1000;
 
-  if (records.length === 0) {
+    // Fast mode: only sample, don't read entire file
+    if (options.fast) {
+      console.log("Fast mode: sampling records (count will be estimated)...");
+
+      const result = await streamFile(
+        inputFile,
+        options.format,
+        () => {}, // No-op
+        sampleSize,
+        { sampleOnly: true, sampleSize }
+      );
+
+      totalRecords = result.estimatedCount || result.count;
+      sampleRecords = result.sample;
+      format = result.format;
+      isEstimated = true;
+
+      console.log(`Format: ${format}`);
+      console.log(`Estimated records: ~${totalRecords.toLocaleString()}`);
+    } else {
+      console.log("Processing all records (use --fast to estimate count instead)...");
+
+      const result = await streamFile(
+        inputFile,
+        options.format,
+        () => {}, // No-op, we just want the count and sample
+        sampleSize,
+        { showProgress: true }
+      );
+
+      totalRecords = result.count;
+      sampleRecords = result.sample;
+      format = result.format;
+
+      console.log(`Format: ${format}`);
+      console.log(`Total records: ${totalRecords.toLocaleString()}`);
+    }
+  } else {
+    console.log("\nParsing file...");
+
+    // Parse the file
+    const result = await parseFile(inputFile, options.format);
+    totalRecords = result.records.length;
+    format = result.format;
+
+    console.log(`Format: ${format}`);
+    console.log(`Total records: ${totalRecords.toLocaleString()}`);
+
+    if (totalRecords === 0) {
+      console.log("\nNo records found.");
+      return;
+    }
+
+    // Sample records for schema inference if needed
+    const sampleSize = Math.min(options.sample || 1000, totalRecords);
+    sampleRecords = result.records.slice(0, sampleSize);
+  }
+
+  if (sampleRecords.length === 0) {
     console.log("\nNo records found.");
     return;
   }
 
-  // Sample records for schema inference if needed
-  const sampleSize = Math.min(options.sample || 1000, records.length);
-  const sampleRecords = records.slice(0, sampleSize);
-
-  console.log(`\nAnalyzing ${sampleSize} records...`);
+  const sampleSize = sampleRecords.length;
+  console.log(`\nAnalyzing ${sampleSize.toLocaleString()} records...`);
 
   // Infer schema
   const schema = inferSchema(sampleRecords);
@@ -60,7 +122,7 @@ export async function inspect(
     const statParts = [];
 
     if (stats.cardinality !== undefined) {
-      const cardinalityPct = ((stats.cardinality / records.length) * 100).toFixed(1);
+      const cardinalityPct = ((stats.cardinality / totalRecords) * 100).toFixed(1);
       statParts.push(`cardinality: ${stats.cardinality} (${cardinalityPct}%)`);
     }
 
@@ -87,7 +149,7 @@ export async function inspect(
   console.log("=".repeat(60));
 
   // Suggest chunk field
-  const suggestedChunkField = suggestChunkField(schema, records);
+  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
   if (suggestedChunkField) {
     console.log(`\nRecommended --chunk-by: ${suggestedChunkField}`);
   } else {
@@ -103,7 +165,7 @@ export async function inspect(
   }
 
   // Estimate chunks
-  const avgRecordSize = fileSize / records.length;
+  const avgRecordSize = fileSize / totalRecords;
   const targetChunkSize = 5 * 1024 * 1024; // 5MB
   const estimatedChunks = Math.ceil(fileSize / targetChunkSize);
 
@@ -114,7 +176,7 @@ export async function inspect(
   console.log(`\nAverage record size: ${formatBytes(avgRecordSize)}`);
   console.log(`\nWith default 5MB chunks:`);
   console.log(`  Estimated chunks: ${estimatedChunks}`);
-  console.log(`  Records per chunk: ~${Math.ceil(records.length / estimatedChunks)}`);
+  console.log(`  Records per chunk: ~${Math.ceil(totalRecords / estimatedChunks).toLocaleString()}`);
 
   // Show example command
   console.log("\n" + "=".repeat(60));

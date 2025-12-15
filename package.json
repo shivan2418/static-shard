@@ -31,13 +31,19 @@
     "node": ">=18"
   },
   "dependencies": {
+    "cli-progress": "^3.12.0",
     "commander": "^14.0.2",
     "glob": "^13.0.0",
-    "papaparse": "^5.5.3"
+    "json-ts": "^1.6.4",
+    "papaparse": "^5.5.3",
+    "stream-chain": "^3.4.0",
+    "stream-json": "^1.9.1"
   },
   "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
     "@types/node": "^25.0.2",
     "@types/papaparse": "^5.5.2",
+    "@types/stream-json": "^1.7.8",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"

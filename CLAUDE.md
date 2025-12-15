@@ -1,1 +1,2 @@
-- always use pnpm
+- always use pnpm (not npm or yarn)
+- do not create package-lock.json - pnpm-lock.yaml is the only lock file

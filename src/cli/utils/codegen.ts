@@ -37,13 +37,14 @@ function fieldTypeToTs(field: FieldSchema): string {
 
 /**
  * Generate TypeScript interface for records
+ * Note: We use "Item" instead of "Record" to avoid shadowing TypeScript's built-in Record type
  */
 function generateRecordInterface(schema: Schema): string {
   const fields = schema.fields
     .map((f) => `  ${f.name}: ${fieldTypeToTs(f)};`)
     .join("\n");
 
-  return `export interface Record {
+  return `export interface Item {
 ${fields}
 }`;
 }
@@ -175,7 +176,7 @@ interface ClientOptions {
 class StaticShardClient {
   private basePath: string;
   private manifest: Manifest | null = null;
-  private chunkCache: Map<string, Record[]> = new Map();
+  private chunkCache: Map<string, Item[]> = new Map();
 
   constructor(options: ClientOptions) {
     this.basePath = options.basePath.replace(/\\/$/, "");
@@ -199,7 +200,7 @@ class StaticShardClient {
   /**
    * Load a chunk by ID
    */
-  private async loadChunk(chunkId: string): Promise<Record[]> {
+  private async loadChunk(chunkId: string): Promise<Item[]> {
     const cached = this.chunkCache.get(chunkId);
     if (cached) return cached;
 
@@ -293,11 +294,11 @@ class StaticShardClient {
   /**
    * Check if a record matches the where clause
    */
-  private matchesWhere(record: Record, where?: WhereClause): boolean {
+  private matchesWhere(record: Item, where?: WhereClause): boolean {
     if (!where) return true;
 
     for (const [field, condition] of Object.entries(where)) {
-      const value = record[field as keyof Record];
+      const value = record[field as keyof Item];
 
       // Direct value comparison
       if (typeof condition !== "object" || condition === null) {
@@ -325,7 +326,7 @@ class StaticShardClient {
   /**
    * Query records
    */
-  async query(options: QueryOptions = {}): Promise<Record[]> {
+  async query(options: QueryOptions = {}): Promise<Item[]> {
     const manifest = await this.loadManifest();
 
     // Find candidate chunks
@@ -336,7 +337,7 @@ class StaticShardClient {
     const chunks = await Promise.all(chunkPromises);
 
     // Flatten and filter
-    let results: Record[] = [];
+    let results: Item[] = [];
     for (const chunk of chunks) {
       for (const record of chunk) {
         if (this.matchesWhere(record, options.where)) {
@@ -351,8 +352,8 @@ class StaticShardClient {
       const direction = typeof options.orderBy === "string" ? "asc" : options.orderBy.direction;
 
       results.sort((a, b) => {
-        const aVal = a[field as keyof Record];
-        const bVal = b[field as keyof Record];
+        const aVal = a[field as keyof Item];
+        const bVal = b[field as keyof Item];
 
         if (aVal === bVal) return 0;
         if (aVal === null || aVal === undefined) return 1;
@@ -377,7 +378,7 @@ class StaticShardClient {
   /**
    * Get a single record by primary key
    */
-  async get(id: string | number): Promise<Record | null> {
+  async get(id: string | number): Promise<Item | null> {
     const manifest = await this.loadManifest();
     const primaryField = manifest.schema.primaryField;
 

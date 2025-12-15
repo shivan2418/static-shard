@@ -130,6 +130,84 @@ class FieldStatsCollector {
 }
 
 /**
+ * Determine if a field should be indexed based on various heuristics
+ */
+function shouldIndex(
+  name: string,
+  type: FieldType,
+  cardinality: number,
+  totalRecords: number,
+  stats: FieldStats
+): boolean {
+  // Skip if cardinality is 1 (all same value - useless index)
+  if (cardinality <= 1) {
+    return false;
+  }
+
+  // Skip if cardinality is too high (over 50% of records)
+  if (cardinality > totalRecords * 0.5) {
+    return false;
+  }
+
+  // Skip if cardinality exceeds reasonable index size
+  if (cardinality > 1000) {
+    return false;
+  }
+
+  // Check sample values for patterns that indicate non-indexable data
+  const samples = stats.sampleValues || [];
+  for (const sample of samples) {
+    if (sample === null || sample === undefined) continue;
+    const str = String(sample);
+
+    // Skip stringified objects
+    if (str.startsWith("[object ") || str === "[object Object]") {
+      return false;
+    }
+
+    // Skip URLs (not useful for filtering)
+    if (str.includes("://")) {
+      return false;
+    }
+
+    // Skip very long values (likely URIs, hashes, or encoded data)
+    if (str.length > 100) {
+      return false;
+    }
+  }
+
+  // Skip fields with names suggesting they're not good filter targets
+  const nameLower = name.toLowerCase();
+  const skipPatterns = [
+    "_uri", "_url", "_id", // ID/URL suffixes (unless it's a category ID)
+    "uri", "url", "href", "link", // URL fields
+    "hash", "token", "secret", "key", // Security/hash fields
+    "description", "text", "content", "body", // Long text fields
+  ];
+
+  // But allow specific useful ID patterns
+  const allowPatterns = [
+    "category", "type", "status", "state", "level",
+    "color", "lang", "rarity", "set", "frame",
+  ];
+
+  const hasSkipPattern = skipPatterns.some(p => nameLower.includes(p));
+  const hasAllowPattern = allowPatterns.some(p => nameLower.includes(p));
+
+  if (hasSkipPattern && !hasAllowPattern) {
+    return false;
+  }
+
+  // Good candidates: booleans, low-cardinality strings, enums
+  if (type === "boolean") {
+    return true;
+  }
+
+  // Low cardinality is good for filtering
+  return cardinality >= 2 && cardinality <= 500;
+}
+
+/**
  * Infer schema from a set of records
  */
 export function inferSchema(records: DataRecord[]): Schema {
@@ -168,10 +246,8 @@ export function inferSchema(records: DataRecord[]): Schema {
     const type = collector.getType();
 
     // Determine if field should be indexed
-    // Index low-cardinality fields (good for filtering)
     const cardinality = stats.cardinality;
-    const isLowCardinality = cardinality <= 1000 && cardinality < records.length * 0.5;
-    const indexed = isLowCardinality;
+    const indexed = shouldIndex(name, type, cardinality, records.length, stats);
 
     // Detect potential primary key
     // High cardinality, not nullable, unique values

@@ -112,4 +112,5 @@ export interface BuildOptions {
 export interface InspectOptions {
   sample?: number;
   format?: DataFormat;
+  fast?: boolean;
 }

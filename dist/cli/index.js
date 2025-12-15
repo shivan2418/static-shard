@@ -11,6 +11,14 @@ import * as path from "path";
 import * as fs from "fs";
 import * as readline from "readline";
 import Papa from "papaparse";
+import streamJson from "stream-json";
+import StreamArrayModule from "stream-json/streamers/StreamArray.js";
+import streamChain from "stream-chain";
+import cliProgress from "cli-progress";
+var { parser: jsonParser } = streamJson;
+var { chain } = streamChain;
+var { streamArray } = StreamArrayModule;
+var STREAMING_THRESHOLD = 100 * 1024 * 1024;
 function detectFormat(filePath) {
   const ext = filePath.toLowerCase().split(".").pop();
   if (ext === "csv") return "csv";
@@ -26,13 +34,48 @@ function detectFormat(filePath) {
   }
   return "json";
 }
-async function parseJsonArray(filePath) {
+async function parseJsonArray(filePath, onRecord) {
+  const stats = fs.statSync(filePath);
+  if (stats.size > STREAMING_THRESHOLD) {
+    return parseJsonArrayStreaming(filePath, onRecord);
+  }
   const content = await fs.promises.readFile(filePath, "utf-8");
   const data = JSON.parse(content);
   if (!Array.isArray(data)) {
     throw new Error("JSON file must contain an array of objects");
   }
+  if (onRecord) {
+    data.forEach((record, index) => onRecord(record, index));
+  }
   return data;
+}
+async function parseJsonArrayStreaming(filePath, onRecord) {
+  return new Promise((resolve2, reject) => {
+    const records = [];
+    let index = 0;
+    let lastLogTime = Date.now();
+    const pipeline = chain([
+      fs.createReadStream(filePath),
+      jsonParser(),
+      streamArray()
+    ]);
+    pipeline.on("data", (data) => {
+      const record = data.value;
+      records.push(record);
+      onRecord?.(record, index);
+      index++;
+      if (Date.now() - lastLogTime > 5e3) {
+        console.log(`  Parsed ${index.toLocaleString()} records...`);
+        lastLogTime = Date.now();
+      }
+    });
+    pipeline.on("end", () => {
+      resolve2(records);
+    });
+    pipeline.on("error", (err) => {
+      reject(new Error(`JSON parse error: ${err.message}`));
+    });
+  });
 }
 async function parseNdjson(filePath, onRecord) {
   const records = [];
@@ -85,10 +128,7 @@ async function parseFile(filePath, format, onRecord) {
   let records;
   switch (detectedFormat) {
     case "json":
-      records = await parseJsonArray(filePath);
-      if (onRecord) {
-        records.forEach((r, i) => onRecord(r, i));
-      }
+      records = await parseJsonArray(filePath, onRecord);
       break;
     case "ndjson":
       records = await parseNdjson(filePath, onRecord);
@@ -100,6 +140,235 @@ async function parseFile(filePath, format, onRecord) {
       throw new Error(`Unsupported format: ${detectedFormat}`);
   }
   return { records, format: detectedFormat };
+}
+async function streamFile(filePath, format, onRecord, sampleSize = 1e3, options = {}) {
+  const detectedFormat = format || detectFormat(filePath);
+  const sample = [];
+  let count = 0;
+  let bytesProcessed = 0;
+  const fileSize = getFileSize(filePath);
+  let progressBar = null;
+  if (options.showProgress && !options.sampleOnly) {
+    progressBar = new cliProgress.SingleBar({
+      format: "  Processing |{bar}| {percentage}% | {value}/{total} MB | {records} records | ETA: {eta}s",
+      barCompleteChar: "\u2588",
+      barIncompleteChar: "\u2591",
+      hideCursor: true
+    }, cliProgress.Presets.shades_classic);
+    progressBar.start(Math.round(fileSize / (1024 * 1024)), 0, { records: 0 });
+  }
+  const collector = (record, index, bytes) => {
+    if (sample.length < sampleSize) {
+      sample.push(record);
+    }
+    count++;
+    if (bytes) bytesProcessed = bytes;
+    if (progressBar && count % 1e3 === 0) {
+      progressBar.update(Math.round(bytesProcessed / (1024 * 1024)), { records: count.toLocaleString() });
+    }
+    onRecord(record, index);
+  };
+  if (options.sampleOnly) {
+    switch (detectedFormat) {
+      case "json":
+        await streamJsonArraySample(filePath, collector, sampleSize);
+        break;
+      case "ndjson":
+        await streamNdjsonSample(filePath, collector, sampleSize);
+        break;
+      case "csv":
+        await streamCsvSample(filePath, collector, sampleSize);
+        break;
+      default:
+        throw new Error(`Unsupported format: ${detectedFormat}`);
+    }
+    const avgRecordSize = bytesProcessed / count;
+    const estimatedCount = Math.round(fileSize / avgRecordSize);
+    return { count, sample, format: detectedFormat, estimatedCount };
+  }
+  switch (detectedFormat) {
+    case "json":
+      await streamJsonArray(filePath, collector, options.showProgress);
+      break;
+    case "ndjson":
+      await streamNdjson(filePath, collector, options.showProgress);
+      break;
+    case "csv":
+      await streamCsv(filePath, collector, options.showProgress);
+      break;
+    default:
+      throw new Error(`Unsupported format: ${detectedFormat}`);
+  }
+  if (progressBar) {
+    progressBar.update(Math.round(fileSize / (1024 * 1024)), { records: count.toLocaleString() });
+    progressBar.stop();
+  }
+  return { count, sample, format: detectedFormat };
+}
+async function streamJsonArray(filePath, onRecord, showProgress) {
+  return new Promise((resolve2, reject) => {
+    let index = 0;
+    let bytesRead = 0;
+    const readStream = fs.createReadStream(filePath);
+    readStream.on("data", (chunk) => {
+      bytesRead += chunk.length;
+    });
+    const pipeline = chain([
+      readStream,
+      jsonParser(),
+      streamArray()
+    ]);
+    pipeline.on("data", (data) => {
+      onRecord(data.value, index, bytesRead);
+      index++;
+    });
+    pipeline.on("end", () => resolve2());
+    pipeline.on("error", (err) => {
+      reject(new Error(`JSON parse error: ${err.message}`));
+    });
+  });
+}
+async function streamJsonArraySample(filePath, onRecord, maxRecords) {
+  return new Promise((resolve2, reject) => {
+    let index = 0;
+    let bytesRead = 0;
+    const readStream = fs.createReadStream(filePath);
+    readStream.on("data", (chunk) => {
+      bytesRead += chunk.length;
+    });
+    const pipeline = chain([
+      readStream,
+      jsonParser(),
+      streamArray()
+    ]);
+    pipeline.on("data", (data) => {
+      onRecord(data.value, index, bytesRead);
+      index++;
+      if (index >= maxRecords) {
+        readStream.destroy();
+        resolve2();
+      }
+    });
+    pipeline.on("end", () => resolve2());
+    pipeline.on("error", (err) => {
+      if (err.message.includes("aborted") || err.message.includes("destroyed")) {
+        resolve2();
+      } else {
+        reject(new Error(`JSON parse error: ${err.message}`));
+      }
+    });
+  });
+}
+async function streamNdjson(filePath, onRecord, showProgress) {
+  let index = 0;
+  let bytesRead = 0;
+  const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
+  fileStream.on("data", (chunk) => {
+    bytesRead += Buffer.byteLength(chunk);
+  });
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity
+  });
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const record = JSON.parse(trimmed);
+      onRecord(record, index, bytesRead);
+      index++;
+    } catch (e) {
+      throw new Error(`Invalid JSON at line ${index + 1}: ${trimmed.slice(0, 50)}...`);
+    }
+  }
+}
+async function streamNdjsonSample(filePath, onRecord, maxRecords) {
+  let index = 0;
+  let bytesRead = 0;
+  const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
+  fileStream.on("data", (chunk) => {
+    bytesRead += Buffer.byteLength(chunk);
+  });
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity
+  });
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const record = JSON.parse(trimmed);
+      onRecord(record, index, bytesRead);
+      index++;
+      if (index >= maxRecords) {
+        rl.close();
+        fileStream.destroy();
+        return;
+      }
+    } catch (e) {
+      throw new Error(`Invalid JSON at line ${index + 1}: ${trimmed.slice(0, 50)}...`);
+    }
+  }
+}
+async function streamCsv(filePath, onRecord, showProgress) {
+  return new Promise((resolve2, reject) => {
+    let index = 0;
+    let bytesRead = 0;
+    const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
+    fileStream.on("data", (chunk) => {
+      bytesRead += Buffer.byteLength(chunk);
+    });
+    Papa.parse(fileStream, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      step: (result) => {
+        if (result.errors.length > 0) {
+          reject(new Error(`CSV parse error: ${result.errors[0].message}`));
+          return;
+        }
+        onRecord(result.data, index, bytesRead);
+        index++;
+      },
+      complete: () => resolve2(),
+      error: (error) => reject(error)
+    });
+  });
+}
+async function streamCsvSample(filePath, onRecord, maxRecords) {
+  return new Promise((resolve2, reject) => {
+    let index = 0;
+    let bytesRead = 0;
+    let resolved = false;
+    const fileStream = fs.createReadStream(filePath, { encoding: "utf-8" });
+    fileStream.on("data", (chunk) => {
+      bytesRead += Buffer.byteLength(chunk);
+    });
+    Papa.parse(fileStream, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      step: (result, parser) => {
+        if (resolved) return;
+        if (result.errors.length > 0) {
+          reject(new Error(`CSV parse error: ${result.errors[0].message}`));
+          return;
+        }
+        onRecord(result.data, index, bytesRead);
+        index++;
+        if (index >= maxRecords) {
+          resolved = true;
+          parser.abort();
+          fileStream.destroy();
+          resolve2();
+        }
+      },
+      complete: () => {
+        if (!resolved) resolve2();
+      },
+      error: (error) => reject(error)
+    });
+  });
 }
 function getFileSize(filePath) {
   const stats = fs.statSync(filePath);
@@ -209,6 +478,74 @@ var FieldStatsCollector = class {
     return this.nullCount > 0;
   }
 };
+function shouldIndex(name, type, cardinality, totalRecords, stats) {
+  if (cardinality <= 1) {
+    return false;
+  }
+  if (cardinality > totalRecords * 0.5) {
+    return false;
+  }
+  if (cardinality > 1e3) {
+    return false;
+  }
+  const samples = stats.sampleValues || [];
+  for (const sample of samples) {
+    if (sample === null || sample === void 0) continue;
+    const str = String(sample);
+    if (str.startsWith("[object ") || str === "[object Object]") {
+      return false;
+    }
+    if (str.includes("://")) {
+      return false;
+    }
+    if (str.length > 100) {
+      return false;
+    }
+  }
+  const nameLower = name.toLowerCase();
+  const skipPatterns = [
+    "_uri",
+    "_url",
+    "_id",
+    // ID/URL suffixes (unless it's a category ID)
+    "uri",
+    "url",
+    "href",
+    "link",
+    // URL fields
+    "hash",
+    "token",
+    "secret",
+    "key",
+    // Security/hash fields
+    "description",
+    "text",
+    "content",
+    "body"
+    // Long text fields
+  ];
+  const allowPatterns = [
+    "category",
+    "type",
+    "status",
+    "state",
+    "level",
+    "color",
+    "lang",
+    "rarity",
+    "set",
+    "frame"
+  ];
+  const hasSkipPattern = skipPatterns.some((p) => nameLower.includes(p));
+  const hasAllowPattern = allowPatterns.some((p) => nameLower.includes(p));
+  if (hasSkipPattern && !hasAllowPattern) {
+    return false;
+  }
+  if (type === "boolean") {
+    return true;
+  }
+  return cardinality >= 2 && cardinality <= 500;
+}
 function inferSchema(records) {
   if (records.length === 0) {
     return { fields: [], primaryField: null };
@@ -236,8 +573,7 @@ function inferSchema(records) {
     const stats = collector.getStats();
     const type = collector.getType();
     const cardinality = stats.cardinality;
-    const isLowCardinality = cardinality <= 1e3 && cardinality < records.length * 0.5;
-    const indexed = isLowCardinality;
+    const indexed = shouldIndex(name, type, cardinality, records.length, stats);
     if (primaryField === null && stats.cardinality === records.length && !collector.isNullable() && (name.toLowerCase().includes("id") || name.toLowerCase() === "key")) {
       primaryField = name;
     }
@@ -424,7 +760,7 @@ function fieldTypeToTs(field) {
 }
 function generateRecordInterface(schema) {
   const fields = schema.fields.map((f) => `  ${f.name}: ${fieldTypeToTs(f)};`).join("\n");
-  return `export interface Record {
+  return `export interface Item {
 ${fields}
 }`;
 }
@@ -531,7 +867,7 @@ interface ClientOptions {
 class StaticShardClient {
   private basePath: string;
   private manifest: Manifest | null = null;
-  private chunkCache: Map<string, Record[]> = new Map();
+  private chunkCache: Map<string, Item[]> = new Map();
 
   constructor(options: ClientOptions) {
     this.basePath = options.basePath.replace(/\\/$/, "");
@@ -555,7 +891,7 @@ class StaticShardClient {
   /**
    * Load a chunk by ID
    */
-  private async loadChunk(chunkId: string): Promise<Record[]> {
+  private async loadChunk(chunkId: string): Promise<Item[]> {
     const cached = this.chunkCache.get(chunkId);
     if (cached) return cached;
 
@@ -649,11 +985,11 @@ class StaticShardClient {
   /**
    * Check if a record matches the where clause
    */
-  private matchesWhere(record: Record, where?: WhereClause): boolean {
+  private matchesWhere(record: Item, where?: WhereClause): boolean {
     if (!where) return true;
 
     for (const [field, condition] of Object.entries(where)) {
-      const value = record[field as keyof Record];
+      const value = record[field as keyof Item];
 
       // Direct value comparison
       if (typeof condition !== "object" || condition === null) {
@@ -681,7 +1017,7 @@ class StaticShardClient {
   /**
    * Query records
    */
-  async query(options: QueryOptions = {}): Promise<Record[]> {
+  async query(options: QueryOptions = {}): Promise<Item[]> {
     const manifest = await this.loadManifest();
 
     // Find candidate chunks
@@ -692,7 +1028,7 @@ class StaticShardClient {
     const chunks = await Promise.all(chunkPromises);
 
     // Flatten and filter
-    let results: Record[] = [];
+    let results: Item[] = [];
     for (const chunk of chunks) {
       for (const record of chunk) {
         if (this.matchesWhere(record, options.where)) {
@@ -707,8 +1043,8 @@ class StaticShardClient {
       const direction = typeof options.orderBy === "string" ? "asc" : options.orderBy.direction;
 
       results.sort((a, b) => {
-        const aVal = a[field as keyof Record];
-        const bVal = b[field as keyof Record];
+        const aVal = a[field as keyof Item];
+        const bVal = b[field as keyof Item];
 
         if (aVal === bVal) return 0;
         if (aVal === null || aVal === undefined) return 1;
@@ -733,7 +1069,7 @@ class StaticShardClient {
   /**
    * Get a single record by primary key
    */
-  async get(id: string | number): Promise<Record | null> {
+  async get(id: string | number): Promise<Item | null> {
     const manifest = await this.loadManifest();
     const primaryField = manifest.schema.primaryField;
 
@@ -795,14 +1131,24 @@ export const db = createClient({ basePath: "." });
 
 // src/cli/commands/build.ts
 var VERSION = "1.0.0";
+var STREAMING_THRESHOLD2 = 100 * 1024 * 1024;
 async function build(inputFile, options) {
   const startTime = Date.now();
   if (!fs2.existsSync(inputFile)) {
     throw new Error(`Input file not found: ${inputFile}`);
   }
-  console.log(`Reading ${inputFile}...`);
+  const fileSize = getFileSize(inputFile);
+  console.log(`Input: ${inputFile} (${formatBytes(fileSize)})`);
+  if (fileSize > STREAMING_THRESHOLD2) {
+    console.log("Using streaming mode for large file...");
+    return buildStreaming(inputFile, options, startTime);
+  }
+  return buildInMemory(inputFile, options, startTime);
+}
+async function buildInMemory(inputFile, options, startTime) {
+  console.log("Reading file...");
   const { records, format } = await parseFile(inputFile, options.format);
-  console.log(`Parsed ${records.length} records (format: ${format})`);
+  console.log(`Parsed ${records.length.toLocaleString()} records (format: ${format})`);
   if (records.length === 0) {
     throw new Error("No records found in input file");
   }
@@ -871,7 +1217,7 @@ async function build(inputFile, options) {
 Build completed in ${elapsed}s`);
   console.log(`Output: ${outputDir}`);
   console.log(`  - ${chunks.length} chunks`);
-  console.log(`  - ${records.length} total records`);
+  console.log(`  - ${records.length.toLocaleString()} total records`);
   console.log(`  - manifest.json`);
   console.log(`  - client.ts`);
   return {
@@ -879,6 +1225,155 @@ Build completed in ${elapsed}s`);
     outputDir,
     chunkCount: chunks.length,
     totalRecords: records.length
+  };
+}
+async function buildStreaming(inputFile, options, startTime) {
+  const targetChunkSize = parseSize(options.chunkSize);
+  console.log(`Target chunk size: ${formatBytes(targetChunkSize)}`);
+  const outputDir = path.resolve(options.output);
+  const chunksDir = path.join(outputDir, "chunks");
+  await fs2.promises.mkdir(chunksDir, { recursive: true });
+  let currentChunk = [];
+  let currentChunkSize = 0;
+  let chunkId = 0;
+  const chunkMetas = [];
+  const indices = {};
+  let schema = null;
+  let indexedFields = [];
+  let chunkBy = null;
+  const processRecord = (record) => {
+    currentChunk.push(record);
+    currentChunkSize += JSON.stringify(record).length;
+    if (currentChunkSize >= targetChunkSize) {
+      flushChunk();
+    }
+  };
+  const flushChunk = () => {
+    if (currentChunk.length === 0) return;
+    if (chunkBy) {
+      currentChunk.sort((a, b) => {
+        const aVal = a[chunkBy];
+        const bVal = b[chunkBy];
+        if (aVal === bVal) return 0;
+        if (aVal === null || aVal === void 0) return 1;
+        if (bVal === null || bVal === void 0) return -1;
+        return aVal < bVal ? -1 : 1;
+      });
+    }
+    const chunk = {
+      id: String(chunkId),
+      records: currentChunk,
+      byteSize: currentChunkSize
+    };
+    const chunkPath = path.join(chunksDir, `${chunkId}.json`);
+    fs2.writeFileSync(chunkPath, JSON.stringify(currentChunk));
+    const fieldRanges = calculateFieldRanges(currentChunk, schema);
+    chunkMetas.push({
+      id: String(chunkId),
+      path: `chunks/${chunkId}.json`,
+      count: currentChunk.length,
+      byteSize: currentChunkSize,
+      fieldRanges
+    });
+    for (const fieldName of indexedFields) {
+      if (!indices[fieldName]) {
+        indices[fieldName] = {};
+      }
+      for (const record of currentChunk) {
+        const value = record[fieldName];
+        if (value === null || value === void 0) continue;
+        const key = String(value);
+        if (!indices[fieldName][key]) {
+          indices[fieldName][key] = [];
+        }
+        if (!indices[fieldName][key].includes(String(chunkId))) {
+          indices[fieldName][key].push(String(chunkId));
+        }
+      }
+    }
+    console.log(`  Wrote chunk ${chunkId} (${currentChunk.length.toLocaleString()} records, ${formatBytes(currentChunkSize)})`);
+    chunkId++;
+    currentChunk = [];
+    currentChunkSize = 0;
+  };
+  console.log("Sampling records for schema inference...");
+  const sampleResult = await streamFile(
+    inputFile,
+    options.format,
+    () => {
+    },
+    // No processing in first pass
+    1e3,
+    { sampleOnly: true, sampleSize: 1e3 }
+  );
+  const format = sampleResult.format;
+  const sample = sampleResult.sample;
+  if (sample.length === 0) {
+    throw new Error("No records found in input file");
+  }
+  console.log("Inferring schema from sample...");
+  schema = inferSchema(sample);
+  console.log(`Found ${schema.fields.length} fields`);
+  if (schema.primaryField) {
+    console.log(`Detected primary field: ${schema.primaryField}`);
+  }
+  chunkBy = options.chunkBy || suggestChunkField(schema, sample);
+  if (chunkBy) {
+    console.log(`Chunking by field: ${chunkBy}`);
+  }
+  indexedFields = options.index ? options.index.split(",").map((f) => f.trim()) : schema.fields.filter((f) => f.indexed).map((f) => f.name);
+  if (indexedFields.length > 0) {
+    console.log(`Indexing fields: ${indexedFields.join(", ")}`);
+  }
+  for (const field of schema.fields) {
+    field.indexed = indexedFields.includes(field.name);
+  }
+  console.log("Processing all records...");
+  const { count } = await streamFile(
+    inputFile,
+    options.format,
+    processRecord,
+    1e3,
+    { showProgress: true }
+  );
+  flushChunk();
+  console.log(`
+Processed ${count.toLocaleString()} records (format: ${format})`);
+  const config = {
+    chunkSize: targetChunkSize,
+    chunkBy: chunkBy || null,
+    indexedFields
+  };
+  const manifest = {
+    version: VERSION,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    schema,
+    chunks: chunkMetas,
+    indices,
+    totalRecords: count,
+    config
+  };
+  const manifestPath = path.join(outputDir, "manifest.json");
+  await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  console.log(`Wrote manifest to ${manifestPath}`);
+  console.log("Generating client...");
+  const clientCode = generateClient(schema, manifest);
+  const clientPath = path.join(outputDir, "client.ts");
+  await fs2.promises.writeFile(clientPath, clientCode);
+  console.log(`Wrote client to ${clientPath}`);
+  const elapsed = ((Date.now() - startTime) / 1e3).toFixed(2);
+  console.log(`
+Build completed in ${elapsed}s`);
+  console.log(`Output: ${outputDir}`);
+  console.log(`  - ${chunkMetas.length} chunks`);
+  console.log(`  - ${count.toLocaleString()} total records`);
+  console.log(`  - manifest.json`);
+  console.log(`  - client.ts`);
+  return {
+    manifest,
+    outputDir,
+    chunkCount: chunkMetas.length,
+    totalRecords: count
   };
 }
 function formatBytes(bytes) {
@@ -890,6 +1385,7 @@ function formatBytes(bytes) {
 
 // src/cli/commands/inspect.ts
 import * as fs3 from "fs";
+var STREAMING_THRESHOLD3 = 100 * 1024 * 1024;
 async function inspect(inputFile, options) {
   if (!fs3.existsSync(inputFile)) {
     throw new Error(`Input file not found: ${inputFile}`);
@@ -898,18 +1394,68 @@ async function inspect(inputFile, options) {
   console.log(`
 File: ${inputFile}`);
   console.log(`Size: ${formatBytes2(fileSize)}`);
-  console.log("\nParsing file...");
-  const { records, format } = await parseFile(inputFile, options.format);
-  console.log(`Format: ${format}`);
-  console.log(`Total records: ${records.length}`);
-  if (records.length === 0) {
+  let totalRecords;
+  let sampleRecords;
+  let format;
+  let isEstimated = false;
+  if (fileSize > STREAMING_THRESHOLD3) {
+    console.log("\nUsing streaming mode for large file...");
+    const sampleSize2 = options.sample || 1e3;
+    if (options.fast) {
+      console.log("Fast mode: sampling records (count will be estimated)...");
+      const result = await streamFile(
+        inputFile,
+        options.format,
+        () => {
+        },
+        // No-op
+        sampleSize2,
+        { sampleOnly: true, sampleSize: sampleSize2 }
+      );
+      totalRecords = result.estimatedCount || result.count;
+      sampleRecords = result.sample;
+      format = result.format;
+      isEstimated = true;
+      console.log(`Format: ${format}`);
+      console.log(`Estimated records: ~${totalRecords.toLocaleString()}`);
+    } else {
+      console.log("Processing all records (use --fast to estimate count instead)...");
+      const result = await streamFile(
+        inputFile,
+        options.format,
+        () => {
+        },
+        // No-op, we just want the count and sample
+        sampleSize2,
+        { showProgress: true }
+      );
+      totalRecords = result.count;
+      sampleRecords = result.sample;
+      format = result.format;
+      console.log(`Format: ${format}`);
+      console.log(`Total records: ${totalRecords.toLocaleString()}`);
+    }
+  } else {
+    console.log("\nParsing file...");
+    const result = await parseFile(inputFile, options.format);
+    totalRecords = result.records.length;
+    format = result.format;
+    console.log(`Format: ${format}`);
+    console.log(`Total records: ${totalRecords.toLocaleString()}`);
+    if (totalRecords === 0) {
+      console.log("\nNo records found.");
+      return;
+    }
+    const sampleSize2 = Math.min(options.sample || 1e3, totalRecords);
+    sampleRecords = result.records.slice(0, sampleSize2);
+  }
+  if (sampleRecords.length === 0) {
     console.log("\nNo records found.");
     return;
   }
-  const sampleSize = Math.min(options.sample || 1e3, records.length);
-  const sampleRecords = records.slice(0, sampleSize);
+  const sampleSize = sampleRecords.length;
   console.log(`
-Analyzing ${sampleSize} records...`);
+Analyzing ${sampleSize.toLocaleString()} records...`);
   const schema = inferSchema(sampleRecords);
   console.log("\n" + "=".repeat(60));
   console.log("SCHEMA");
@@ -925,7 +1471,7 @@ Fields (${schema.fields.length}):
     const stats = field.stats;
     const statParts = [];
     if (stats.cardinality !== void 0) {
-      const cardinalityPct = (stats.cardinality / records.length * 100).toFixed(1);
+      const cardinalityPct = (stats.cardinality / totalRecords * 100).toFixed(1);
       statParts.push(`cardinality: ${stats.cardinality} (${cardinalityPct}%)`);
     }
     if (stats.min !== void 0 && stats.max !== void 0) {
@@ -945,7 +1491,7 @@ Fields (${schema.fields.length}):
   console.log("\n" + "=".repeat(60));
   console.log("RECOMMENDATIONS");
   console.log("=".repeat(60));
-  const suggestedChunkField = suggestChunkField(schema, records);
+  const suggestedChunkField = suggestChunkField(schema, sampleRecords);
   if (suggestedChunkField) {
     console.log(`
 Recommended --chunk-by: ${suggestedChunkField}`);
@@ -958,7 +1504,7 @@ Recommended --chunk-by: ${suggestedChunkField}`);
   } else {
     console.log("No fields recommended for indexing");
   }
-  const avgRecordSize = fileSize / records.length;
+  const avgRecordSize = fileSize / totalRecords;
   const targetChunkSize = 5 * 1024 * 1024;
   const estimatedChunks = Math.ceil(fileSize / targetChunkSize);
   console.log("\n" + "=".repeat(60));
@@ -969,7 +1515,7 @@ Average record size: ${formatBytes2(avgRecordSize)}`);
   console.log(`
 With default 5MB chunks:`);
   console.log(`  Estimated chunks: ${estimatedChunks}`);
-  console.log(`  Records per chunk: ~${Math.ceil(records.length / estimatedChunks)}`);
+  console.log(`  Records per chunk: ~${Math.ceil(totalRecords / estimatedChunks).toLocaleString()}`);
   console.log("\n" + "=".repeat(60));
   console.log("EXAMPLE COMMAND");
   console.log("=".repeat(60));
@@ -1002,6 +1548,73 @@ function formatValue(value) {
   return String(value);
 }
 
+// src/cli/commands/types.ts
+import * as fs4 from "fs";
+import { json2ts } from "json-ts";
+var STREAMING_THRESHOLD4 = 100 * 1024 * 1024;
+function cleanupTypes(types2) {
+  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/^interface Item/m, "export interface Item").replace(/interface I([A-Z])/g, "export interface $1");
+}
+function generateFieldNamesType2(samples) {
+  const fieldNames = /* @__PURE__ */ new Set();
+  for (const record of samples) {
+    for (const key of Object.keys(record)) {
+      fieldNames.add(key);
+    }
+  }
+  const names = Array.from(fieldNames).sort().map((f) => `"${f}"`).join(" | ");
+  return `export type FieldName = ${names};`;
+}
+async function types(inputFile, options) {
+  if (!fs4.existsSync(inputFile)) {
+    throw new Error(`Input file not found: ${inputFile}`);
+  }
+  const fileSize = getFileSize(inputFile);
+  const sampleSize = options.sample || 1e3;
+  console.error(`Analyzing: ${inputFile}`);
+  console.error(`Sampling ${sampleSize} records...`);
+  let samples;
+  let format;
+  if (fileSize > STREAMING_THRESHOLD4) {
+    const result = await streamFile(
+      inputFile,
+      options.format,
+      () => {
+      },
+      1e3,
+      { sampleOnly: true, sampleSize }
+    );
+    samples = result.sample;
+    format = result.format;
+  } else {
+    const parseResult = await parseFile(inputFile, options.format);
+    samples = parseResult.records.slice(0, sampleSize);
+    format = parseResult.format;
+  }
+  console.error(`Format: ${format}`);
+  console.error(`Sampled ${samples.length} records
+`);
+  const rawTypes = json2ts(JSON.stringify(samples), { rootName: "Item" });
+  const types2 = cleanupTypes(rawTypes);
+  const fieldNames = generateFieldNamesType2(samples);
+  const output = `/**
+ * Auto-generated TypeScript types
+ * Source: ${inputFile}
+ * Generated: ${(/* @__PURE__ */ new Date()).toISOString()}
+ */
+
+${types2}
+
+${fieldNames}
+`;
+  if (options.output) {
+    await fs4.promises.writeFile(options.output, output);
+    console.error(`Types written to: ${options.output}`);
+  } else {
+    console.log(output);
+  }
+}
+
 // src/cli/index.ts
 var program = new Command();
 program.name("static-shard").description("Query large static datasets efficiently by splitting them into chunks").version("0.1.0");
@@ -1019,11 +1632,24 @@ program.command("build").description("Build chunks and client from a data file")
     process.exit(1);
   }
 });
-program.command("inspect").description("Analyze a data file and suggest chunking strategy").argument("<input>", "Input data file").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").action(async (input, options) => {
+program.command("inspect").description("Analyze a data file and suggest chunking strategy").argument("<input>", "Input data file").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("--fast", "Fast mode: estimate record count instead of reading entire file").action(async (input, options) => {
   try {
     await inspect(input, {
       sample: parseInt(options.sample, 10),
-      format: options.format
+      format: options.format,
+      fast: options.fast
+    });
+  } catch (error) {
+    console.error("Error:", error.message);
+    process.exit(1);
+  }
+});
+program.command("types").description("Generate TypeScript types from a data file").argument("<input>", "Input data file (JSON, NDJSON, or CSV)").option("-n, --sample <count>", "Number of records to sample", "1000").option("-f, --format <format>", "Input format (json, ndjson, csv)").option("-o, --output <file>", "Output file (default: stdout)").action(async (input, options) => {
+  try {
+    await types(input, {
+      sample: parseInt(options.sample, 10),
+      format: options.format,
+      output: options.output
     });
   } catch (error) {
     console.error("Error:", error.message);

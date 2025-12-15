@@ -102,6 +102,7 @@ interface BuildOptions {
 interface InspectOptions {
     sample?: number;
     format?: DataFormat;
+    fast?: boolean;
 }
 
 export type { BuildConfig, BuildOptions, ChunkMeta, ComparisonOperator, DataFormat, DataRecord, FieldCondition, FieldSchema, FieldStats, FieldType, InspectOptions, Manifest, ParseResult, QueryOptions, Schema, StreamParseOptions, StringOperator, WhereClause };
