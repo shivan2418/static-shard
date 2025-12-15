@@ -23,12 +23,13 @@ function cleanupTypes(types: string): string {
   return types
     // Remove the array type wrapper (we want the item type)
     .replace(/^type IItem = IItemItem\[\];\n/m, "")
-    // Rename IItemItem to Item
+    // Rename IItemItem to Item (both references and declarations)
     .replace(/IItemItem/g, "Item")
-    // Export the interface
-    .replace(/^interface Item/m, "export interface Item")
-    // Remove I prefix from nested interfaces
-    .replace(/interface I([A-Z])/g, "export interface $1");
+    // Remove I prefix from all interface names (both references and declarations)
+    // This handles IImage_uris -> Image_uris, ILegalities -> Legalities, etc.
+    .replace(/\bI([A-Z][a-z_]+)/g, "$1")
+    // Export all interfaces
+    .replace(/^interface /gm, "export interface ");
 }
 
 /**

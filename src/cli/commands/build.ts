@@ -148,9 +148,10 @@ async function buildInMemory(
   await fs.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
 
-  // Generate client
+  // Generate client (use sample of records for type inference)
   console.log("Generating client...");
-  const clientCode = generateClient(schema, manifest);
+  const sampleForTypes = records.slice(0, 1000);
+  const clientCode = generateClient(schema, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);
@@ -356,9 +357,9 @@ async function buildStreaming(
   await fs.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
 
-  // Generate client
+  // Generate client (use sample for type inference)
   console.log("Generating client...");
-  const clientCode = generateClient(schema!, manifest);
+  const clientCode = generateClient(schema!, manifest, sample);
   const clientPath = path.join(outputDir, "client.ts");
   await fs.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);

@@ -95,7 +95,7 @@ describe("integration", () => {
         path.join(outputDir, "client.ts"),
         "utf-8"
       );
-      expect(clientCode).toContain("interface Record");
+      expect(clientCode).toContain("interface Item");
       expect(clientCode).toContain("class StaticShardClient");
       expect(clientCode).toContain("export function createClient");
     });

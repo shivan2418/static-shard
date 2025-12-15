@@ -734,43 +734,15 @@ function buildInvertedIndices(chunks, schema, indexedFields) {
 }
 
 // src/cli/utils/codegen.ts
-function fieldTypeToTs(field) {
-  let tsType;
-  switch (field.type) {
-    case "string":
-    case "date":
-      tsType = "string";
-      break;
-    case "number":
-      tsType = "number";
-      break;
-    case "boolean":
-      tsType = "boolean";
-      break;
-    case "null":
-      tsType = "null";
-      break;
-    default:
-      tsType = "unknown";
-  }
-  if (field.nullable) {
-    tsType += " | null";
-  }
-  return tsType;
-}
-function generateRecordInterface(schema) {
-  const fields = schema.fields.map((f) => `  ${f.name}: ${fieldTypeToTs(f)};`).join("\n");
-  return `export interface Item {
-${fields}
-}`;
+import { json2ts } from "json-ts";
+function cleanupTypes(types2) {
+  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/\bI([A-Z][a-z_]+)/g, "$1").replace(/^interface /gm, "export interface ");
 }
 function generateFieldNamesType(schema) {
   const names = schema.fields.map((f) => `"${f.name}"`).join(" | ");
   return `export type FieldName = ${names};`;
 }
 function generateWhereTypes(schema) {
-  const stringFields = schema.fields.filter((f) => f.type === "string" || f.type === "date").map((f) => f.name);
-  const numericFields = schema.fields.filter((f) => f.type === "number").map((f) => f.name);
   return `
 export type StringOperators = {
   eq?: string;
@@ -803,8 +775,9 @@ ${schema.fields.map((f) => {
   }).join("\n")}
 };`;
 }
-function generateClient(schema, manifest) {
-  const recordInterface = generateRecordInterface(schema);
+function generateClient(schema, manifest, samples) {
+  const rawTypes = json2ts(JSON.stringify(samples), { rootName: "Item" });
+  const itemInterface = cleanupTypes(rawTypes);
   const fieldNamesType = generateFieldNamesType(schema);
   const whereTypes = generateWhereTypes(schema);
   const sortableFields = schema.fields.filter((f) => f.type === "number" || f.type === "string" || f.type === "date").map((f) => `"${f.name}"`).join(" | ");
@@ -819,7 +792,7 @@ function generateClient(schema, manifest) {
 // Types
 // ============================================================================
 
-${recordInterface}
+${itemInterface}
 
 ${fieldNamesType}
 
@@ -1208,7 +1181,8 @@ async function buildInMemory(inputFile, options, startTime) {
   await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
-  const clientCode = generateClient(schema, manifest);
+  const sampleForTypes = records.slice(0, 1e3);
+  const clientCode = generateClient(schema, manifest, sampleForTypes);
   const clientPath = path.join(outputDir, "client.ts");
   await fs2.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);
@@ -1357,7 +1331,7 @@ Processed ${count.toLocaleString()} records (format: ${format})`);
   await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
-  const clientCode = generateClient(schema, manifest);
+  const clientCode = generateClient(schema, manifest, sample);
   const clientPath = path.join(outputDir, "client.ts");
   await fs2.promises.writeFile(clientPath, clientCode);
   console.log(`Wrote client to ${clientPath}`);
@@ -1550,10 +1524,10 @@ function formatValue(value) {
 
 // src/cli/commands/types.ts
 import * as fs4 from "fs";
-import { json2ts } from "json-ts";
+import { json2ts as json2ts2 } from "json-ts";
 var STREAMING_THRESHOLD4 = 100 * 1024 * 1024;
-function cleanupTypes(types2) {
-  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/^interface Item/m, "export interface Item").replace(/interface I([A-Z])/g, "export interface $1");
+function cleanupTypes2(types2) {
+  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/\bI([A-Z][a-z_]+)/g, "$1").replace(/^interface /gm, "export interface ");
 }
 function generateFieldNamesType2(samples) {
   const fieldNames = /* @__PURE__ */ new Set();
@@ -1594,8 +1568,8 @@ async function types(inputFile, options) {
   console.error(`Format: ${format}`);
   console.error(`Sampled ${samples.length} records
 `);
-  const rawTypes = json2ts(JSON.stringify(samples), { rootName: "Item" });
-  const types2 = cleanupTypes(rawTypes);
+  const rawTypes = json2ts2(JSON.stringify(samples), { rootName: "Item" });
+  const types2 = cleanupTypes2(rawTypes);
   const fieldNames = generateFieldNamesType2(samples);
   const output = `/**
  * Auto-generated TypeScript types

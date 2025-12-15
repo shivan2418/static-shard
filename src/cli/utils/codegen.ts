@@ -1,56 +1,28 @@
 /**
  * TypeScript client code generator
+ * Uses json-ts for accurate type inference
  */
 
-import type { FieldSchema, Manifest, Schema } from "../../types/index.js";
+import { json2ts } from "json-ts";
+import type { DataRecord, Manifest, Schema } from "../../types/index.js";
 
 /**
- * Convert field type to TypeScript type
+ * Post-process json-ts output to clean up interface names
  */
-function fieldTypeToTs(field: FieldSchema): string {
-  let tsType: string;
-
-  switch (field.type) {
-    case "string":
-    case "date":
-      tsType = "string";
-      break;
-    case "number":
-      tsType = "number";
-      break;
-    case "boolean":
-      tsType = "boolean";
-      break;
-    case "null":
-      tsType = "null";
-      break;
-    default:
-      tsType = "unknown";
-  }
-
-  if (field.nullable) {
-    tsType += " | null";
-  }
-
-  return tsType;
+function cleanupTypes(types: string): string {
+  return types
+    // Remove the array type wrapper (we want the item type)
+    .replace(/^type IItem = IItemItem\[\];\n/m, "")
+    // Rename IItemItem to Item (both references and declarations)
+    .replace(/IItemItem/g, "Item")
+    // Remove I prefix from all interface names (both references and declarations)
+    .replace(/\bI([A-Z][a-z_]+)/g, "$1")
+    // Export all interfaces
+    .replace(/^interface /gm, "export interface ");
 }
 
 /**
- * Generate TypeScript interface for records
- * Note: We use "Item" instead of "Record" to avoid shadowing TypeScript's built-in Record type
- */
-function generateRecordInterface(schema: Schema): string {
-  const fields = schema.fields
-    .map((f) => `  ${f.name}: ${fieldTypeToTs(f)};`)
-    .join("\n");
-
-  return `export interface Item {
-${fields}
-}`;
-}
-
-/**
- * Generate field names type
+ * Generate field names type from schema
  */
 function generateFieldNamesType(schema: Schema): string {
   const names = schema.fields.map((f) => `"${f.name}"`).join(" | ");
@@ -58,17 +30,9 @@ function generateFieldNamesType(schema: Schema): string {
 }
 
 /**
- * Generate where clause types
+ * Generate where clause types based on schema field types
  */
 function generateWhereTypes(schema: Schema): string {
-  const stringFields = schema.fields
-    .filter((f) => f.type === "string" || f.type === "date")
-    .map((f) => f.name);
-
-  const numericFields = schema.fields
-    .filter((f) => f.type === "number")
-    .map((f) => f.name);
-
   return `
 export type StringOperators = {
   eq?: string;
@@ -107,8 +71,15 @@ ${schema.fields
 /**
  * Generate the full client code
  */
-export function generateClient(schema: Schema, manifest: Manifest): string {
-  const recordInterface = generateRecordInterface(schema);
+export function generateClient(
+  schema: Schema,
+  manifest: Manifest,
+  samples: DataRecord[]
+): string {
+  // Use json-ts to generate the Item interface from actual data samples
+  const rawTypes = json2ts(JSON.stringify(samples), { rootName: "Item" });
+  const itemInterface = cleanupTypes(rawTypes);
+
   const fieldNamesType = generateFieldNamesType(schema);
   const whereTypes = generateWhereTypes(schema);
 
@@ -128,7 +99,7 @@ export function generateClient(schema: Schema, manifest: Manifest): string {
 // Types
 // ============================================================================
 
-${recordInterface}
+${itemInterface}
 
 ${fieldNamesType}
 
