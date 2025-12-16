@@ -1,0 +1,12 @@
+[
+  {"id": "1", "name": "Laptop", "category": "electronics", "price": 999.99, "inStock": true},
+  {"id": "2", "name": "Phone", "category": "electronics", "price": 599.99, "inStock": true},
+  {"id": "3", "name": "Tablet", "category": "electronics", "price": 399.99, "inStock": false},
+  {"id": "4", "name": "Desk", "category": "furniture", "price": 249.99, "inStock": true},
+  {"id": "5", "name": "Chair", "category": "furniture", "price": 149.99, "inStock": true},
+  {"id": "6", "name": "Lamp", "category": "furniture", "price": 49.99, "inStock": false},
+  {"id": "7", "name": "Headphones", "category": "electronics", "price": 199.99, "inStock": true},
+  {"id": "8", "name": "Monitor", "category": "electronics", "price": 349.99, "inStock": true},
+  {"id": "9", "name": "Keyboard", "category": "electronics", "price": 79.99, "inStock": true},
+  {"id": "10", "name": "Mouse", "category": "electronics", "price": 29.99, "inStock": true}
+]
