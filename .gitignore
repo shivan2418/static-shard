@@ -4,3 +4,4 @@ test_data
 mtg-output/
 /types.ts
 test/integration-output/
+/examples/react-demo/output/
