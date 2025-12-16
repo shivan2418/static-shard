@@ -99,6 +99,46 @@ interface ClientQueryOptions<TWhere = Record<string, unknown>, TSortable extends
 interface ClientOptions {
     basePath: string;
 }
+declare class QueryBuilder<TItem extends Record<string, unknown>, TWhereClause, TSortableField extends string> {
+    private client;
+    private _where;
+    private _orderBy;
+    private _limit;
+    private _offset;
+    constructor(client: StaticShardClient<TItem, TWhereClause, TSortableField>);
+    /**
+     * Add where conditions. Multiple calls merge conditions (AND logic).
+     */
+    where(conditions: Partial<TWhereClause>): this;
+    /**
+     * Set sort order
+     */
+    orderBy(field: TSortableField, direction?: "asc" | "desc"): this;
+    /**
+     * Limit the number of results
+     */
+    limit(count: number): this;
+    /**
+     * Skip a number of results
+     */
+    offset(count: number): this;
+    /**
+     * Build the options object for internal use
+     */
+    private buildOptions;
+    /**
+     * Execute the query and return all matching results
+     */
+    execute(): Promise<TItem[]>;
+    /**
+     * Execute the query and return only the first result (or null)
+     */
+    first(): Promise<TItem | null>;
+    /**
+     * Get the count of matching records
+     */
+    count(): Promise<number>;
+}
 declare class StaticShardClient<TItem extends Record<string, unknown> = Record<string, unknown>, TWhereClause = Record<string, unknown>, TSortableField extends string = string> {
     private basePath;
     private manifest;
@@ -121,17 +161,21 @@ declare class StaticShardClient<TItem extends Record<string, unknown> = Record<s
      */
     private matchesWhere;
     /**
-     * Query records
+     * Start a chainable query
      */
-    query(options?: ClientQueryOptions<TWhereClause, TSortableField>): Promise<TItem[]>;
+    query(): QueryBuilder<TItem, TWhereClause, TSortableField>;
+    /**
+     * Execute a query with options (internal, used by QueryBuilder)
+     */
+    executeQuery(options?: ClientQueryOptions<TWhereClause, TSortableField>): Promise<TItem[]>;
     /**
      * Get a single record by primary key
      */
     get(id: string | number): Promise<TItem | null>;
     /**
-     * Count records matching a query
+     * Count records matching a query (internal, used by QueryBuilder)
      */
-    count(options?: {
+    executeCount(options?: {
         where?: TWhereClause;
     }): Promise<number>;
     /**
@@ -148,4 +192,4 @@ declare class StaticShardClient<TItem extends Record<string, unknown> = Record<s
  */
 declare function createClient<TItem extends Record<string, unknown> = Record<string, unknown>, TWhereClause = Record<string, unknown>, TSortableField extends string = string>(options: ClientOptions): StaticShardClient<TItem, TWhereClause, TSortableField>;
 
-export { type BuildConfig as B, type ChunkMeta, type ClientOptions, type ClientQueryOptions, type DataRecord as D, type FieldType as F, type InspectOptions as I, type Manifest, type NumericOperators, type ParseResult as P, type Schema, StaticShardClient, type StringOperators, type FieldSchema as a, type FieldStats as b, type DataFormat as c, createClient, type BuildOptions as d };
+export { type BuildConfig as B, type ChunkMeta, type ClientOptions, type ClientQueryOptions, type DataRecord as D, type FieldType as F, type InspectOptions as I, type Manifest, type NumericOperators, type ParseResult as P, QueryBuilder, type Schema, StaticShardClient, type StringOperators, type FieldSchema as a, type FieldStats as b, type DataFormat as c, createClient, type BuildOptions as d };

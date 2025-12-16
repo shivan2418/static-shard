@@ -1,8 +1,10 @@
 import {
+  QueryBuilder,
   StaticShardClient,
   createClient
-} from "./chunk-DB5HOTMX.js";
+} from "./chunk-7S2YBNO5.js";
 export {
+  QueryBuilder,
   StaticShardClient,
   createClient
 };

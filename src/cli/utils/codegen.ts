@@ -73,6 +73,7 @@ export function generateClient(
 
 import {
   StaticShardClient,
+  QueryBuilder,
   createClient as createBaseClient,
   StringOperators,
   NumericOperators,
@@ -97,6 +98,7 @@ export type SortableField = ${sortableFields || "string"};
 // ============================================================================
 
 export type TypedQueryOptions = ClientQueryOptions<WhereClause, SortableField>;
+export type TypedQueryBuilder = QueryBuilder<Item, WhereClause, SortableField>;
 
 export class Client extends StaticShardClient<Item, WhereClause, SortableField> {}
 

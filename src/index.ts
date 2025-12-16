@@ -24,6 +24,7 @@ export type {
 // Client runtime (for generated clients to import)
 export {
   StaticShardClient,
+  QueryBuilder,
   createClient,
   type StringOperators,
   type NumericOperators,

@@ -47,6 +47,99 @@ export interface ClientOptions {
 }
 
 // ============================================================================
+// Query Builder
+// ============================================================================
+
+export class QueryBuilder<
+  TItem extends Record<string, unknown>,
+  TWhereClause,
+  TSortableField extends string
+> {
+  private client: StaticShardClient<TItem, TWhereClause, TSortableField>;
+  private _where: TWhereClause | undefined;
+  private _orderBy: { field: TSortableField; direction: "asc" | "desc" } | undefined;
+  private _limit: number | undefined;
+  private _offset: number | undefined;
+
+  constructor(client: StaticShardClient<TItem, TWhereClause, TSortableField>) {
+    this.client = client;
+  }
+
+  /**
+   * Add where conditions. Multiple calls merge conditions (AND logic).
+   */
+  where(conditions: Partial<TWhereClause>): this {
+    if (this._where) {
+      this._where = { ...this._where, ...conditions } as TWhereClause;
+    } else {
+      this._where = conditions as TWhereClause;
+    }
+    return this;
+  }
+
+  /**
+   * Set sort order
+   */
+  orderBy(field: TSortableField, direction: "asc" | "desc" = "asc"): this {
+    this._orderBy = { field, direction };
+    return this;
+  }
+
+  /**
+   * Limit the number of results
+   */
+  limit(count: number): this {
+    this._limit = count;
+    return this;
+  }
+
+  /**
+   * Skip a number of results
+   */
+  offset(count: number): this {
+    this._offset = count;
+    return this;
+  }
+
+  /**
+   * Build the options object for internal use
+   */
+  private buildOptions(): ClientQueryOptions<TWhereClause, TSortableField> {
+    return {
+      where: this._where,
+      orderBy: this._orderBy,
+      limit: this._limit,
+      offset: this._offset,
+    };
+  }
+
+  /**
+   * Execute the query and return all matching results
+   */
+  async execute(): Promise<TItem[]> {
+    return this.client.executeQuery(this.buildOptions());
+  }
+
+  /**
+   * Execute the query and return only the first result (or null)
+   */
+  async first(): Promise<TItem | null> {
+    const results = await this.client.executeQuery({
+      ...this.buildOptions(),
+      limit: 1,
+    });
+    return results[0] ?? null;
+  }
+
+  /**
+   * Get the count of matching records
+   */
+  async count(): Promise<number> {
+    return this.client.executeCount({ where: this._where });
+  }
+}
+
+// ============================================================================
 // Generic Client
 // ============================================================================
 
@@ -206,9 +299,16 @@ export class StaticShardClient<
   }
 
   /**
-   * Query records
+   * Start a chainable query
    */
-  async query(options: ClientQueryOptions<TWhereClause, TSortableField> = {}): Promise<TItem[]> {
+  query(): QueryBuilder<TItem, TWhereClause, TSortableField> {
+    return new QueryBuilder(this);
+  }
+
+  /**
+   * Execute a query with options (internal, used by QueryBuilder)
+   */
+  async executeQuery(options: ClientQueryOptions<TWhereClause, TSortableField> = {}): Promise<TItem[]> {
     const manifest = await this.loadManifest();
     const candidateChunkIds = this.findCandidateChunks(manifest, options.where);
 
@@ -262,7 +362,7 @@ export class StaticShardClient<
       throw new Error("No primary field defined in schema");
     }
 
-    const results = await this.query({
+    const results = await this.executeQuery({
       where: { [primaryField]: id } as TWhereClause,
       limit: 1,
     });
@@ -271,16 +371,16 @@ export class StaticShardClient<
   }
 
   /**
-   * Count records matching a query
+   * Count records matching a query (internal, used by QueryBuilder)
    */
-  async count(options: { where?: TWhereClause } = {}): Promise<number> {
+  async executeCount(options: { where?: TWhereClause } = {}): Promise<number> {
     const manifest = await this.loadManifest();
 
     if (!options.where) {
       return manifest.totalRecords;
     }
 
-    const results = await this.query({ where: options.where });
+    const results = await this.executeQuery({ where: options.where });
     return results.length;
   }
 
