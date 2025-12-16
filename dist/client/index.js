@@ -1,7 +1,7 @@
 import {
   StaticShardClient,
   createClient
-} from "./chunk-DB5HOTMX.js";
+} from "../chunk-DB5HOTMX.js";
 export {
   StaticShardClient,
   createClient

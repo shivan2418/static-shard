@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2025-12-14T01:39:15.169Z",
+  "generatedAt": "2025-12-15T04:19:12.595Z",
   "schema": {
     "fields": [
       {
@@ -9,21 +9,59 @@
         "nullable": false,
         "indexed": false,
         "stats": {
-          "min": "1",
-          "max": "9",
-          "cardinality": 10,
+          "min": "item-0",
+          "max": "item-999",
+          "cardinality": 1000,
           "nullCount": 0,
           "sampleValues": [
-            "1",
-            "2",
-            "3",
-            "4",
-            "5"
+            "item-0",
+            "item-1",
+            "item-2",
+            "item-3",
+            "item-4"
           ]
         }
       },
       {
-        "name": "active",
+        "name": "category",
+        "type": "string",
+        "nullable": false,
+        "indexed": true,
+        "stats": {
+          "min": "clothing",
+          "max": "sports",
+          "cardinality": 5,
+          "nullCount": 0,
+          "sampleValues": [
+            "electronics",
+            "clothing",
+            "food",
+            "home",
+            "sports"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": "This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. ",
+          "max": "This is a description for item 999. This is a description for item 999. This is a description for item 999. This is a description for item 999. This is a description for item 999. ",
+          "cardinality": 1000,
+          "nullCount": 0,
+          "sampleValues": [
+            "This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. ",
+            "This is a description for item 1. This is a description for item 1. This is a description for item 1. This is a description for item 1. This is a description for item 1. ",
+            "This is a description for item 2. This is a description for item 2. This is a description for item 2. This is a description for item 2. This is a description for item 2. ",
+            "This is a description for item 3. This is a description for item 3. This is a description for item 3. This is a description for item 3. This is a description for item 3. ",
+            "This is a description for item 4. This is a description for item 4. This is a description for item 4. This is a description for item 4. This is a description for item 4. "
+          ]
+        }
+      },
+      {
+        "name": "inStock",
         "type": "boolean",
         "nullable": false,
         "indexed": true,
@@ -31,63 +69,8 @@
           "cardinality": 2,
           "nullCount": 0,
           "sampleValues": [
-            true,
-            false
-          ]
-        }
-      },
-      {
-        "name": "age",
-        "type": "number",
-        "nullable": false,
-        "indexed": false,
-        "stats": {
-          "min": 25,
-          "max": 45,
-          "cardinality": 10,
-          "nullCount": 0,
-          "sampleValues": [
-            30,
-            25,
-            35,
-            28,
-            32
-          ]
-        }
-      },
-      {
-        "name": "city",
-        "type": "string",
-        "nullable": false,
-        "indexed": true,
-        "stats": {
-          "min": "Chicago",
-          "max": "New York",
-          "cardinality": 3,
-          "nullCount": 0,
-          "sampleValues": [
-            "New York",
-            "Los Angeles",
-            "Chicago"
-          ]
-        }
-      },
-      {
-        "name": "createdAt",
-        "type": "date",
-        "nullable": false,
-        "indexed": false,
-        "stats": {
-          "min": "2024-01-15T10:00:00Z",
-          "max": "2024-01-24T19:00:00Z",
-          "cardinality": 10,
-          "nullCount": 0,
-          "sampleValues": [
-            "2024-01-15T10:00:00Z",
-            "2024-01-16T11:00:00Z",
-            "2024-01-17T12:00:00Z",
-            "2024-01-18T13:00:00Z",
-            "2024-01-19T14:00:00Z"
+            false,
+            true
           ]
         }
       },
@@ -97,16 +80,35 @@
         "nullable": false,
         "indexed": false,
         "stats": {
-          "min": "Alice",
-          "max": "Jack",
-          "cardinality": 10,
+          "min": "Item 0",
+          "max": "Item 999",
+          "cardinality": 1000,
           "nullCount": 0,
           "sampleValues": [
-            "Alice",
-            "Bob",
-            "Charlie",
-            "Diana",
-            "Eve"
+            "Item 0",
+            "Item 1",
+            "Item 2",
+            "Item 3",
+            "Item 4"
+          ]
+        }
+      },
+      {
+        "name": "price",
+        "type": "number",
+        "nullable": false,
+        "indexed": false,
+        "stats": {
+          "min": 0.04,
+          "max": 99.76,
+          "cardinality": 960,
+          "nullCount": 0,
+          "sampleValues": [
+            67.32,
+            19.01,
+            81.46,
+            1.06,
+            99.18
           ]
         }
       }
@@ -117,124 +119,1011 @@
     {
       "id": "0",
       "path": "chunks/0.json",
-      "count": 4,
-      "byteSize": 414,
+      "count": 36,
+      "byteSize": 10131,
       "fieldRanges": {
         "id": {
-          "min": "1",
-          "max": "3"
+          "min": "item-0",
+          "max": "item-13"
         },
-        "age": {
-          "min": 25,
-          "max": 35
+        "category": {
+          "min": "clothing",
+          "max": "sports"
         },
-        "city": {
-          "min": "Chicago",
-          "max": "New York"
-        },
-        "createdAt": {
-          "min": "2024-01-15T10:00:00Z",
-          "max": "2024-01-24T19:00:00Z"
+        "description": {
+          "min": "This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. This is a description for item 0. ",
+          "max": "This is a description for item 13. This is a description for item 13. This is a description for item 13. This is a description for item 13. This is a description for item 13. "
         },
         "name": {
-          "min": "Alice",
-          "max": "Jack"
+          "min": "Item 0",
+          "max": "Item 13"
+        },
+        "price": {
+          "min": 1.2,
+          "max": 88.92
         }
       }
     },
     {
       "id": "1",
       "path": "chunks/1.json",
-      "count": 4,
-      "byteSize": 411,
+      "count": 36,
+      "byteSize": 10169,
       "fieldRanges": {
         "id": {
-          "min": "4",
-          "max": "7"
+          "min": "item-130",
+          "max": "item-162"
         },
-        "age": {
-          "min": 27,
-          "max": 45
+        "category": {
+          "min": "clothing",
+          "max": "sports"
         },
-        "city": {
-          "min": "Chicago",
-          "max": "New York"
-        },
-        "createdAt": {
-          "min": "2024-01-18T13:00:00Z",
-          "max": "2024-01-21T16:00:00Z"
+        "description": {
+          "min": "This is a description for item 130. This is a description for item 130. This is a description for item 130. This is a description for item 130. This is a description for item 130. ",
+          "max": "This is a description for item 162. This is a description for item 162. This is a description for item 162. This is a description for item 162. This is a description for item 162. "
         },
         "name": {
-          "min": "Diana",
-          "max": "Grace"
+          "min": "Item 130",
+          "max": "Item 162"
+        },
+        "price": {
+          "min": 0.58,
+          "max": 95.32
         }
       }
     },
     {
       "id": "2",
       "path": "chunks/2.json",
-      "count": 2,
-      "byteSize": 206,
+      "count": 36,
+      "byteSize": 10151,
       "fieldRanges": {
         "id": {
-          "min": "8",
-          "max": "9"
+          "min": "item-163",
+          "max": "item-195"
         },
-        "age": {
-          "min": 29,
-          "max": 38
+        "category": {
+          "min": "clothing",
+          "max": "sports"
         },
-        "city": {
-          "min": "Chicago",
-          "max": "Los Angeles"
-        },
-        "createdAt": {
-          "min": "2024-01-22T17:00:00Z",
-          "max": "2024-01-23T18:00:00Z"
+        "description": {
+          "min": "This is a description for item 163. This is a description for item 163. This is a description for item 163. This is a description for item 163. This is a description for item 163. ",
+          "max": "This is a description for item 195. This is a description for item 195. This is a description for item 195. This is a description for item 195. This is a description for item 195. "
         },
         "name": {
-          "min": "Henry",
-          "max": "Ivy"
+          "min": "Item 163",
+          "max": "Item 195"
+        },
+        "price": {
+          "min": 0.33,
+          "max": 99.47
+        }
+      }
+    },
+    {
+      "id": "3",
+      "path": "chunks/3.json",
+      "count": 36,
+      "byteSize": 10143,
+      "fieldRanges": {
+        "id": {
+          "min": "item-196",
+          "max": "item-227"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 196. This is a description for item 196. This is a description for item 196. This is a description for item 196. This is a description for item 196. ",
+          "max": "This is a description for item 227. This is a description for item 227. This is a description for item 227. This is a description for item 227. This is a description for item 227. "
+        },
+        "name": {
+          "min": "Item 196",
+          "max": "Item 227"
+        },
+        "price": {
+          "min": 2.28,
+          "max": 96.92
+        }
+      }
+    },
+    {
+      "id": "4",
+      "path": "chunks/4.json",
+      "count": 36,
+      "byteSize": 10153,
+      "fieldRanges": {
+        "id": {
+          "min": "item-228",
+          "max": "item-26"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 228. This is a description for item 228. This is a description for item 228. This is a description for item 228. This is a description for item 228. ",
+          "max": "This is a description for item 26. This is a description for item 26. This is a description for item 26. This is a description for item 26. This is a description for item 26. "
+        },
+        "name": {
+          "min": "Item 228",
+          "max": "Item 26"
+        },
+        "price": {
+          "min": 4.14,
+          "max": 96.31
+        }
+      }
+    },
+    {
+      "id": "5",
+      "path": "chunks/5.json",
+      "count": 36,
+      "byteSize": 10157,
+      "fieldRanges": {
+        "id": {
+          "min": "item-260",
+          "max": "item-292"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 260. This is a description for item 260. This is a description for item 260. This is a description for item 260. This is a description for item 260. ",
+          "max": "This is a description for item 292. This is a description for item 292. This is a description for item 292. This is a description for item 292. This is a description for item 292. "
+        },
+        "name": {
+          "min": "Item 260",
+          "max": "Item 292"
+        },
+        "price": {
+          "min": 2.69,
+          "max": 99.76
+        }
+      }
+    },
+    {
+      "id": "6",
+      "path": "chunks/6.json",
+      "count": 36,
+      "byteSize": 10147,
+      "fieldRanges": {
+        "id": {
+          "min": "item-293",
+          "max": "item-324"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 293. This is a description for item 293. This is a description for item 293. This is a description for item 293. This is a description for item 293. ",
+          "max": "This is a description for item 324. This is a description for item 324. This is a description for item 324. This is a description for item 324. This is a description for item 324. "
+        },
+        "name": {
+          "min": "Item 293",
+          "max": "Item 324"
+        },
+        "price": {
+          "min": 1.06,
+          "max": 95.73
+        }
+      }
+    },
+    {
+      "id": "7",
+      "path": "chunks/7.json",
+      "count": 36,
+      "byteSize": 10164,
+      "fieldRanges": {
+        "id": {
+          "min": "item-325",
+          "max": "item-357"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 325. This is a description for item 325. This is a description for item 325. This is a description for item 325. This is a description for item 325. ",
+          "max": "This is a description for item 357. This is a description for item 357. This is a description for item 357. This is a description for item 357. This is a description for item 357. "
+        },
+        "name": {
+          "min": "Item 325",
+          "max": "Item 357"
+        },
+        "price": {
+          "min": 2.32,
+          "max": 96.95
+        }
+      }
+    },
+    {
+      "id": "8",
+      "path": "chunks/8.json",
+      "count": 36,
+      "byteSize": 10146,
+      "fieldRanges": {
+        "id": {
+          "min": "item-358",
+          "max": "item-39"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 358. This is a description for item 358. This is a description for item 358. This is a description for item 358. This is a description for item 358. ",
+          "max": "This is a description for item 39. This is a description for item 39. This is a description for item 39. This is a description for item 39. This is a description for item 39. "
+        },
+        "name": {
+          "min": "Item 358",
+          "max": "Item 39"
+        },
+        "price": {
+          "min": 2.52,
+          "max": 98.58
+        }
+      }
+    },
+    {
+      "id": "9",
+      "path": "chunks/9.json",
+      "count": 36,
+      "byteSize": 10151,
+      "fieldRanges": {
+        "id": {
+          "min": "item-390",
+          "max": "item-421"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 390. This is a description for item 390. This is a description for item 390. This is a description for item 390. This is a description for item 390. ",
+          "max": "This is a description for item 421. This is a description for item 421. This is a description for item 421. This is a description for item 421. This is a description for item 421. "
+        },
+        "name": {
+          "min": "Item 390",
+          "max": "Item 421"
+        },
+        "price": {
+          "min": 5.51,
+          "max": 99.18
+        }
+      }
+    },
+    {
+      "id": "10",
+      "path": "chunks/10.json",
+      "count": 36,
+      "byteSize": 10158,
+      "fieldRanges": {
+        "id": {
+          "min": "item-422",
+          "max": "item-454"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 422. This is a description for item 422. This is a description for item 422. This is a description for item 422. This is a description for item 422. ",
+          "max": "This is a description for item 454. This is a description for item 454. This is a description for item 454. This is a description for item 454. This is a description for item 454. "
+        },
+        "name": {
+          "min": "Item 422",
+          "max": "Item 454"
+        },
+        "price": {
+          "min": 0.92,
+          "max": 94.75
+        }
+      }
+    },
+    {
+      "id": "11",
+      "path": "chunks/11.json",
+      "count": 36,
+      "byteSize": 10157,
+      "fieldRanges": {
+        "id": {
+          "min": "item-455",
+          "max": "item-487"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 455. This is a description for item 455. This is a description for item 455. This is a description for item 455. This is a description for item 455. ",
+          "max": "This is a description for item 487. This is a description for item 487. This is a description for item 487. This is a description for item 487. This is a description for item 487. "
+        },
+        "name": {
+          "min": "Item 455",
+          "max": "Item 487"
+        },
+        "price": {
+          "min": 0.21,
+          "max": 99.71
+        }
+      }
+    },
+    {
+      "id": "12",
+      "path": "chunks/12.json",
+      "count": 36,
+      "byteSize": 10152,
+      "fieldRanges": {
+        "id": {
+          "min": "item-488",
+          "max": "item-519"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 488. This is a description for item 488. This is a description for item 488. This is a description for item 488. This is a description for item 488. ",
+          "max": "This is a description for item 519. This is a description for item 519. This is a description for item 519. This is a description for item 519. This is a description for item 519. "
+        },
+        "name": {
+          "min": "Item 488",
+          "max": "Item 519"
+        },
+        "price": {
+          "min": 1.69,
+          "max": 99.25
+        }
+      }
+    },
+    {
+      "id": "13",
+      "path": "chunks/13.json",
+      "count": 36,
+      "byteSize": 10153,
+      "fieldRanges": {
+        "id": {
+          "min": "item-52",
+          "max": "item-551"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 52. This is a description for item 52. This is a description for item 52. This is a description for item 52. This is a description for item 52. ",
+          "max": "This is a description for item 551. This is a description for item 551. This is a description for item 551. This is a description for item 551. This is a description for item 551. "
+        },
+        "name": {
+          "min": "Item 52",
+          "max": "Item 551"
+        },
+        "price": {
+          "min": 0.16,
+          "max": 99.75
+        }
+      }
+    },
+    {
+      "id": "14",
+      "path": "chunks/14.json",
+      "count": 36,
+      "byteSize": 10148,
+      "fieldRanges": {
+        "id": {
+          "min": "item-552",
+          "max": "item-584"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 552. This is a description for item 552. This is a description for item 552. This is a description for item 552. This is a description for item 552. ",
+          "max": "This is a description for item 584. This is a description for item 584. This is a description for item 584. This is a description for item 584. This is a description for item 584. "
+        },
+        "name": {
+          "min": "Item 552",
+          "max": "Item 584"
+        },
+        "price": {
+          "min": 2.61,
+          "max": 98.25
+        }
+      }
+    },
+    {
+      "id": "15",
+      "path": "chunks/15.json",
+      "count": 36,
+      "byteSize": 10154,
+      "fieldRanges": {
+        "id": {
+          "min": "item-585",
+          "max": "item-616"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 585. This is a description for item 585. This is a description for item 585. This is a description for item 585. This is a description for item 585. ",
+          "max": "This is a description for item 616. This is a description for item 616. This is a description for item 616. This is a description for item 616. This is a description for item 616. "
+        },
+        "name": {
+          "min": "Item 585",
+          "max": "Item 616"
+        },
+        "price": {
+          "min": 5.06,
+          "max": 93.2
+        }
+      }
+    },
+    {
+      "id": "16",
+      "path": "chunks/16.json",
+      "count": 36,
+      "byteSize": 10144,
+      "fieldRanges": {
+        "id": {
+          "min": "item-617",
+          "max": "item-649"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 617. This is a description for item 617. This is a description for item 617. This is a description for item 617. This is a description for item 617. ",
+          "max": "This is a description for item 649. This is a description for item 649. This is a description for item 649. This is a description for item 649. This is a description for item 649. "
+        },
+        "name": {
+          "min": "Item 617",
+          "max": "Item 649"
+        },
+        "price": {
+          "min": 0.38,
+          "max": 96.83
+        }
+      }
+    },
+    {
+      "id": "17",
+      "path": "chunks/17.json",
+      "count": 36,
+      "byteSize": 10155,
+      "fieldRanges": {
+        "id": {
+          "min": "item-65",
+          "max": "item-681"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 65. This is a description for item 65. This is a description for item 65. This is a description for item 65. This is a description for item 65. ",
+          "max": "This is a description for item 681. This is a description for item 681. This is a description for item 681. This is a description for item 681. This is a description for item 681. "
+        },
+        "name": {
+          "min": "Item 65",
+          "max": "Item 681"
+        },
+        "price": {
+          "min": 0.77,
+          "max": 96.39
+        }
+      }
+    },
+    {
+      "id": "18",
+      "path": "chunks/18.json",
+      "count": 36,
+      "byteSize": 10142,
+      "fieldRanges": {
+        "id": {
+          "min": "item-682",
+          "max": "item-713"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 682. This is a description for item 682. This is a description for item 682. This is a description for item 682. This is a description for item 682. ",
+          "max": "This is a description for item 713. This is a description for item 713. This is a description for item 713. This is a description for item 713. This is a description for item 713. "
+        },
+        "name": {
+          "min": "Item 682",
+          "max": "Item 713"
+        },
+        "price": {
+          "min": 0.11,
+          "max": 99.06
+        }
+      }
+    },
+    {
+      "id": "19",
+      "path": "chunks/19.json",
+      "count": 36,
+      "byteSize": 10160,
+      "fieldRanges": {
+        "id": {
+          "min": "item-714",
+          "max": "item-746"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 714. This is a description for item 714. This is a description for item 714. This is a description for item 714. This is a description for item 714. ",
+          "max": "This is a description for item 746. This is a description for item 746. This is a description for item 746. This is a description for item 746. This is a description for item 746. "
+        },
+        "name": {
+          "min": "Item 714",
+          "max": "Item 746"
+        },
+        "price": {
+          "min": 2.01,
+          "max": 89.81
+        }
+      }
+    },
+    {
+      "id": "20",
+      "path": "chunks/20.json",
+      "count": 36,
+      "byteSize": 10158,
+      "fieldRanges": {
+        "id": {
+          "min": "item-747",
+          "max": "item-779"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 747. This is a description for item 747. This is a description for item 747. This is a description for item 747. This is a description for item 747. ",
+          "max": "This is a description for item 779. This is a description for item 779. This is a description for item 779. This is a description for item 779. This is a description for item 779. "
+        },
+        "name": {
+          "min": "Item 747",
+          "max": "Item 779"
+        },
+        "price": {
+          "min": 1.44,
+          "max": 99.68
+        }
+      }
+    },
+    {
+      "id": "21",
+      "path": "chunks/21.json",
+      "count": 36,
+      "byteSize": 10142,
+      "fieldRanges": {
+        "id": {
+          "min": "item-78",
+          "max": "item-810"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 78. This is a description for item 78. This is a description for item 78. This is a description for item 78. This is a description for item 78. ",
+          "max": "This is a description for item 810. This is a description for item 810. This is a description for item 810. This is a description for item 810. This is a description for item 810. "
+        },
+        "name": {
+          "min": "Item 78",
+          "max": "Item 810"
+        },
+        "price": {
+          "min": 0.04,
+          "max": 98.98
+        }
+      }
+    },
+    {
+      "id": "22",
+      "path": "chunks/22.json",
+      "count": 36,
+      "byteSize": 10155,
+      "fieldRanges": {
+        "id": {
+          "min": "item-811",
+          "max": "item-843"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 811. This is a description for item 811. This is a description for item 811. This is a description for item 811. This is a description for item 811. ",
+          "max": "This is a description for item 843. This is a description for item 843. This is a description for item 843. This is a description for item 843. This is a description for item 843. "
+        },
+        "name": {
+          "min": "Item 811",
+          "max": "Item 843"
+        },
+        "price": {
+          "min": 2.38,
+          "max": 98.62
+        }
+      }
+    },
+    {
+      "id": "23",
+      "path": "chunks/23.json",
+      "count": 36,
+      "byteSize": 10173,
+      "fieldRanges": {
+        "id": {
+          "min": "item-844",
+          "max": "item-876"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 844. This is a description for item 844. This is a description for item 844. This is a description for item 844. This is a description for item 844. ",
+          "max": "This is a description for item 876. This is a description for item 876. This is a description for item 876. This is a description for item 876. This is a description for item 876. "
+        },
+        "name": {
+          "min": "Item 844",
+          "max": "Item 876"
+        },
+        "price": {
+          "min": 2.29,
+          "max": 99.43
+        }
+      }
+    },
+    {
+      "id": "24",
+      "path": "chunks/24.json",
+      "count": 36,
+      "byteSize": 10140,
+      "fieldRanges": {
+        "id": {
+          "min": "item-877",
+          "max": "item-908"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 877. This is a description for item 877. This is a description for item 877. This is a description for item 877. This is a description for item 877. ",
+          "max": "This is a description for item 908. This is a description for item 908. This is a description for item 908. This is a description for item 908. This is a description for item 908. "
+        },
+        "name": {
+          "min": "Item 877",
+          "max": "Item 908"
+        },
+        "price": {
+          "min": 3.92,
+          "max": 99.01
+        }
+      }
+    },
+    {
+      "id": "25",
+      "path": "chunks/25.json",
+      "count": 36,
+      "byteSize": 10150,
+      "fieldRanges": {
+        "id": {
+          "min": "item-909",
+          "max": "item-940"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 909. This is a description for item 909. This is a description for item 909. This is a description for item 909. This is a description for item 909. ",
+          "max": "This is a description for item 940. This is a description for item 940. This is a description for item 940. This is a description for item 940. This is a description for item 940. "
+        },
+        "name": {
+          "min": "Item 909",
+          "max": "Item 940"
+        },
+        "price": {
+          "min": 1.82,
+          "max": 97.4
+        }
+      }
+    },
+    {
+      "id": "26",
+      "path": "chunks/26.json",
+      "count": 36,
+      "byteSize": 10160,
+      "fieldRanges": {
+        "id": {
+          "min": "item-941",
+          "max": "item-973"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 941. This is a description for item 941. This is a description for item 941. This is a description for item 941. This is a description for item 941. ",
+          "max": "This is a description for item 973. This is a description for item 973. This is a description for item 973. This is a description for item 973. This is a description for item 973. "
+        },
+        "name": {
+          "min": "Item 941",
+          "max": "Item 973"
+        },
+        "price": {
+          "min": 3.66,
+          "max": 95.17
+        }
+      }
+    },
+    {
+      "id": "27",
+      "path": "chunks/27.json",
+      "count": 28,
+      "byteSize": 7901,
+      "fieldRanges": {
+        "id": {
+          "min": "item-974",
+          "max": "item-999"
+        },
+        "category": {
+          "min": "clothing",
+          "max": "sports"
+        },
+        "description": {
+          "min": "This is a description for item 974. This is a description for item 974. This is a description for item 974. This is a description for item 974. This is a description for item 974. ",
+          "max": "This is a description for item 999. This is a description for item 999. This is a description for item 999. This is a description for item 999. This is a description for item 999. "
+        },
+        "name": {
+          "min": "Item 974",
+          "max": "Item 999"
+        },
+        "price": {
+          "min": 0.89,
+          "max": 97.87
         }
       }
     }
   ],
   "indices": {
-    "active": {
+    "category": {
+      "electronics": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ],
+      "clothing": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ],
+      "food": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ],
+      "home": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ],
+      "sports": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ]
+    },
+    "inStock": {
+      "false": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
+      ],
       "true": [
         "0",
         "1",
-        "2"
-      ],
-      "false": [
-        "0",
-        "1"
-      ]
-    },
-    "city": {
-      "New York": [
-        "0",
-        "1"
-      ],
-      "Los Angeles": [
-        "0",
-        "1",
-        "2"
-      ],
-      "Chicago": [
-        "0",
-        "1",
-        "2"
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27"
       ]
     }
   },
-  "totalRecords": 10,
+  "totalRecords": 1000,
   "config": {
-    "chunkSize": 500,
+    "chunkSize": 10240,
     "chunkBy": "id",
     "indexedFields": [
-      "active",
-      "city"
+      "category",
+      "inStock"
     ]
   }
 }

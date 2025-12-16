@@ -1,3 +1,6 @@
 node_modules
 .claude
 test_data
+mtg-output/
+/types.ts
+test/integration-output/

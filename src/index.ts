@@ -1,8 +1,32 @@
 /**
  * static-shard - Query large static datasets efficiently
  *
- * This module exports types for use with the generated client.
- * The main functionality is provided via the CLI.
+ * This module exports the client runtime and types.
+ * Use the CLI to build your dataset, then import from this package.
  */
 
-export * from "./types/index.js";
+// Core types (for CLI and internal use)
+export type {
+  FieldType,
+  FieldSchema,
+  FieldStats,
+  Schema,
+  ChunkMeta,
+  Manifest,
+  BuildConfig,
+  DataRecord,
+  DataFormat,
+  ParseResult,
+  BuildOptions,
+  InspectOptions,
+} from "./types/index.js";
+
+// Client runtime (for generated clients to import)
+export {
+  StaticShardClient,
+  createClient,
+  type StringOperators,
+  type NumericOperators,
+  type ClientQueryOptions,
+  type ClientOptions,
+} from "./client/index.js";

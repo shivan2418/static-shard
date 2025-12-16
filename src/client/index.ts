@@ -1,26 +1,16 @@
 /**
- * Auto-generated client for static-shard
- * Generated at: 2025-12-15T04:19:12.595Z
- * Total records: 1000
- * Chunks: 28
+ * Static Shard Client Runtime
+ * Generic client and types that can be imported from the package
  */
 
+import type { ChunkMeta, Manifest, Schema } from "../types/index.js";
+
+// Re-export types from core types module
+export type { ChunkMeta, Manifest, Schema };
+
 // ============================================================================
-// Types
+// Operator Types
 // ============================================================================
-
-export interface Item {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    price: number;
-    inStock: boolean;
-}
-
-
-export type FieldName = "id" | "category" | "description" | "inStock" | "name" | "price";
-
 
 export type StringOperators = {
   eq?: string;
@@ -41,58 +31,33 @@ export type NumericOperators = {
   in?: number[];
 };
 
-export type WhereClause = {
-  id?: string | StringOperators;
-  category?: string | StringOperators;
-  description?: string | StringOperators;
-  inStock?: boolean;
-  name?: string | StringOperators;
-  price?: number | NumericOperators;
-};
+// ============================================================================
+// Client Types
+// ============================================================================
 
-export type SortableField = "id" | "category" | "description" | "name" | "price";
-
-export interface QueryOptions {
-  where?: WhereClause;
-  orderBy?: SortableField | { field: SortableField; direction: "asc" | "desc" };
+export interface ClientQueryOptions<TWhere = Record<string, unknown>, TSortable extends string = string> {
+  where?: TWhere;
+  orderBy?: TSortable | { field: TSortable; direction: "asc" | "desc" };
   limit?: number;
   offset?: number;
 }
 
-export interface Manifest {
-  version: string;
-  schema: {
-    fields: Array<{
-      name: string;
-      type: string;
-      nullable: boolean;
-      indexed: boolean;
-    }>;
-    primaryField: string | null;
-  };
-  chunks: Array<{
-    id: string;
-    path: string;
-    count: number;
-    byteSize: number;
-    fieldRanges: { [field: string]: { min: unknown; max: unknown } };
-  }>;
-  indices: { [field: string]: { [value: string]: string[] } };
-  totalRecords: number;
-}
-
-// ============================================================================
-// Runtime
-// ============================================================================
-
-interface ClientOptions {
+export interface ClientOptions {
   basePath: string;
 }
 
-class StaticShardClient {
+// ============================================================================
+// Generic Client
+// ============================================================================
+
+export class StaticShardClient<
+  TItem extends Record<string, unknown> = Record<string, unknown>,
+  TWhereClause = Record<string, unknown>,
+  TSortableField extends string = string
+> {
   private basePath: string;
   private manifest: Manifest | null = null;
-  private chunkCache: Map<string, Item[]> = new Map();
+  private chunkCache: Map<string, TItem[]> = new Map();
 
   constructor(options: ClientOptions) {
     this.basePath = options.basePath.replace(/\/$/, "");
@@ -109,14 +74,14 @@ class StaticShardClient {
       throw new Error(`Failed to load manifest: ${response.statusText}`);
     }
 
-    this.manifest = await response.json();
-    return this.manifest!;
+    this.manifest = (await response.json()) as Manifest;
+    return this.manifest;
   }
 
   /**
    * Load a chunk by ID
    */
-  private async loadChunk(chunkId: string): Promise<Item[]> {
+  private async loadChunk(chunkId: string): Promise<TItem[]> {
     const cached = this.chunkCache.get(chunkId);
     if (cached) return cached;
 
@@ -131,7 +96,7 @@ class StaticShardClient {
       throw new Error(`Failed to load chunk ${chunkId}: ${response.statusText}`);
     }
 
-    const records = await response.json();
+    const records = (await response.json()) as TItem[];
     this.chunkCache.set(chunkId, records);
     return records;
   }
@@ -139,15 +104,14 @@ class StaticShardClient {
   /**
    * Find chunk IDs that might contain matching records
    */
-  private findCandidateChunks(manifest: Manifest, where?: WhereClause): string[] {
+  private findCandidateChunks(manifest: Manifest, where?: TWhereClause): string[] {
     if (!where) {
       return manifest.chunks.map((c) => c.id);
     }
 
     let candidateChunks: Set<string> | null = null;
 
-    for (const [field, condition] of Object.entries(where)) {
-      // Check if we can use the index
+    for (const [field, condition] of Object.entries(where as Record<string, unknown>)) {
       const index = manifest.indices[field];
 
       if (index && (typeof condition === "string" || typeof condition === "number" || typeof condition === "boolean")) {
@@ -157,22 +121,24 @@ class StaticShardClient {
         if (candidateChunks === null) {
           candidateChunks = new Set(chunks);
         } else {
-          candidateChunks = new Set(Array.from(candidateChunks).filter((c) => chunks.includes(c)));
+          const current: Set<string> = candidateChunks;
+          candidateChunks = new Set(chunks.filter((c) => current.has(c)));
         }
       } else if (typeof condition === "object" && condition !== null && "eq" in condition) {
-        const value = String(condition.eq);
+        const value = String((condition as { eq: unknown }).eq);
         const chunks = index?.[value] || [];
 
         if (index) {
           if (candidateChunks === null) {
             candidateChunks = new Set(chunks);
           } else {
-            candidateChunks = new Set(Array.from(candidateChunks).filter((c) => chunks.includes(c)));
+            const current: Set<string> = candidateChunks;
+            candidateChunks = new Set(chunks.filter((c) => current.has(c)));
           }
         }
       }
 
-      // Range pruning using fieldRanges
+      // Range pruning
       if (typeof condition === "object" && condition !== null) {
         const rangeCondition = condition as { gt?: number; gte?: number; lt?: number; lte?: number };
         const hasRangeOp = "gt" in rangeCondition || "gte" in rangeCondition || "lt" in rangeCondition || "lte" in rangeCondition;
@@ -181,7 +147,7 @@ class StaticShardClient {
           const matchingChunks = manifest.chunks
             .filter((chunk) => {
               const range = chunk.fieldRanges[field];
-              if (!range) return true; // Can't prune, include chunk
+              if (!range) return true;
 
               const min = range.min as number;
               const max = range.max as number;
@@ -198,25 +164,25 @@ class StaticShardClient {
           if (candidateChunks === null) {
             candidateChunks = new Set(matchingChunks);
           } else {
-            candidateChunks = new Set(Array.from(candidateChunks).filter((c) => matchingChunks.includes(c)));
+            const current: Set<string> = candidateChunks;
+            candidateChunks = new Set(matchingChunks.filter((c) => current.has(c)));
           }
         }
       }
     }
 
-    return candidateChunks ? Array.from(candidateChunks) : manifest.chunks.map((c) => c.id);
+    return candidateChunks ? [...candidateChunks] : manifest.chunks.map((c) => c.id);
   }
 
   /**
    * Check if a record matches the where clause
    */
-  private matchesWhere(record: Item, where?: WhereClause): boolean {
+  private matchesWhere(record: TItem, where?: TWhereClause): boolean {
     if (!where) return true;
 
-    for (const [field, condition] of Object.entries(where)) {
-      const value = record[field as keyof Item];
+    for (const [field, condition] of Object.entries(where as Record<string, unknown>)) {
+      const value = record[field];
 
-      // Direct value comparison
       if (typeof condition !== "object" || condition === null) {
         if (value !== condition) return false;
         continue;
@@ -242,18 +208,14 @@ class StaticShardClient {
   /**
    * Query records
    */
-  async query(options: QueryOptions = {}): Promise<Item[]> {
+  async query(options: ClientQueryOptions<TWhereClause, TSortableField> = {}): Promise<TItem[]> {
     const manifest = await this.loadManifest();
-
-    // Find candidate chunks
     const candidateChunkIds = this.findCandidateChunks(manifest, options.where);
 
-    // Load chunks in parallel
     const chunkPromises = candidateChunkIds.map((id) => this.loadChunk(id));
     const chunks = await Promise.all(chunkPromises);
 
-    // Flatten and filter
-    let results: Item[] = [];
+    let results: TItem[] = [];
     for (const chunk of chunks) {
       for (const record of chunk) {
         if (this.matchesWhere(record, options.where)) {
@@ -262,25 +224,23 @@ class StaticShardClient {
       }
     }
 
-    // Sort
     if (options.orderBy) {
       const field = typeof options.orderBy === "string" ? options.orderBy : options.orderBy.field;
       const direction = typeof options.orderBy === "string" ? "asc" : options.orderBy.direction;
 
       results.sort((a, b) => {
-        const aVal = a[field as keyof Item];
-        const bVal = b[field as keyof Item];
+        const aVal = a[field];
+        const bVal = b[field];
 
         if (aVal === bVal) return 0;
         if (aVal === null || aVal === undefined) return 1;
         if (bVal === null || bVal === undefined) return -1;
 
-        const cmp = aVal < bVal ? -1 : 1;
+        const cmp = (aVal as string | number) < (bVal as string | number) ? -1 : 1;
         return direction === "asc" ? cmp : -cmp;
       });
     }
 
-    // Pagination
     const offset = options.offset || 0;
     const limit = options.limit;
 
@@ -294,7 +254,7 @@ class StaticShardClient {
   /**
    * Get a single record by primary key
    */
-  async get(id: string | number): Promise<Item | null> {
+  async get(id: string | number): Promise<TItem | null> {
     const manifest = await this.loadManifest();
     const primaryField = manifest.schema.primaryField;
 
@@ -303,7 +263,7 @@ class StaticShardClient {
     }
 
     const results = await this.query({
-      where: { [primaryField]: id } as WhereClause,
+      where: { [primaryField]: id } as TWhereClause,
       limit: 1,
     });
 
@@ -313,14 +273,13 @@ class StaticShardClient {
   /**
    * Count records matching a query
    */
-  async count(options: { where?: WhereClause } = {}): Promise<number> {
+  async count(options: { where?: TWhereClause } = {}): Promise<number> {
     const manifest = await this.loadManifest();
 
     if (!options.where) {
       return manifest.totalRecords;
     }
 
-    // For complex queries, we need to load and count
     const results = await this.query({ where: options.where });
     return results.length;
   }
@@ -328,7 +287,7 @@ class StaticShardClient {
   /**
    * Get schema information
    */
-  async getSchema(): Promise<Manifest["schema"]> {
+  async getSchema(): Promise<Schema> {
     const manifest = await this.loadManifest();
     return manifest.schema;
   }
@@ -341,13 +300,13 @@ class StaticShardClient {
   }
 }
 
-// ============================================================================
-// Export
-// ============================================================================
-
-export function createClient(options: ClientOptions): StaticShardClient {
-  return new StaticShardClient(options);
+/**
+ * Create a typed client instance
+ */
+export function createClient<
+  TItem extends Record<string, unknown> = Record<string, unknown>,
+  TWhereClause = Record<string, unknown>,
+  TSortableField extends string = string
+>(options: ClientOptions): StaticShardClient<TItem, TWhereClause, TSortableField> {
+  return new StaticShardClient<TItem, TWhereClause, TSortableField>(options);
 }
-
-// Default export for convenience
-export const db = createClient({ basePath: "." });
