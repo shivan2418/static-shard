@@ -8,13 +8,19 @@ import type { DataRecord, Manifest, Schema } from "../../types/index.js";
 
 /**
  * Post-process json-ts output to clean up interface names
+ * and add index signature for Record<string, unknown> compatibility
  */
 function cleanupTypes(types: string): string {
   return types
     .replace(/^type IItem = IItemItem\[\];\n/m, "")
     .replace(/IItemItem/g, "Item")
     .replace(/\bI([A-Z][a-z_]+)/g, "$1")
-    .replace(/^interface /gm, "export interface ");
+    .replace(/^interface /gm, "export interface ")
+    // Add index signature to Item interface for Record<string, unknown> compatibility
+    .replace(
+      /^(export interface Item \{[\s\S]*?)(^\})/m,
+      "$1    [key: string]: unknown;\n$2"
+    );
 }
 
 /**

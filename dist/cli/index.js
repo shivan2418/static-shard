@@ -737,7 +737,10 @@ function buildInvertedIndices(chunks, schema, indexedFields) {
 // src/cli/utils/codegen.ts
 import { json2ts } from "json-ts";
 function cleanupTypes(types2) {
-  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/\bI([A-Z][a-z_]+)/g, "$1").replace(/^interface /gm, "export interface ");
+  return types2.replace(/^type IItem = IItemItem\[\];\n/m, "").replace(/IItemItem/g, "Item").replace(/\bI([A-Z][a-z_]+)/g, "$1").replace(/^interface /gm, "export interface ").replace(
+    /^(export interface Item \{[\s\S]*?)(^\})/m,
+    "$1    [key: string]: unknown;\n$2"
+  );
 }
 function generateFieldNamesType(schema) {
   const names = schema.fields.map((f) => `"${f.name}"`).join(" | ");
