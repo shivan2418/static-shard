@@ -6,6 +6,7 @@ import { Command } from "commander";
 // src/cli/commands/build.ts
 import * as fs2 from "fs";
 import * as path from "path";
+import { checkbox, select } from "@inquirer/prompts";
 
 // src/cli/utils/parsers.ts
 import * as fs from "fs";
@@ -835,28 +836,33 @@ async function buildInMemory(inputFile, options, startTime) {
   if (schema.primaryField) {
     console.log(`Detected primary field: ${schema.primaryField}`);
   }
-  const chunkBy = options.chunkBy || suggestChunkField(schema, records);
-  if (chunkBy) {
-    console.log(`Chunking by field: ${chunkBy}`);
-  }
   const targetChunkSize = parseSize(options.chunkSize);
   console.log(`Target chunk size: ${formatBytes(targetChunkSize)}`);
-  const MAX_AUTO_INDEX_FIELDS = 10;
-  let indexedFields;
-  if (options.index) {
-    indexedFields = options.index.split(",").map((f) => f.trim());
+  let chunkBy;
+  if (options.chunkBy !== void 0) {
+    chunkBy = options.chunkBy || null;
+    if (chunkBy) {
+      console.log(`Chunking by field: ${chunkBy}`);
+    }
   } else {
-    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
-    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
-      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
-      console.log(`Use --index to specify which fields to index`);
-      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
-    } else {
-      indexedFields = autoIndexed;
+    const suggestedField = suggestChunkField(schema, records);
+    chunkBy = await promptChunkField(schema, suggestedField, records);
+    if (chunkBy) {
+      console.log(`Selected chunk field: ${chunkBy}`);
     }
   }
-  if (indexedFields.length > 0) {
-    console.log(`Indexing fields: ${indexedFields.join(", ")}`);
+  let indexedFields;
+  if (options.index !== void 0) {
+    indexedFields = options.index ? options.index.split(",").map((f) => f.trim()) : [];
+    if (indexedFields.length > 0) {
+      console.log(`Indexing fields: ${indexedFields.join(", ")}`);
+    }
+  } else {
+    const recommendedFields = getIndexableFields(schema);
+    indexedFields = await promptIndexSelection(schema, recommendedFields);
+    if (indexedFields.length > 0) {
+      console.log(`Selected indexes: ${indexedFields.join(", ")}`);
+    }
   }
   for (const field of schema.fields) {
     field.indexed = indexedFields.includes(field.name);
@@ -864,7 +870,7 @@ async function buildInMemory(inputFile, options, startTime) {
   console.log("Chunking data...");
   const chunks = chunkRecords(records, schema, {
     targetSize: targetChunkSize,
-    chunkBy
+    chunkBy: chunkBy || void 0
   });
   console.log(`Created ${chunks.length} chunks`);
   console.log("Building indices...");
@@ -888,14 +894,14 @@ async function buildInMemory(inputFile, options, startTime) {
   const manifest = {
     version: VERSION,
     generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    schema,
+    schema: stripSchemaForManifest(schema),
     chunks: chunkMetas,
     indices,
     totalRecords: records.length,
     config
   };
   const manifestPath = path.join(outputDir, "manifest.json");
-  await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
   const sampleForTypes = records.slice(0, 100);
@@ -955,9 +961,10 @@ async function buildStreaming(inputFile, options, startTime) {
   const flushChunk = () => {
     if (currentChunk.length === 0) return;
     if (chunkBy) {
+      const sortField = chunkBy;
       currentChunk.sort((a, b) => {
-        const aVal = a[chunkBy];
-        const bVal = b[chunkBy];
+        const aVal = a[sortField];
+        const bVal = b[sortField];
         if (aVal === bVal) return 0;
         if (aVal === null || aVal === void 0) return 1;
         if (bVal === null || bVal === void 0) return -1;
@@ -1021,25 +1028,29 @@ async function buildStreaming(inputFile, options, startTime) {
   if (schema.primaryField) {
     console.log(`Detected primary field: ${schema.primaryField}`);
   }
-  chunkBy = options.chunkBy || suggestChunkField(schema, sample);
-  if (chunkBy) {
-    console.log(`Chunking by field: ${chunkBy}`);
-  }
-  const MAX_AUTO_INDEX_FIELDS = 10;
-  if (options.index) {
-    indexedFields = options.index.split(",").map((f) => f.trim());
+  if (options.chunkBy !== void 0) {
+    chunkBy = options.chunkBy || null;
+    if (chunkBy) {
+      console.log(`Chunking by field: ${chunkBy}`);
+    }
   } else {
-    const autoIndexed = schema.fields.filter((f) => f.indexed).map((f) => f.name);
-    if (autoIndexed.length > MAX_AUTO_INDEX_FIELDS) {
-      console.log(`Warning: ${autoIndexed.length} indexable fields detected, limiting to ${MAX_AUTO_INDEX_FIELDS}`);
-      console.log(`Use --index to specify which fields to index`);
-      indexedFields = autoIndexed.slice(0, MAX_AUTO_INDEX_FIELDS);
-    } else {
-      indexedFields = autoIndexed;
+    const suggestedField = suggestChunkField(schema, sample);
+    chunkBy = await promptChunkField(schema, suggestedField, sample);
+    if (chunkBy) {
+      console.log(`Selected chunk field: ${chunkBy}`);
     }
   }
-  if (indexedFields.length > 0) {
-    console.log(`Indexing fields: ${indexedFields.join(", ")}`);
+  if (options.index !== void 0) {
+    indexedFields = options.index ? options.index.split(",").map((f) => f.trim()) : [];
+    if (indexedFields.length > 0) {
+      console.log(`Indexing fields: ${indexedFields.join(", ")}`);
+    }
+  } else {
+    const recommendedFields = getIndexableFields(schema);
+    indexedFields = await promptIndexSelection(schema, recommendedFields);
+    if (indexedFields.length > 0) {
+      console.log(`Selected indexes: ${indexedFields.join(", ")}`);
+    }
   }
   for (const field of schema.fields) {
     field.indexed = indexedFields.includes(field.name);
@@ -1063,14 +1074,14 @@ Processed ${count.toLocaleString()} records (format: ${format})`);
   const manifest = {
     version: VERSION,
     generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    schema,
+    schema: stripSchemaForManifest(schema),
     chunks: chunkMetas,
     indices,
     totalRecords: count,
     config
   };
   const manifestPath = path.join(outputDir, "manifest.json");
-  await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  await fs2.promises.writeFile(manifestPath, JSON.stringify(manifest));
   console.log(`Wrote manifest to ${manifestPath}`);
   console.log("Generating client...");
   const sampleForTypes = sample.slice(0, 100);
@@ -1099,10 +1110,86 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
+function stripSchemaForManifest(schema) {
+  return {
+    ...schema,
+    fields: schema.fields.map((field) => ({
+      name: field.name,
+      type: field.type,
+      nullable: field.nullable,
+      indexed: field.indexed,
+      stats: {
+        min: field.stats.min,
+        max: field.stats.max,
+        cardinality: 0,
+        // placeholder, not needed at runtime
+        nullCount: 0
+        // placeholder, not needed at runtime
+      }
+    }))
+  };
+}
+async function promptChunkField(schema, suggestedField, records) {
+  const chunkableFields = schema.fields.filter((f) => f.type === "number" || f.type === "string" || f.type === "date").map((f) => f.name);
+  if (chunkableFields.length === 0) {
+    return null;
+  }
+  const choices = [
+    { name: "(none - chunk by record order)", value: "" },
+    ...chunkableFields.map((f) => ({
+      name: f === suggestedField ? `${f} (recommended)` : f,
+      value: f
+    }))
+  ];
+  choices.sort((a, b) => {
+    if (a.value === suggestedField) return -1;
+    if (b.value === suggestedField) return 1;
+    if (a.value === "") return 1;
+    if (b.value === "") return -1;
+    return 0;
+  });
+  const selected = await select({
+    message: "Sort and chunk records by which field?",
+    choices,
+    default: suggestedField || ""
+  });
+  return selected === "" ? null : selected;
+}
+async function promptIndexSelection(schema, recommendedFields) {
+  const choices = schema.fields.filter((f) => {
+    if (f.stats.cardinality < 2) return false;
+    if (f.type === "boolean") return true;
+    if (f.stats.cardinality <= 500) return true;
+    return false;
+  }).map((f) => {
+    const isRecommended = recommendedFields.includes(f.name);
+    const cardinalityInfo = f.stats.cardinality ? ` (${f.stats.cardinality} values)` : "";
+    return {
+      name: `${f.name}${cardinalityInfo}${isRecommended ? " *" : ""}`,
+      value: f.name,
+      checked: isRecommended
+    };
+  }).sort((a, b) => {
+    const aRec = recommendedFields.includes(a.value) ? 0 : 1;
+    const bRec = recommendedFields.includes(b.value) ? 0 : 1;
+    return aRec - bRec;
+  });
+  if (choices.length === 0) {
+    return [];
+  }
+  console.log("\n  * = recommended for indexing");
+  console.log("  Controls: <space> toggle, <a> all, <i> invert, <enter> confirm\n");
+  const selected = await checkbox({
+    message: "Select fields to index:",
+    choices,
+    pageSize: 15
+  });
+  return selected;
+}
 
 // src/cli/commands/inspect.ts
 import * as fs3 from "fs";
-import { checkbox, confirm, input, select } from "@inquirer/prompts";
+import { checkbox as checkbox2, confirm as confirm2, input, select as select2 } from "@inquirer/prompts";
 var STREAMING_THRESHOLD3 = 100 * 1024 * 1024;
 var INDEX_PROMPT_THRESHOLD = 5;
 async function inspect(inputFile, options) {
@@ -1237,7 +1324,7 @@ Average record size: ${formatBytes2(avgRecordSize)}`);
       if (b.value === "") return -1;
       return 0;
     });
-    selectedChunkField = await select({
+    selectedChunkField = await select2({
       message: "Sort and chunk records by which field?",
       choices: chunkFieldChoices,
       default: suggestedChunkField || ""
@@ -1250,26 +1337,26 @@ Average record size: ${formatBytes2(avgRecordSize)}`);
   let selectedIndexes = [];
   if (indexableFields.length > 0) {
     if (indexableFields.length <= INDEX_PROMPT_THRESHOLD) {
-      const useRecommended = await confirm({
+      const useRecommended = await confirm2({
         message: `Use recommended indexes? (${indexableFields.join(", ")})`,
         default: true
       });
       if (useRecommended) {
         selectedIndexes = indexableFields;
       } else {
-        selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+        selectedIndexes = await promptIndexSelection2(schema.fields, indexableFields);
       }
     } else {
       console.log(`
 Found ${indexableFields.length} indexable fields.`);
-      selectedIndexes = await promptIndexSelection(schema.fields, indexableFields);
+      selectedIndexes = await promptIndexSelection2(schema.fields, indexableFields);
     }
   }
   const outputDir = await input({
     message: "Output directory:",
     default: "./output"
   });
-  const chunkSizeAnswer = await select({
+  const chunkSizeAnswer = await select2({
     message: "Target chunk size:",
     choices: [
       { name: "1 MB (more chunks, faster queries)", value: "1mb" },
@@ -1305,7 +1392,7 @@ Input: ${inputFile}`);
   console.log(`
 Equivalent command:
   ${cmd}`);
-  const runBuild = await confirm({
+  const runBuild = await confirm2({
     message: "Run build now?",
     default: true
   });
@@ -1322,7 +1409,7 @@ Equivalent command:
     console.log("\nBuild skipped. Run the command above when ready.\n");
   }
 }
-async function promptIndexSelection(allFields, recommendedFields) {
+async function promptIndexSelection2(allFields, recommendedFields) {
   const booleanFields = allFields.filter((f) => f.type === "boolean").map((f) => f.name);
   const enumLikeFields = allFields.filter(
     (f) => f.type === "string" && f.stats.cardinality <= 100 && !booleanFields.includes(f.name)
@@ -1351,7 +1438,7 @@ async function promptIndexSelection(allFields, recommendedFields) {
   }
   console.log("\n  * = recommended for indexing");
   console.log("  Controls: <space> toggle, <a> all, <i> invert, <enter> confirm\n");
-  const selected = await checkbox({
+  const selected = await checkbox2({
     message: "Select fields to index (or none):",
     choices,
     pageSize: 15,
