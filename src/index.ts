@@ -26,8 +26,16 @@ export {
   StaticShardClient,
   QueryBuilder,
   createClient,
-  type StringOperators,
-  type NumericOperators,
+  // Field accessor factories
+  stringField,
+  numericField,
+  booleanField,
+  // Types
+  type Condition,
+  type OperatorType,
   type ClientQueryOptions,
   type ClientOptions,
+  type StringFieldAccessor,
+  type NumericFieldAccessor,
+  type BooleanFieldAccessor,
 } from "./client/index.js";

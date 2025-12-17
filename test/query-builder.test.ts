@@ -2,7 +2,14 @@
  * Unit tests for QueryBuilder chainable API
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { StaticShardClient, QueryBuilder } from "../src/client/index.js";
+import {
+  StaticShardClient,
+  QueryBuilder,
+  stringField,
+  numericField,
+  booleanField,
+  type Condition,
+} from "../src/client/index.js";
 import type { Manifest } from "../src/types/index.js";
 
 // Test types
@@ -14,15 +21,17 @@ interface Product {
   inStock: boolean;
 }
 
-type WhereClause = {
-  id?: string | { eq?: string };
-  category?: string | { eq?: string; in?: string[] };
-  name?: string | { contains?: string };
-  price?: number | { gt?: number; gte?: number; lt?: number; lte?: number };
-  inStock?: boolean;
-};
-
+type ProductCondition = Condition<"id" | "category" | "name" | "price" | "inStock">;
 type SortableField = "id" | "category" | "name" | "price";
+
+// Test client with field accessors
+class TestClient extends StaticShardClient<Product, ProductCondition, SortableField> {
+  id = stringField("id");
+  name = stringField("name");
+  category = stringField("category");
+  price = numericField("price");
+  inStock = booleanField("inStock");
+}
 
 // Test data
 const testProducts: Product[] = [
@@ -77,10 +86,10 @@ const mockManifest: Manifest = {
 };
 
 describe("QueryBuilder", () => {
-  let client: StaticShardClient<Product, WhereClause, SortableField>;
+  let client: TestClient;
 
   beforeEach(() => {
-    client = new StaticShardClient<Product, WhereClause, SortableField>({
+    client = new TestClient({
       basePath: "http://test.local",
     });
 
@@ -107,7 +116,7 @@ describe("QueryBuilder", () => {
   describe("method chaining", () => {
     it("where() returns this for chaining", () => {
       const qb = client.query();
-      const result = qb.where({ category: "electronics" });
+      const result = qb.where(client.category.eq("electronics"));
       expect(result).toBe(qb);
     });
 
@@ -131,8 +140,8 @@ describe("QueryBuilder", () => {
 
     it("supports full chain", () => {
       const qb = client.query()
-        .where({ category: "electronics" })
-        .where({ inStock: true })
+        .where(client.category.eq("electronics"))
+        .where(client.inStock.eq(true))
         .orderBy("price", "desc")
         .limit(10)
         .offset(0);
@@ -149,7 +158,7 @@ describe("QueryBuilder", () => {
 
     it("filters by category", async () => {
       const results = await client.query()
-        .where({ category: "electronics" })
+        .where(client.category.eq("electronics"))
         .execute();
 
       expect(results).toHaveLength(3);
@@ -158,8 +167,8 @@ describe("QueryBuilder", () => {
 
     it("filters with multiple where() calls (AND logic)", async () => {
       const results = await client.query()
-        .where({ category: "electronics" })
-        .where({ inStock: true })
+        .where(client.category.eq("electronics"))
+        .where(client.inStock.eq(true))
         .execute();
 
       expect(results).toHaveLength(2);
@@ -218,7 +227,7 @@ describe("QueryBuilder", () => {
   describe("first()", () => {
     it("returns first matching item", async () => {
       const result = await client.query()
-        .where({ category: "furniture" })
+        .where(client.category.eq("furniture"))
         .first();
 
       expect(result).not.toBeNull();
@@ -227,7 +236,7 @@ describe("QueryBuilder", () => {
 
     it("returns null when no matches", async () => {
       const result = await client.query()
-        .where({ category: "nonexistent" as string })
+        .where(client.category.eq("nonexistent"))
         .first();
 
       expect(result).toBeNull();
@@ -250,7 +259,7 @@ describe("QueryBuilder", () => {
 
     it("returns filtered count", async () => {
       const count = await client.query()
-        .where({ category: "electronics" })
+        .where(client.category.eq("electronics"))
         .count();
 
       expect(count).toBe(3);
@@ -258,7 +267,7 @@ describe("QueryBuilder", () => {
 
     it("returns 0 when no matches", async () => {
       const count = await client.query()
-        .where({ category: "nonexistent" as string })
+        .where(client.category.eq("nonexistent"))
         .count();
 
       expect(count).toBe(0);
@@ -268,7 +277,7 @@ describe("QueryBuilder", () => {
   describe("complex queries", () => {
     it("filters with numeric operators", async () => {
       const results = await client.query()
-        .where({ price: { gte: 200 } })
+        .where(client.price.gte(200))
         .execute();
 
       expect(results.every(p => p.price >= 200)).toBe(true);
@@ -276,8 +285,8 @@ describe("QueryBuilder", () => {
 
     it("combines category filter with price range", async () => {
       const results = await client.query()
-        .where({ category: "electronics" })
-        .where({ price: { lte: 500 } })
+        .where(client.category.eq("electronics"))
+        .where(client.price.lte(500))
         .execute();
 
       expect(results).toHaveLength(1); // Only Tablet ($399.99)
@@ -286,7 +295,7 @@ describe("QueryBuilder", () => {
 
     it("full query with filter, sort, and pagination", async () => {
       const results = await client.query()
-        .where({ inStock: true })
+        .where(client.inStock.eq(true))
         .orderBy("price", "desc")
         .limit(2)
         .execute();
@@ -294,6 +303,22 @@ describe("QueryBuilder", () => {
       expect(results).toHaveLength(2);
       expect(results[0].name).toBe("Laptop");
       expect(results[1].name).toBe("Phone");
+    });
+
+    it("filters with string contains", async () => {
+      const results = await client.query()
+        .where(client.name.contains("a"))
+        .execute();
+
+      expect(results.every(p => p.name.toLowerCase().includes("a"))).toBe(true);
+    });
+
+    it("filters with in() operator", async () => {
+      const results = await client.query()
+        .where(client.category.in(["electronics", "furniture"]))
+        .execute();
+
+      expect(results).toHaveLength(6);
     });
   });
 });

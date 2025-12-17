@@ -70,25 +70,54 @@ interface InspectOptions {
  * Generic client and types that can be imported from the package
  */
 
-type StringOperators = {
-    eq?: string;
-    neq?: string;
-    contains?: string;
-    startsWith?: string;
-    endsWith?: string;
-    in?: string[];
-};
-type NumericOperators = {
-    eq?: number;
-    neq?: number;
-    gt?: number;
-    gte?: number;
-    lt?: number;
-    lte?: number;
-    in?: number[];
-};
-interface ClientQueryOptions<TWhere = Record<string, unknown>, TSortable extends string = string> {
-    where?: TWhere;
+type OperatorType = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "startsWith" | "endsWith" | "in";
+interface Condition<TField extends string = string, TValue = unknown> {
+    readonly field: TField;
+    readonly operator: OperatorType;
+    readonly value: TValue;
+}
+declare function eq<F extends string, V>(field: F, value: V): Condition<F, V>;
+declare function neq<F extends string, V>(field: F, value: V): Condition<F, V>;
+declare function gt<F extends string>(field: F, value: number): Condition<F, number>;
+declare function gte<F extends string>(field: F, value: number): Condition<F, number>;
+declare function lt<F extends string>(field: F, value: number): Condition<F, number>;
+declare function lte<F extends string>(field: F, value: number): Condition<F, number>;
+declare function contains<F extends string>(field: F, value: string): Condition<F, string>;
+declare function startsWith<F extends string>(field: F, value: string): Condition<F, string>;
+declare function endsWith<F extends string>(field: F, value: string): Condition<F, string>;
+declare function inArray<F extends string, V>(field: F, values: V[]): Condition<F, V[]>;
+/** Field accessor for string fields */
+interface StringFieldAccessor<F extends string> {
+    eq(value: string): Condition<F, string>;
+    neq(value: string): Condition<F, string>;
+    contains(value: string): Condition<F, string>;
+    startsWith(value: string): Condition<F, string>;
+    endsWith(value: string): Condition<F, string>;
+    in(values: string[]): Condition<F, string[]>;
+}
+/** Field accessor for numeric fields */
+interface NumericFieldAccessor<F extends string> {
+    eq(value: number): Condition<F, number>;
+    neq(value: number): Condition<F, number>;
+    gt(value: number): Condition<F, number>;
+    gte(value: number): Condition<F, number>;
+    lt(value: number): Condition<F, number>;
+    lte(value: number): Condition<F, number>;
+    in(values: number[]): Condition<F, number[]>;
+}
+/** Field accessor for boolean fields */
+interface BooleanFieldAccessor<F extends string> {
+    eq(value: boolean): Condition<F, boolean>;
+    neq(value: boolean): Condition<F, boolean>;
+}
+/** Create a string field accessor */
+declare function stringField<F extends string>(field: F): StringFieldAccessor<F>;
+/** Create a numeric field accessor */
+declare function numericField<F extends string>(field: F): NumericFieldAccessor<F>;
+/** Create a boolean field accessor */
+declare function booleanField<F extends string>(field: F): BooleanFieldAccessor<F>;
+interface ClientQueryOptions<TSortable extends string = string> {
+    conditions?: Condition[];
     orderBy?: TSortable | {
         field: TSortable;
         direction: "asc" | "desc";
@@ -99,17 +128,17 @@ interface ClientQueryOptions<TWhere = Record<string, unknown>, TSortable extends
 interface ClientOptions {
     basePath: string;
 }
-declare class QueryBuilder<TItem extends Record<string, unknown>, TWhereClause, TSortableField extends string> {
+declare class QueryBuilder<TItem extends Record<string, unknown>, TCondition extends Condition, TSortableField extends string> {
     private client;
-    private _where;
+    private _conditions;
     private _orderBy;
     private _limit;
     private _offset;
-    constructor(client: StaticShardClient<TItem, TWhereClause, TSortableField>);
+    constructor(client: StaticShardClient<TItem, TCondition, TSortableField>);
     /**
-     * Add where conditions. Multiple calls merge conditions (AND logic).
+     * Add a where condition. Multiple calls use AND logic.
      */
-    where(conditions: Partial<TWhereClause>): this;
+    where(condition: TCondition): this;
     /**
      * Set sort order
      */
@@ -139,7 +168,7 @@ declare class QueryBuilder<TItem extends Record<string, unknown>, TWhereClause, 
      */
     count(): Promise<number>;
 }
-declare class StaticShardClient<TItem extends Record<string, unknown> = Record<string, unknown>, TWhereClause = Record<string, unknown>, TSortableField extends string = string> {
+declare class StaticShardClient<TItem extends Record<string, unknown> = Record<string, unknown>, TCondition extends Condition = Condition, TSortableField extends string = string> {
     private basePath;
     private manifest;
     private chunkCache;
@@ -157,17 +186,17 @@ declare class StaticShardClient<TItem extends Record<string, unknown> = Record<s
      */
     private findCandidateChunks;
     /**
-     * Check if a record matches the where clause
+     * Check if a record matches all conditions
      */
-    private matchesWhere;
+    private matchesConditions;
     /**
      * Start a chainable query
      */
-    query(): QueryBuilder<TItem, TWhereClause, TSortableField>;
+    query(): QueryBuilder<TItem, TCondition, TSortableField>;
     /**
      * Execute a query with options (internal, used by QueryBuilder)
      */
-    executeQuery(options?: ClientQueryOptions<TWhereClause, TSortableField>): Promise<TItem[]>;
+    executeQuery(options?: ClientQueryOptions<TSortableField>): Promise<TItem[]>;
     /**
      * Get a single record by primary key
      */
@@ -176,7 +205,7 @@ declare class StaticShardClient<TItem extends Record<string, unknown> = Record<s
      * Count records matching a query (internal, used by QueryBuilder)
      */
     executeCount(options?: {
-        where?: TWhereClause;
+        conditions?: Condition[];
     }): Promise<number>;
     /**
      * Get schema information
@@ -190,6 +219,6 @@ declare class StaticShardClient<TItem extends Record<string, unknown> = Record<s
 /**
  * Create a typed client instance
  */
-declare function createClient<TItem extends Record<string, unknown> = Record<string, unknown>, TWhereClause = Record<string, unknown>, TSortableField extends string = string>(options: ClientOptions): StaticShardClient<TItem, TWhereClause, TSortableField>;
+declare function createClient<TItem extends Record<string, unknown> = Record<string, unknown>, TCondition extends Condition = Condition, TSortableField extends string = string>(options: ClientOptions): StaticShardClient<TItem, TCondition, TSortableField>;
 
-export { type BuildConfig as B, type ChunkMeta, type ClientOptions, type ClientQueryOptions, type DataRecord as D, type FieldType as F, type InspectOptions as I, type Manifest, type NumericOperators, type ParseResult as P, QueryBuilder, type Schema, StaticShardClient, type StringOperators, type FieldSchema as a, type FieldStats as b, type DataFormat as c, createClient, type BuildOptions as d };
+export { type BuildConfig as B, type BooleanFieldAccessor, type ChunkMeta, type ClientOptions, type ClientQueryOptions, type Condition, type DataRecord as D, type FieldType as F, type InspectOptions as I, type Manifest, type NumericFieldAccessor, type OperatorType, type ParseResult as P, QueryBuilder, type Schema, StaticShardClient, type StringFieldAccessor, type FieldSchema as a, type FieldStats as b, booleanField, type DataFormat as c, contains, createClient, type BuildOptions as d, endsWith, eq, gt, gte, inArray, lt, lte, neq, numericField, startsWith, stringField };

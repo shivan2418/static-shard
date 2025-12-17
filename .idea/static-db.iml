@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/mtg-output" />
       <excludeFolder url="file://$MODULE_DIR$/testdata" />
+      <excludeFolder url="file://$MODULE_DIR$/examples/react-demo/output" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.14" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

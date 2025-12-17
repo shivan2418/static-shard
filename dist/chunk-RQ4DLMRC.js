@@ -1,7 +1,64 @@
 // src/client/index.ts
+function eq(field, value) {
+  return { field, operator: "eq", value };
+}
+function neq(field, value) {
+  return { field, operator: "neq", value };
+}
+function gt(field, value) {
+  return { field, operator: "gt", value };
+}
+function gte(field, value) {
+  return { field, operator: "gte", value };
+}
+function lt(field, value) {
+  return { field, operator: "lt", value };
+}
+function lte(field, value) {
+  return { field, operator: "lte", value };
+}
+function contains(field, value) {
+  return { field, operator: "contains", value };
+}
+function startsWith(field, value) {
+  return { field, operator: "startsWith", value };
+}
+function endsWith(field, value) {
+  return { field, operator: "endsWith", value };
+}
+function inArray(field, values) {
+  return { field, operator: "in", value: values };
+}
+function stringField(field) {
+  return {
+    eq: (value) => eq(field, value),
+    neq: (value) => neq(field, value),
+    contains: (value) => contains(field, value),
+    startsWith: (value) => startsWith(field, value),
+    endsWith: (value) => endsWith(field, value),
+    in: (values) => inArray(field, values)
+  };
+}
+function numericField(field) {
+  return {
+    eq: (value) => eq(field, value),
+    neq: (value) => neq(field, value),
+    gt: (value) => gt(field, value),
+    gte: (value) => gte(field, value),
+    lt: (value) => lt(field, value),
+    lte: (value) => lte(field, value),
+    in: (values) => inArray(field, values)
+  };
+}
+function booleanField(field) {
+  return {
+    eq: (value) => eq(field, value),
+    neq: (value) => neq(field, value)
+  };
+}
 var QueryBuilder = class {
   client;
-  _where;
+  _conditions = [];
   _orderBy;
   _limit;
   _offset;
@@ -9,14 +66,10 @@ var QueryBuilder = class {
     this.client = client;
   }
   /**
-   * Add where conditions. Multiple calls merge conditions (AND logic).
+   * Add a where condition. Multiple calls use AND logic.
    */
-  where(conditions) {
-    if (this._where) {
-      this._where = { ...this._where, ...conditions };
-    } else {
-      this._where = conditions;
-    }
+  where(condition) {
+    this._conditions.push(condition);
     return this;
   }
   /**
@@ -45,7 +98,7 @@ var QueryBuilder = class {
    */
   buildOptions() {
     return {
-      where: this._where,
+      conditions: this._conditions.length > 0 ? this._conditions : void 0,
       orderBy: this._orderBy,
       limit: this._limit,
       offset: this._offset
@@ -71,7 +124,9 @@ var QueryBuilder = class {
    * Get the count of matching records
    */
   async count() {
-    return this.client.executeCount({ where: this._where });
+    return this.client.executeCount({
+      conditions: this._conditions.length > 0 ? this._conditions : void 0
+    });
   }
 };
 var StaticShardClient = class {
@@ -115,82 +170,93 @@ var StaticShardClient = class {
   /**
    * Find chunk IDs that might contain matching records
    */
-  findCandidateChunks(manifest, where) {
-    if (!where) {
+  findCandidateChunks(manifest, conditions) {
+    if (!conditions || conditions.length === 0) {
       return manifest.chunks.map((c) => c.id);
     }
     let candidateChunks = null;
-    for (const [field, condition] of Object.entries(where)) {
+    for (const condition of conditions) {
+      const { field, operator, value } = condition;
       const index = manifest.indices[field];
-      if (index && (typeof condition === "string" || typeof condition === "number" || typeof condition === "boolean")) {
-        const value = String(condition);
-        const chunks = index[value] || [];
+      if (operator === "eq" && index) {
+        const strValue = String(value);
+        const chunks = index[strValue] || [];
         if (candidateChunks === null) {
           candidateChunks = new Set(chunks);
         } else {
           const current = candidateChunks;
           candidateChunks = new Set(chunks.filter((c) => current.has(c)));
         }
-      } else if (typeof condition === "object" && condition !== null && "eq" in condition) {
-        const value = String(condition.eq);
-        const chunks = index?.[value] || [];
-        if (index) {
-          if (candidateChunks === null) {
-            candidateChunks = new Set(chunks);
-          } else {
-            const current = candidateChunks;
-            candidateChunks = new Set(chunks.filter((c) => current.has(c)));
-          }
-        }
       }
-      if (typeof condition === "object" && condition !== null) {
-        const rangeCondition = condition;
-        const hasRangeOp = "gt" in rangeCondition || "gte" in rangeCondition || "lt" in rangeCondition || "lte" in rangeCondition;
-        if (hasRangeOp) {
-          const matchingChunks = manifest.chunks.filter((chunk) => {
-            const range = chunk.fieldRanges[field];
-            if (!range) return true;
-            const min = range.min;
-            const max = range.max;
-            if (rangeCondition.gt !== void 0 && max <= rangeCondition.gt) return false;
-            if (rangeCondition.gte !== void 0 && max < rangeCondition.gte) return false;
-            if (rangeCondition.lt !== void 0 && min >= rangeCondition.lt) return false;
-            if (rangeCondition.lte !== void 0 && min > rangeCondition.lte) return false;
-            return true;
-          }).map((c) => c.id);
-          if (candidateChunks === null) {
-            candidateChunks = new Set(matchingChunks);
-          } else {
-            const current = candidateChunks;
-            candidateChunks = new Set(matchingChunks.filter((c) => current.has(c)));
+      if (["gt", "gte", "lt", "lte"].includes(operator)) {
+        const rangeValue = value;
+        const matchingChunks = manifest.chunks.filter((chunk) => {
+          const range = chunk.fieldRanges[field];
+          if (!range) return true;
+          const min = range.min;
+          const max = range.max;
+          switch (operator) {
+            case "gt":
+              return max > rangeValue;
+            case "gte":
+              return max >= rangeValue;
+            case "lt":
+              return min < rangeValue;
+            case "lte":
+              return min <= rangeValue;
           }
+          return true;
+        }).map((c) => c.id);
+        if (candidateChunks === null) {
+          candidateChunks = new Set(matchingChunks);
+        } else {
+          const current = candidateChunks;
+          candidateChunks = new Set(matchingChunks.filter((c) => current.has(c)));
         }
       }
     }
     return candidateChunks ? [...candidateChunks] : manifest.chunks.map((c) => c.id);
   }
   /**
-   * Check if a record matches the where clause
+   * Check if a record matches all conditions
    */
-  matchesWhere(record, where) {
-    if (!where) return true;
-    for (const [field, condition] of Object.entries(where)) {
-      const value = record[field];
-      if (typeof condition !== "object" || condition === null) {
-        if (value !== condition) return false;
-        continue;
+  matchesConditions(record, conditions) {
+    if (!conditions || conditions.length === 0) return true;
+    for (const condition of conditions) {
+      const { field, operator, value: condValue } = condition;
+      const recordValue = record[field];
+      switch (operator) {
+        case "eq":
+          if (recordValue !== condValue) return false;
+          break;
+        case "neq":
+          if (recordValue === condValue) return false;
+          break;
+        case "gt":
+          if (typeof recordValue !== "number" || recordValue <= condValue) return false;
+          break;
+        case "gte":
+          if (typeof recordValue !== "number" || recordValue < condValue) return false;
+          break;
+        case "lt":
+          if (typeof recordValue !== "number" || recordValue >= condValue) return false;
+          break;
+        case "lte":
+          if (typeof recordValue !== "number" || recordValue > condValue) return false;
+          break;
+        case "contains":
+          if (typeof recordValue !== "string" || !recordValue.includes(condValue)) return false;
+          break;
+        case "startsWith":
+          if (typeof recordValue !== "string" || !recordValue.startsWith(condValue)) return false;
+          break;
+        case "endsWith":
+          if (typeof recordValue !== "string" || !recordValue.endsWith(condValue)) return false;
+          break;
+        case "in":
+          if (!condValue.includes(recordValue)) return false;
+          break;
       }
-      const ops = condition;
-      if ("eq" in ops && value !== ops.eq) return false;
-      if ("neq" in ops && value === ops.neq) return false;
-      if ("gt" in ops && (typeof value !== "number" || value <= ops.gt)) return false;
-      if ("gte" in ops && (typeof value !== "number" || value < ops.gte)) return false;
-      if ("lt" in ops && (typeof value !== "number" || value >= ops.lt)) return false;
-      if ("lte" in ops && (typeof value !== "number" || value > ops.lte)) return false;
-      if ("contains" in ops && (typeof value !== "string" || !value.includes(ops.contains))) return false;
-      if ("startsWith" in ops && (typeof value !== "string" || !value.startsWith(ops.startsWith))) return false;
-      if ("endsWith" in ops && (typeof value !== "string" || !value.endsWith(ops.endsWith))) return false;
-      if ("in" in ops && !ops.in.includes(value)) return false;
     }
     return true;
   }
@@ -205,13 +271,13 @@ var StaticShardClient = class {
    */
   async executeQuery(options = {}) {
     const manifest = await this.loadManifest();
-    const candidateChunkIds = this.findCandidateChunks(manifest, options.where);
+    const candidateChunkIds = this.findCandidateChunks(manifest, options.conditions);
     const chunkPromises = candidateChunkIds.map((id) => this.loadChunk(id));
     const chunks = await Promise.all(chunkPromises);
     let results = [];
     for (const chunk of chunks) {
       for (const record of chunk) {
-        if (this.matchesWhere(record, options.where)) {
+        if (this.matchesConditions(record, options.conditions)) {
           results.push(record);
         }
       }
@@ -246,7 +312,7 @@ var StaticShardClient = class {
       throw new Error("No primary field defined in schema");
     }
     const results = await this.executeQuery({
-      where: { [primaryField]: id },
+      conditions: [eq(primaryField, id)],
       limit: 1
     });
     return results[0] || null;
@@ -256,10 +322,10 @@ var StaticShardClient = class {
    */
   async executeCount(options = {}) {
     const manifest = await this.loadManifest();
-    if (!options.where) {
+    if (!options.conditions || options.conditions.length === 0) {
       return manifest.totalRecords;
     }
-    const results = await this.executeQuery({ where: options.where });
+    const results = await this.executeQuery({ conditions: options.conditions });
     return results.length;
   }
   /**
@@ -281,8 +347,21 @@ function createClient(options) {
 }
 
 export {
+  eq,
+  neq,
+  gt,
+  gte,
+  lt,
+  lte,
+  contains,
+  startsWith,
+  endsWith,
+  inArray,
+  stringField,
+  numericField,
+  booleanField,
   QueryBuilder,
   StaticShardClient,
   createClient
 };
-//# sourceMappingURL=chunk-7S2YBNO5.js.map
+//# sourceMappingURL=chunk-RQ4DLMRC.js.map

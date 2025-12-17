@@ -9,34 +9,138 @@ import type { ChunkMeta, Manifest, Schema } from "../types/index.js";
 export type { ChunkMeta, Manifest, Schema };
 
 // ============================================================================
-// Operator Types
+// Condition Types and Operator Functions
 // ============================================================================
 
-export type StringOperators = {
-  eq?: string;
-  neq?: string;
-  contains?: string;
-  startsWith?: string;
-  endsWith?: string;
-  in?: string[];
-};
+export type OperatorType =
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "contains"
+  | "startsWith"
+  | "endsWith"
+  | "in";
 
-export type NumericOperators = {
-  eq?: number;
-  neq?: number;
-  gt?: number;
-  gte?: number;
-  lt?: number;
-  lte?: number;
-  in?: number[];
-};
+export interface Condition<TField extends string = string, TValue = unknown> {
+  readonly field: TField;
+  readonly operator: OperatorType;
+  readonly value: TValue;
+}
+
+// Operator functions
+export function eq<F extends string, V>(field: F, value: V): Condition<F, V> {
+  return { field, operator: "eq", value };
+}
+
+export function neq<F extends string, V>(field: F, value: V): Condition<F, V> {
+  return { field, operator: "neq", value };
+}
+
+export function gt<F extends string>(field: F, value: number): Condition<F, number> {
+  return { field, operator: "gt", value };
+}
+
+export function gte<F extends string>(field: F, value: number): Condition<F, number> {
+  return { field, operator: "gte", value };
+}
+
+export function lt<F extends string>(field: F, value: number): Condition<F, number> {
+  return { field, operator: "lt", value };
+}
+
+export function lte<F extends string>(field: F, value: number): Condition<F, number> {
+  return { field, operator: "lte", value };
+}
+
+export function contains<F extends string>(field: F, value: string): Condition<F, string> {
+  return { field, operator: "contains", value };
+}
+
+export function startsWith<F extends string>(field: F, value: string): Condition<F, string> {
+  return { field, operator: "startsWith", value };
+}
+
+export function endsWith<F extends string>(field: F, value: string): Condition<F, string> {
+  return { field, operator: "endsWith", value };
+}
+
+export function inArray<F extends string, V>(field: F, values: V[]): Condition<F, V[]> {
+  return { field, operator: "in", value: values };
+}
+
+// ============================================================================
+// Field Accessor Types (for generated clients)
+// ============================================================================
+
+/** Field accessor for string fields */
+export interface StringFieldAccessor<F extends string> {
+  eq(value: string): Condition<F, string>;
+  neq(value: string): Condition<F, string>;
+  contains(value: string): Condition<F, string>;
+  startsWith(value: string): Condition<F, string>;
+  endsWith(value: string): Condition<F, string>;
+  in(values: string[]): Condition<F, string[]>;
+}
+
+/** Field accessor for numeric fields */
+export interface NumericFieldAccessor<F extends string> {
+  eq(value: number): Condition<F, number>;
+  neq(value: number): Condition<F, number>;
+  gt(value: number): Condition<F, number>;
+  gte(value: number): Condition<F, number>;
+  lt(value: number): Condition<F, number>;
+  lte(value: number): Condition<F, number>;
+  in(values: number[]): Condition<F, number[]>;
+}
+
+/** Field accessor for boolean fields */
+export interface BooleanFieldAccessor<F extends string> {
+  eq(value: boolean): Condition<F, boolean>;
+  neq(value: boolean): Condition<F, boolean>;
+}
+
+/** Create a string field accessor */
+export function stringField<F extends string>(field: F): StringFieldAccessor<F> {
+  return {
+    eq: (value: string) => eq(field, value),
+    neq: (value: string) => neq(field, value),
+    contains: (value: string) => contains(field, value),
+    startsWith: (value: string) => startsWith(field, value),
+    endsWith: (value: string) => endsWith(field, value),
+    in: (values: string[]) => inArray(field, values),
+  };
+}
+
+/** Create a numeric field accessor */
+export function numericField<F extends string>(field: F): NumericFieldAccessor<F> {
+  return {
+    eq: (value: number) => eq(field, value),
+    neq: (value: number) => neq(field, value),
+    gt: (value: number) => gt(field, value),
+    gte: (value: number) => gte(field, value),
+    lt: (value: number) => lt(field, value),
+    lte: (value: number) => lte(field, value),
+    in: (values: number[]) => inArray(field, values),
+  };
+}
+
+/** Create a boolean field accessor */
+export function booleanField<F extends string>(field: F): BooleanFieldAccessor<F> {
+  return {
+    eq: (value: boolean) => eq(field, value),
+    neq: (value: boolean) => neq(field, value),
+  };
+}
 
 // ============================================================================
 // Client Types
 // ============================================================================
 
-export interface ClientQueryOptions<TWhere = Record<string, unknown>, TSortable extends string = string> {
-  where?: TWhere;
+export interface ClientQueryOptions<TSortable extends string = string> {
+  conditions?: Condition[];
   orderBy?: TSortable | { field: TSortable; direction: "asc" | "desc" };
   limit?: number;
   offset?: number;
@@ -52,28 +156,24 @@ export interface ClientOptions {
 
 export class QueryBuilder<
   TItem extends Record<string, unknown>,
-  TWhereClause,
+  TCondition extends Condition,
   TSortableField extends string
 > {
-  private client: StaticShardClient<TItem, TWhereClause, TSortableField>;
-  private _where: TWhereClause | undefined;
+  private client: StaticShardClient<TItem, TCondition, TSortableField>;
+  private _conditions: Condition[] = [];
   private _orderBy: { field: TSortableField; direction: "asc" | "desc" } | undefined;
   private _limit: number | undefined;
   private _offset: number | undefined;
 
-  constructor(client: StaticShardClient<TItem, TWhereClause, TSortableField>) {
+  constructor(client: StaticShardClient<TItem, TCondition, TSortableField>) {
     this.client = client;
   }
 
   /**
-   * Add where conditions. Multiple calls merge conditions (AND logic).
+   * Add a where condition. Multiple calls use AND logic.
    */
-  where(conditions: Partial<TWhereClause>): this {
-    if (this._where) {
-      this._where = { ...this._where, ...conditions } as TWhereClause;
-    } else {
-      this._where = conditions as TWhereClause;
-    }
+  where(condition: TCondition): this {
+    this._conditions.push(condition);
     return this;
   }
 
@@ -104,9 +204,9 @@ export class QueryBuilder<
   /**
    * Build the options object for internal use
    */
-  private buildOptions(): ClientQueryOptions<TWhereClause, TSortableField> {
+  private buildOptions(): ClientQueryOptions<TSortableField> {
     return {
-      where: this._where,
+      conditions: this._conditions.length > 0 ? this._conditions : undefined,
       orderBy: this._orderBy,
       limit: this._limit,
       offset: this._offset,
@@ -135,7 +235,9 @@ export class QueryBuilder<
    * Get the count of matching records
    */
   async count(): Promise<number> {
-    return this.client.executeCount({ where: this._where });
+    return this.client.executeCount({
+      conditions: this._conditions.length > 0 ? this._conditions : undefined,
+    });
   }
 }
 
@@ -145,7 +247,7 @@ export class QueryBuilder<
 
 export class StaticShardClient<
   TItem extends Record<string, unknown> = Record<string, unknown>,
-  TWhereClause = Record<string, unknown>,
+  TCondition extends Condition = Condition,
   TSortableField extends string = string
 > {
   private basePath: string;
@@ -197,19 +299,21 @@ export class StaticShardClient<
   /**
    * Find chunk IDs that might contain matching records
    */
-  private findCandidateChunks(manifest: Manifest, where?: TWhereClause): string[] {
-    if (!where) {
+  private findCandidateChunks(manifest: Manifest, conditions?: Condition[]): string[] {
+    if (!conditions || conditions.length === 0) {
       return manifest.chunks.map((c) => c.id);
     }
 
     let candidateChunks: Set<string> | null = null;
 
-    for (const [field, condition] of Object.entries(where as Record<string, unknown>)) {
+    for (const condition of conditions) {
+      const { field, operator, value } = condition;
       const index = manifest.indices[field];
 
-      if (index && (typeof condition === "string" || typeof condition === "number" || typeof condition === "boolean")) {
-        const value = String(condition);
-        const chunks = index[value] || [];
+      // Index lookup for eq operator
+      if (operator === "eq" && index) {
+        const strValue = String(value);
+        const chunks = index[strValue] || [];
 
         if (candidateChunks === null) {
           candidateChunks = new Set(chunks);
@@ -217,49 +321,39 @@ export class StaticShardClient<
           const current: Set<string> = candidateChunks;
           candidateChunks = new Set(chunks.filter((c) => current.has(c)));
         }
-      } else if (typeof condition === "object" && condition !== null && "eq" in condition) {
-        const value = String((condition as { eq: unknown }).eq);
-        const chunks = index?.[value] || [];
-
-        if (index) {
-          if (candidateChunks === null) {
-            candidateChunks = new Set(chunks);
-          } else {
-            const current: Set<string> = candidateChunks;
-            candidateChunks = new Set(chunks.filter((c) => current.has(c)));
-          }
-        }
       }
 
-      // Range pruning
-      if (typeof condition === "object" && condition !== null) {
-        const rangeCondition = condition as { gt?: number; gte?: number; lt?: number; lte?: number };
-        const hasRangeOp = "gt" in rangeCondition || "gte" in rangeCondition || "lt" in rangeCondition || "lte" in rangeCondition;
+      // Range pruning for gt, gte, lt, lte operators
+      if (["gt", "gte", "lt", "lte"].includes(operator)) {
+        const rangeValue = value as number;
 
-        if (hasRangeOp) {
-          const matchingChunks = manifest.chunks
-            .filter((chunk) => {
-              const range = chunk.fieldRanges[field];
-              if (!range) return true;
+        const matchingChunks = manifest.chunks
+          .filter((chunk) => {
+            const range = chunk.fieldRanges[field];
+            if (!range) return true;
 
-              const min = range.min as number;
-              const max = range.max as number;
+            const min = range.min as number;
+            const max = range.max as number;
 
-              if (rangeCondition.gt !== undefined && max <= rangeCondition.gt) return false;
-              if (rangeCondition.gte !== undefined && max < rangeCondition.gte) return false;
-              if (rangeCondition.lt !== undefined && min >= rangeCondition.lt) return false;
-              if (rangeCondition.lte !== undefined && min > rangeCondition.lte) return false;
+            switch (operator) {
+              case "gt":
+                return max > rangeValue;
+              case "gte":
+                return max >= rangeValue;
+              case "lt":
+                return min < rangeValue;
+              case "lte":
+                return min <= rangeValue;
+            }
+            return true;
+          })
+          .map((c) => c.id);
 
-              return true;
-            })
-            .map((c) => c.id);
-
-          if (candidateChunks === null) {
-            candidateChunks = new Set(matchingChunks);
-          } else {
-            const current: Set<string> = candidateChunks;
-            candidateChunks = new Set(matchingChunks.filter((c) => current.has(c)));
-          }
+        if (candidateChunks === null) {
+          candidateChunks = new Set(matchingChunks);
+        } else {
+          const current: Set<string> = candidateChunks;
+          candidateChunks = new Set(matchingChunks.filter((c) => current.has(c)));
         }
       }
     }
@@ -268,31 +362,47 @@ export class StaticShardClient<
   }
 
   /**
-   * Check if a record matches the where clause
+   * Check if a record matches all conditions
    */
-  private matchesWhere(record: TItem, where?: TWhereClause): boolean {
-    if (!where) return true;
+  private matchesConditions(record: TItem, conditions?: Condition[]): boolean {
+    if (!conditions || conditions.length === 0) return true;
 
-    for (const [field, condition] of Object.entries(where as Record<string, unknown>)) {
-      const value = record[field];
+    for (const condition of conditions) {
+      const { field, operator, value: condValue } = condition;
+      const recordValue = record[field];
 
-      if (typeof condition !== "object" || condition === null) {
-        if (value !== condition) return false;
-        continue;
+      switch (operator) {
+        case "eq":
+          if (recordValue !== condValue) return false;
+          break;
+        case "neq":
+          if (recordValue === condValue) return false;
+          break;
+        case "gt":
+          if (typeof recordValue !== "number" || recordValue <= (condValue as number)) return false;
+          break;
+        case "gte":
+          if (typeof recordValue !== "number" || recordValue < (condValue as number)) return false;
+          break;
+        case "lt":
+          if (typeof recordValue !== "number" || recordValue >= (condValue as number)) return false;
+          break;
+        case "lte":
+          if (typeof recordValue !== "number" || recordValue > (condValue as number)) return false;
+          break;
+        case "contains":
+          if (typeof recordValue !== "string" || !recordValue.includes(condValue as string)) return false;
+          break;
+        case "startsWith":
+          if (typeof recordValue !== "string" || !recordValue.startsWith(condValue as string)) return false;
+          break;
+        case "endsWith":
+          if (typeof recordValue !== "string" || !recordValue.endsWith(condValue as string)) return false;
+          break;
+        case "in":
+          if (!(condValue as unknown[]).includes(recordValue)) return false;
+          break;
       }
-
-      const ops = condition as StringOperators & NumericOperators;
-
-      if ("eq" in ops && value !== ops.eq) return false;
-      if ("neq" in ops && value === ops.neq) return false;
-      if ("gt" in ops && (typeof value !== "number" || value <= ops.gt!)) return false;
-      if ("gte" in ops && (typeof value !== "number" || value < ops.gte!)) return false;
-      if ("lt" in ops && (typeof value !== "number" || value >= ops.lt!)) return false;
-      if ("lte" in ops && (typeof value !== "number" || value > ops.lte!)) return false;
-      if ("contains" in ops && (typeof value !== "string" || !value.includes(ops.contains!))) return false;
-      if ("startsWith" in ops && (typeof value !== "string" || !value.startsWith(ops.startsWith!))) return false;
-      if ("endsWith" in ops && (typeof value !== "string" || !value.endsWith(ops.endsWith!))) return false;
-      if ("in" in ops && !(ops.in as unknown[])!.includes(value)) return false;
     }
 
     return true;
@@ -301,16 +411,16 @@ export class StaticShardClient<
   /**
    * Start a chainable query
    */
-  query(): QueryBuilder<TItem, TWhereClause, TSortableField> {
+  query(): QueryBuilder<TItem, TCondition, TSortableField> {
     return new QueryBuilder(this);
   }
 
   /**
    * Execute a query with options (internal, used by QueryBuilder)
    */
-  async executeQuery(options: ClientQueryOptions<TWhereClause, TSortableField> = {}): Promise<TItem[]> {
+  async executeQuery(options: ClientQueryOptions<TSortableField> = {}): Promise<TItem[]> {
     const manifest = await this.loadManifest();
-    const candidateChunkIds = this.findCandidateChunks(manifest, options.where);
+    const candidateChunkIds = this.findCandidateChunks(manifest, options.conditions);
 
     const chunkPromises = candidateChunkIds.map((id) => this.loadChunk(id));
     const chunks = await Promise.all(chunkPromises);
@@ -318,7 +428,7 @@ export class StaticShardClient<
     let results: TItem[] = [];
     for (const chunk of chunks) {
       for (const record of chunk) {
-        if (this.matchesWhere(record, options.where)) {
+        if (this.matchesConditions(record, options.conditions)) {
           results.push(record);
         }
       }
@@ -363,7 +473,7 @@ export class StaticShardClient<
     }
 
     const results = await this.executeQuery({
-      where: { [primaryField]: id } as TWhereClause,
+      conditions: [eq(primaryField, id)],
       limit: 1,
     });
 
@@ -373,14 +483,14 @@ export class StaticShardClient<
   /**
    * Count records matching a query (internal, used by QueryBuilder)
    */
-  async executeCount(options: { where?: TWhereClause } = {}): Promise<number> {
+  async executeCount(options: { conditions?: Condition[] } = {}): Promise<number> {
     const manifest = await this.loadManifest();
 
-    if (!options.where) {
+    if (!options.conditions || options.conditions.length === 0) {
       return manifest.totalRecords;
     }
 
-    const results = await this.executeQuery({ where: options.where });
+    const results = await this.executeQuery({ conditions: options.conditions });
     return results.length;
   }
 
@@ -398,6 +508,7 @@ export class StaticShardClient<
   clearCache(): void {
     this.chunkCache.clear();
   }
+
 }
 
 /**
@@ -405,8 +516,8 @@ export class StaticShardClient<
  */
 export function createClient<
   TItem extends Record<string, unknown> = Record<string, unknown>,
-  TWhereClause = Record<string, unknown>,
+  TCondition extends Condition = Condition,
   TSortableField extends string = string
->(options: ClientOptions): StaticShardClient<TItem, TWhereClause, TSortableField> {
-  return new StaticShardClient<TItem, TWhereClause, TSortableField>(options);
+>(options: ClientOptions): StaticShardClient<TItem, TCondition, TSortableField> {
+  return new StaticShardClient<TItem, TCondition, TSortableField>(options);
 }

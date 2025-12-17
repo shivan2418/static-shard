@@ -32,22 +32,21 @@ function generateFieldNamesType(schema: Schema): string {
 }
 
 /**
- * Generate where clause types based on schema field types
+ * Generate field accessors for the client
  */
-function generateWhereTypes(schema: Schema): string {
-  return `export type WhereClause = {
-${schema.fields
-  .map((f) => {
+function generateFieldAccessors(schema: Schema): string {
+  const accessors = schema.fields.map((f) => {
+    const fieldName = f.name;
     if (f.type === "number") {
-      return `  ${f.name}?: number | NumericOperators;`;
+      return `  ${fieldName} = numericField("${fieldName}");`;
     } else if (f.type === "boolean") {
-      return `  ${f.name}?: boolean;`;
+      return `  ${fieldName} = booleanField("${fieldName}");`;
     } else {
-      return `  ${f.name}?: string | StringOperators;`;
+      // string, date, or other types default to string accessor
+      return `  ${fieldName} = stringField("${fieldName}");`;
     }
-  })
-  .join("\n")}
-};`;
+  });
+  return accessors.join("\n");
 }
 
 /**
@@ -63,7 +62,7 @@ export function generateClient(
   const itemInterface = cleanupTypes(rawTypes);
 
   const fieldNamesType = generateFieldNamesType(schema);
-  const whereTypes = generateWhereTypes(schema);
+  const fieldAccessors = generateFieldAccessors(schema);
 
   const sortableFields = schema.fields
     .filter((f) => f.type === "number" || f.type === "string" || f.type === "date")
@@ -75,14 +74,26 @@ export function generateClient(
  * Generated at: ${manifest.generatedAt}
  * Total records: ${manifest.totalRecords}
  * Chunks: ${manifest.chunks.length}
+ *
+ * Usage:
+ *   import { db } from './client'
+ *
+ *   // Query with field accessors - no imports needed!
+ *   const results = await db.query()
+ *     .where(db.category.eq('electronics'))
+ *     .where(db.price.gte(100))
+ *     .orderBy('price', 'desc')
+ *     .execute()
  */
 
 import {
   StaticShardClient,
   QueryBuilder,
   createClient as createBaseClient,
-  StringOperators,
-  NumericOperators,
+  stringField,
+  numericField,
+  booleanField,
+  type Condition,
   type ClientOptions,
   type ClientQueryOptions,
 } from "static-shard";
@@ -95,21 +106,25 @@ ${itemInterface}
 
 ${fieldNamesType}
 
-${whereTypes}
-
 export type SortableField = ${sortableFields || "string"};
 
+// Typed condition for this schema
+export type ItemCondition = Condition<FieldName>;
+
 // ============================================================================
-// Typed Client
+// Typed Client with Field Accessors
 // ============================================================================
 
-export type TypedQueryOptions = ClientQueryOptions<WhereClause, SortableField>;
-export type TypedQueryBuilder = QueryBuilder<Item, WhereClause, SortableField>;
+export type TypedQueryOptions = ClientQueryOptions<SortableField>;
+export type TypedQueryBuilder = QueryBuilder<Item, ItemCondition, SortableField>;
 
-export class Client extends StaticShardClient<Item, WhereClause, SortableField> {}
+export class Client extends StaticShardClient<Item, ItemCondition, SortableField> {
+  // Field accessors for building conditions
+${fieldAccessors}
+}
 
 export function createClient(options: ClientOptions): Client {
-  return createBaseClient<Item, WhereClause, SortableField>(options);
+  return new Client(options);
 }
 
 // Default client for current directory
