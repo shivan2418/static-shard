@@ -16,24 +16,23 @@ function App() {
   }, [category, inStock, minPrice, maxPrice, orderBy, limit])
 
   const runQuery = async () => {
-    // Build query using the chainable API - TypeScript provides IntelliSense here!
+    // Build query using field accessors - TypeScript provides IntelliSense!
     let query: TypedQueryBuilder = db.query()
 
     if (category) {
-      query = query.where({ category })
+      query = query.where(db.category.eq(category))
     }
     if (inStock) {
-      query = query.where({ inStock: inStock === 'true' })
+      query = query.where(db.inStock.eq(inStock === 'true'))
     }
-    if (minPrice || maxPrice) {
-      const priceFilter: { gte?: number; lte?: number } = {}
-      if (minPrice) priceFilter.gte = parseFloat(minPrice)
-      if (maxPrice) priceFilter.lte = parseFloat(maxPrice)
-      query = query.where({ price: priceFilter })
+    if (minPrice) {
+      query = query.where(db.price.gte(parseFloat(minPrice)))
+    }
+    if (maxPrice) {
+      query = query.where(db.price.lte(parseFloat(maxPrice)))
     }
     if (orderBy) {
       const [field, dir] = orderBy.split('-') as [keyof Item, 'asc' | 'desc']
-      // TypeScript knows field must be a SortableField!
       if (field === 'price' || field === 'name' || field === 'category' || field === 'id') {
         query = query.orderBy(field, dir)
       }
@@ -55,20 +54,20 @@ function App() {
     let code = 'db.query()'
 
     if (category) {
-      code += `\n  .where({ category: "${category}" })`
+      code += `\n  .where(db.category.eq('${category}'))`
     }
     if (inStock) {
-      code += `\n  .where({ inStock: ${inStock} })`
+      code += `\n  .where(db.inStock.eq(${inStock}))`
     }
-    if (minPrice || maxPrice) {
-      const parts = []
-      if (minPrice) parts.push(`gte: ${minPrice}`)
-      if (maxPrice) parts.push(`lte: ${maxPrice}`)
-      code += `\n  .where({ price: { ${parts.join(', ')} } })`
+    if (minPrice) {
+      code += `\n  .where(db.price.gte(${minPrice}))`
+    }
+    if (maxPrice) {
+      code += `\n  .where(db.price.lte(${maxPrice}))`
     }
     if (orderBy) {
       const [field, dir] = orderBy.split('-')
-      code += `\n  .orderBy("${field}", "${dir}")`
+      code += `\n  .orderBy('${field}', '${dir}')`
     }
     if (limit) {
       code += `\n  .limit(${limit})`
@@ -80,7 +79,7 @@ function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui', maxWidth: 1000, margin: '0 auto', padding: 20 }}>
-      <h1>Static Shard - Chainable Query Demo</h1>
+      <h1>Static Shard - Field Accessor Query Demo</h1>
 
       <div style={{ background: '#f5f5f5', padding: 20, borderRadius: 8, marginBottom: 20 }}>
         <h3>Build your query:</h3>
