@@ -12,7 +12,12 @@
     "query",
     "large-data",
     "browser",
-    "static-site"
+    "static-site",
+    "typescript",
+    "typed",
+    "codegen",
+    "cdn",
+    "no-backend"
   ],
   "engines": {
     "node": ">=18"
