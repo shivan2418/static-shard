@@ -1,0 +1,15 @@
+{
+  "name": "config-wizard-prototype",
+  "private": true,
+  "type": "module",
+  "description": "THROWAWAY — T7 (#10) config-wizard prototype. Not part of the published packages.",
+  "scripts": {
+    "raw": "node --experimental-strip-types tui.ts",
+    "ink": "tsx wizard-ink.tsx"
+  },
+  "devDependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1",
+    "tsx": "^4.16.0"
+  }
+}
