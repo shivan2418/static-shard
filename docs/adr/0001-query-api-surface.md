@@ -37,8 +37,8 @@ Rationale:
 
 ### Query features
 
-- `findMany(args)` → full records (whole nested payload; no projection — see out of scope)
-- `count(args)` → number
+- `findMany(args)` → **`{ records, hasMore }`** — full records (whole nested payload; no projection — see out of scope) plus an exact next-page flag via `limit + 1` over-fetch *(shape set by ADR-0008 — see T9)*
+- `count(args)` → **`{ count, exact }`** — approximate upper bound (zero data-shard fetch); `exact` true only for empty-`where` / pruned-to-zero. Input reserves a compile-time-locked `opts?: { exact?: false }` for a deferred exact mode *(ADR-0008 — see T9)*
 - `get(id)` → single record **or `null`; codegen-emitted only when a user PK exists** (per ADR/T1)
 - `getSchema()` → the runtime schema descriptor
 - `orderBy` — object form over indexed fields, `"asc" | "desc"`, multi-key allowed
