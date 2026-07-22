@@ -21,6 +21,133 @@ Industry moved *away* from the "single generated file, everything inlined" model
 | `consumer.ts` | the app author's import/call experience + compile-time rejections | no (example) |
 | `runtime-guard.ts` | runnable demo of the one runtime-only constraint | no (example) |
 
+## Sample queries
+
+The consumer experience (from `consumer.ts`). `connect()` once, then query named collections. Every field → operator → value autocompletes, and illegal queries are compile errors.
+
+```ts
+import { connect } from "./generated/client";
+
+const db = connect({ basePath: "/data", maxResults: 500 });
+
+// Sci-fi films from the 2000s rated above 8, newest first, top 10.
+await db.movies.findMany({
+  where: { year: { gte: 2000, lt: 2010 }, rating: { gt: 8 }, genres: { some: "Sci-Fi" } },
+  orderBy: { year: "desc" },
+  limit: 10,
+});
+
+// Films by either of two directors (implicit AND across fields; `in` for OR-within-a-field).
+await db.movies.findMany({
+  where: { director: { in: ["Villeneuve", "Nolan"] }, inPrint: { equals: true } },
+});
+
+// Title substring — `contains` is enabled on `title` (trigram index), so it prunes and stands alone.
+await db.movies.findMany({ where: { title: { contains: "Matrix" } } });
+
+// Everything except a value: `not` is a post-filter rider, so it needs a pruning constraint alongside it.
+await db.movies.findMany({ where: { year: { gte: 2000 }, inPrint: { not: false } } });
+
+// Missing sort values are a real, queryable state (ADR-0002).
+await db.movies.findMany({ where: { releaseDate: { isAbsent: true } } });
+
+// How many, not the rows.
+await db.movies.count({ where: { rating: { gte: 9 } } });
+
+// Point lookup by the user PK — emitted only because `movies` declared `imdbId`.
+const heat = await db.movies.get("tt0113277");
+
+// Fetch-all (no where) — bounded by the client `maxResults` ceiling.
+await db.movies.findMany();
+
+// The generated runtime schema, for introspection.
+db.movies.getSchema();
+```
+
+These are all rejected at compile time (see `consumer.ts` for the full `@ts-expect-error` set):
+
+```ts
+db.movies.findMany({ where: { plot: { contains: "hacker" } } });   // plot isn't indexed
+db.movies.findMany({ where: { rating: { contains: "8" } } });      // rating didn't build a trigram index
+db.movies.findMany({ where: { year: { gt: "2000" } } });           // year is a number
+db.movies.findMany({ where: { genres: { equals: "Sci-Fi" } } });   // multi-valued → must use `some`
+db.movies.findMany({ where: { inPrint: { not: true } } });         // sole rider → needs a pruning filter
+db.screenings.get("anything");                                     // screenings has no PK → no get()
+```
+
+## Combining conditions
+
+`where` is **not chained** (no `.where().where()` — that's the builder surface ADR-0001 rejected). It's a single object, and everything in it is **AND**ed together. That's the only combinator in v1.0 — "implicit-AND only; OR/nesting deferred" (ADR-0001). It composes three ways:
+
+```ts
+// 1. Several operators on ONE field → AND within the field (a bounded range)
+await db.movies.findMany({ where: { year: { gte: 2000, lt: 2010 } } });
+//  year >= 2000 AND year < 2010
+
+// 2. Several fields → AND across fields
+await db.movies.findMany({
+  where: {
+    year:    { gte: 2000 },
+    rating:  { gt: 8 },
+    inPrint: { equals: true },
+  },
+});
+//  year >= 2000 AND rating > 8 AND inPrint = true
+
+// 3. `in` → the one "OR", but only within a single field
+await db.movies.findMany({ where: { director: { in: ["Villeneuve", "Nolan"] } } });
+//  director = "Villeneuve" OR director = "Nolan"
+```
+
+### Nesting: multi-valued `some`
+
+The one nested filter in v1.0 is `some` on a multi-valued field — "at least one element matches this sub-filter." Its inner operators AND together too, and it composes with the outer fields:
+
+```ts
+// A genre starting with "Sci", released 2015 or later, in print.
+await db.movies.findMany({
+  where: {
+    genres:  { some: { startsWith: "Sci" } },
+    year:    { gte: 2015 },
+    inPrint: { equals: true },
+  },
+});
+
+// Shorthand: a bare string means { equals }.
+await db.movies.findMany({ where: { genres: { some: "Sci-Fi" } } });
+```
+
+### A worked page: filter + sort + paginate + total
+
+```ts
+const where = {
+  year:   { gte: 2000, lt: 2020 },
+  rating: { gte: 7.5 },
+  genres: { some: "Thriller" },
+} as const;
+
+const page  = await db.movies.findMany({ where, orderBy: { rating: "desc" }, limit: 20, offset: 40 });
+const total = await db.movies.count({ where });   // "showing 41–60 of {total}"
+```
+
+### Not in v1.0: OR / AND / NOT across fields
+
+Arbitrary boolean nesting — OR between *different* fields, or NOT-groups — is deferred (ADR-0001). The object shape was chosen so it slots in later **without a breaking change**; this is what it will look like when added, not something wired up for 1.0:
+
+```ts
+// ❌ NOT SUPPORTED in v1.0 — top-level OR / AND / NOT keys are a v2 addition
+await db.movies.findMany({
+  where: {
+    OR: [
+      { director: { equals: "Nolan" } },
+      { rating:   { gt: 9 } },
+    ],
+  },
+});
+```
+
+**Workaround today:** queries are cheap and stateless, so OR-across-fields is "run each branch, merge by `id`" — `findMany({director:{equals:"Nolan"}})` + `findMany({rating:{gt:9}})`, then dedupe. Fine for a couple of branches; the native `OR` key is the real fix, post-1.0.
+
 ## Run it
 
 ```

@@ -54,3 +54,10 @@ The **filter-only rider rule** is cross-field (a pruning op on field A licenses 
 - **T7 (#10, TUI wizard)** persists the per-field `operators` set that this codegen reads — enabling a toggle in the wizard directly unlocks that operator in the generated types.
 - Codegen consumes the R2 `SchemaDescriptor` IR and emits two small files; no per-dataset logic is generated, keeping generated output tiny and the logic centrally maintained/versioned in the runtime.
 - **Chunk-fetch error / partial-failure semantics** (map fog) are now sharply specifiable against this runtime shape — the next decision on the runtime.
+
+## Open items
+
+Surfaced while resolving T5 but not resolved by this decision:
+
+- **Autocomplete crispness (verify in-editor).** The compile-time *rejection* of invalid queries is proven (`tsc` exit 0, every `@ts-expect-error` fired). What is **not** yet confirmed is IDE **autocomplete** quality under the generic exact-type approach — completions flow through `W`'s constraint (`WhereOf<C>`) rather than a fixed type. It should stay crisp, but this is the one DX claim unverified against a live editor/LSP; check it before the runtime is built.
+- **`count()` exact-total cost.** ADR-0003 postings are `value → shard-id set` (which shards contain a value, not how many rows), so an *exact* `count()` generally requires fetching the candidate shards — only sort-field ranges are cheap (split-points + per-shard record counts). Whether to store per-shard match counts in postings (cheap exact counts, larger index), return an approximate/upper-bound count, or accept `count ≈ findMany` cost is an **ADR-0003 (T4) index-format** question this ticket surfaced; tracked in the map's *Not yet specified*.

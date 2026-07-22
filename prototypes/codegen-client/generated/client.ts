@@ -10,23 +10,23 @@
 // that's the whole point of the blend (runtime owns logic, facade owns names).
 // ============================================================================
 import {
-  createClient,
-  type Collection,
-  type ClientOptions,
-  type GenericClient,
+    createClient,
+    type Collection,
+    type ClientOptions,
+    type GenericClient,
 } from "../runtime";
-import { schema, type Schema, type Records, type Movie, type Screening } from "./schema";
+import {schema, type Schema, type Records, type Movie, type Screening} from "./schema";
 
 // Concrete, named collections — clean hovers, real go-to-definition.
 export interface Db {
-  movies: Collection<Schema["movies"], Movie>;
-  screenings: Collection<Schema["screenings"], Screening>;
+    movies: Collection<Schema["movies"], Movie>;
+    screenings: Collection<Schema["screenings"], Screening>;
 }
 
 // The consumer's single entry point. Same ergonomics as tRPC's createClient /
 // hey-api's createClient({ baseUrl }) — but fully typed to THIS dataset.
 export function connect(opts: ClientOptions): Db {
-  // The generic runtime does all the work; the facade only narrows the type.
-  const generic: GenericClient<Schema, Records> = createClient<Schema, Records>(schema, opts);
-  return generic as unknown as Db;
+    // The generic runtime does all the work; the facade only narrows the type.
+    const generic: GenericClient<Schema, Records> = createClient<Schema, Records>(schema, opts);
+    return generic as unknown as Db;
 }
