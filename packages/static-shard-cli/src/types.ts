@@ -1,5 +1,8 @@
 export type FieldKind = "string" | "number" | "boolean" | "date";
 
+/** Input file shapes accepted by `build` (T9). NDJSON/JSONL is the preferred format (= shard payload format). */
+export type InputFormat = "ndjson" | "json" | "csv" | "tsv";
+
 export interface FieldConfig {
   kind: FieldKind;
   /** Opt-in secondary index (ADR-0003): builds a chunked inverted index + zonemap for this non-sort field. */
@@ -18,9 +21,14 @@ export interface StaticShardConfig {
   /** Name the generated collection is exposed under, e.g. `db.movies`. */
   collection: string;
   input: {
+    /** A single file path, or a glob pattern matching same-format files to merge then shard as one dataset (T9). */
     path: string;
-    /** T2 supports NDJSON only; other formats land in a later ticket. */
-    format?: "ndjson";
+    /** Defaults to "ndjson". */
+    format?: InputFormat;
+    /** Delimited (csv/tsv) column delimiter override. Default: "," for csv, "\t" for tsv. Only valid for those formats (T9). */
+    delimiter?: string;
+    /** JSON only: dot-path to the array/map of records nested within the parsed document — the record selector for nested JSON (T9). Lands on exactly one node; no array-flattening. */
+    records?: string;
   };
   /** Served data tree. Default `public/shard-data`. */
   output?: string;
@@ -44,6 +52,10 @@ export interface StaticShardConfig {
 export interface ResolvedConfig {
   collection: string;
   inputPath: string;
+  inputFormat: InputFormat;
+  /** Resolved delimiter for csv/tsv; irrelevant for ndjson/json but always populated for simplicity. */
+  inputDelimiter: string;
+  inputRecordsPath?: string;
   output: string;
   clientOut: string;
   basePath: string;

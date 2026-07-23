@@ -1,8 +1,9 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { resolveConfig } from "./config.js";
 import { generateClientTs, generateSchemaTs } from "./codegen.js";
 import { contentHash } from "./hash.js";
+import { readInputRecords } from "./input.js";
 import { buildManifest, computeSplitPoints } from "./manifest.js";
 import {
   buildInvertedIndex,
@@ -32,15 +33,6 @@ export interface BuildResult {
   warnings: string[];
 }
 
-function readNdjson(inputPath: string): Record<string, unknown>[] {
-  const raw = readFileSync(inputPath, "utf8");
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
-}
-
 /**
  * The walking skeleton: read config's baked schema → read NDJSON → global sort
  * by the sort field → cut into byte-target shards → write the served data
@@ -53,7 +45,12 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
   const formatVersion = opts.formatVersion ?? getFormatVersion();
   const sortKind = resolved.fields[resolved.sortField]!.kind as SortKind;
 
-  const records = readNdjson(resolved.inputPath);
+  const records = readInputRecords(resolved.inputPath, {
+    format: resolved.inputFormat,
+    delimiter: resolved.inputDelimiter,
+    recordsPath: resolved.inputRecordsPath,
+    fields: resolved.fields,
+  });
   const sorted = [...records].sort((a, b) =>
     compareSortValues(a[resolved.sortField], b[resolved.sortField], sortKind),
   );

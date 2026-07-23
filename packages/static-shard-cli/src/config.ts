@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ResolvedConfig, StaticShardConfig } from "./types.js";
+import type { InputFormat, ResolvedConfig, StaticShardConfig } from "./types.js";
 
 const DEFAULT_OUTPUT = "public/shard-data";
 const DEFAULT_CLIENT_OUT = "src/shard-db";
 const DEFAULT_SHARD_BYTES = 2_097_152; // 2 MiB
 const DEFAULT_INDEX_CHUNK_BYTES = 45_000; // ~45 KB gzipped anchor (ADR-0003 §5)
+const INPUT_FORMATS = ["ndjson", "json", "csv", "tsv"] as const;
+const DEFAULT_DELIMITERS: Partial<Record<InputFormat, string>> = { csv: ",", tsv: "\t" };
 
 function defaultBasePath(output: string): string {
   const normalized = output.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -13,10 +15,19 @@ function defaultBasePath(output: string): string {
 }
 
 export function resolveConfig(config: StaticShardConfig, baseDir: string): ResolvedConfig {
-  const format = config.input.format;
-  if (format !== undefined && format !== "ndjson") {
-    throw new Error(`static-shard: unsupported input format "${format}" — T2 supports "ndjson" only`);
+  const format = config.input.format ?? "ndjson";
+  if (!INPUT_FORMATS.includes(format)) {
+    throw new Error(
+      `static-shard: unsupported input format "${format}" — supported formats: ${INPUT_FORMATS.join(", ")}`,
+    );
   }
+  if (config.input.records !== undefined && format !== "json") {
+    throw new Error(`static-shard: config.input.records is only valid for format "json", got "${format}"`);
+  }
+  if (config.input.delimiter !== undefined && format !== "csv" && format !== "tsv") {
+    throw new Error(`static-shard: config.input.delimiter is only valid for format "csv"/"tsv", got "${format}"`);
+  }
+  const delimiter = config.input.delimiter ?? DEFAULT_DELIMITERS[format] ?? ",";
 
   const sortField = config.schema.sortField;
   const sortFieldConfig = config.schema.fields[sortField];
@@ -103,6 +114,9 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
   return {
     collection: config.collection,
     inputPath: path.resolve(baseDir, config.input.path),
+    inputFormat: format,
+    inputDelimiter: delimiter,
+    ...(config.input.records !== undefined ? { inputRecordsPath: config.input.records } : {}),
     output: path.resolve(baseDir, output),
     clientOut: path.resolve(baseDir, config.clientOut ?? DEFAULT_CLIENT_OUT),
     basePath: config.basePath ?? defaultBasePath(output),

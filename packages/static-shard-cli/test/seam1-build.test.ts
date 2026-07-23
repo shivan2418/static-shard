@@ -327,6 +327,85 @@ describe("seam #1 — endsWith (reversed index) & contains (trigram index) opt-i
   });
 });
 
+describe("seam #1 — input formats & record selectors (T9)", () => {
+  let baseline: ReturnType<typeof build>;
+
+  beforeEach(() => {
+    baseline = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+  });
+
+  test("JSON array-element selector produces artifacts identical to the NDJSON baseline", () => {
+    writeFileSync(path.join(tmpDir, "movies.json"), JSON.stringify(MOVIES));
+    const result = build(
+      { ...config, input: { path: "movies.json", format: "json" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+    expect(result.manifest.dataset.recordCount).toBe(baseline.manifest.dataset.recordCount);
+    expect(result.manifest.zonemap).toEqual(baseline.manifest.zonemap);
+  });
+
+  test("JSON map-value selector (keys discarded) produces artifacts identical to the NDJSON baseline", () => {
+    const asMap: Record<string, (typeof MOVIES)[number]> = {};
+    MOVIES.forEach((m, i) => {
+      asMap[`m${i}`] = m;
+    });
+    writeFileSync(path.join(tmpDir, "movies.json"), JSON.stringify(asMap));
+    const result = build(
+      { ...config, input: { path: "movies.json", format: "json" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+    expect(result.manifest.dataset.recordCount).toBe(baseline.manifest.dataset.recordCount);
+  });
+
+  test("nested JSON `records` path selector lands on one node per record, no array-flattening", () => {
+    writeFileSync(
+      path.join(tmpDir, "movies-nested.json"),
+      JSON.stringify({ meta: { generatedAt: "2026-01-01" }, data: { records: MOVIES } }),
+    );
+    const result = build(
+      { ...config, input: { path: "movies-nested.json", format: "json", records: "data.records" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.dataset.recordCount).toBe(MOVIES.length);
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+  });
+
+  test("CSV row selector produces artifacts identical to the NDJSON baseline", () => {
+    const csv = ["year,title,rating", ...MOVIES.map((m) => `${m.year},${m.title},${m.rating}`)].join("\n") + "\n";
+    writeFileSync(path.join(tmpDir, "movies.csv"), csv);
+    const result = build(
+      { ...config, input: { path: "movies.csv", format: "csv" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+    expect(result.manifest.dataset.recordCount).toBe(baseline.manifest.dataset.recordCount);
+  });
+
+  test("TSV row selector produces artifacts identical to the NDJSON baseline", () => {
+    const tsv = ["year\ttitle\trating", ...MOVIES.map((m) => `${m.year}\t${m.title}\t${m.rating}`)].join("\n") + "\n";
+    writeFileSync(path.join(tmpDir, "movies.tsv"), tsv);
+    const result = build(
+      { ...config, input: { path: "movies.tsv", format: "tsv" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+    expect(result.manifest.dataset.recordCount).toBe(baseline.manifest.dataset.recordCount);
+  });
+
+  test("a glob of same-format NDJSON files merges then shards as one dataset", () => {
+    writeFileSync(path.join(tmpDir, "movies-a.ndjson"), MOVIES.slice(0, 5).map((m) => JSON.stringify(m)).join("\n") + "\n");
+    writeFileSync(path.join(tmpDir, "movies-b.ndjson"), MOVIES.slice(5).map((m) => JSON.stringify(m)).join("\n") + "\n");
+    const result = build(
+      { ...config, input: { path: "movies-*.ndjson" } },
+      { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 },
+    );
+    expect(result.manifest.dataset.recordCount).toBe(MOVIES.length);
+    expect(result.manifest.shards.map((s) => s.hash)).toEqual(baseline.manifest.shards.map((s) => s.hash));
+  });
+});
+
 describe("seam #3 (type-level, over seam #1's own output) — generated types reject bad queries", () => {
   test("tsc exits 0 over a consumer that exercises valid queries and @ts-expect-error cases", () => {
     const { clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });

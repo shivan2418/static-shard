@@ -22,6 +22,7 @@ describe("resolveConfig", () => {
     expect(resolved.basePath).toBe("/shard-data");
     expect(resolved.shardBytes).toBeGreaterThan(0);
     expect(resolved.inputPath).toBe("/repo/data/movies.ndjson");
+    expect(resolved.inputFormat).toBe("ndjson");
   });
 
   test("honors explicit output/clientOut/basePath/shardBytes overrides", () => {
@@ -48,9 +49,48 @@ describe("resolveConfig", () => {
     expect(() => resolveConfig(bad, "/repo")).toThrow(/number.*date|date.*number/i);
   });
 
-  test("rejects an input format other than ndjson", () => {
-    const bad: StaticShardConfig = { ...base, input: { path: "x.csv", format: "csv" as never } };
-    expect(() => resolveConfig(bad, "/repo")).toThrow(/ndjson/);
+  test("rejects an unsupported input format", () => {
+    const bad: StaticShardConfig = { ...base, input: { path: "x.xml", format: "xml" as never } };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/unsupported input format/);
+  });
+});
+
+describe("resolveConfig — input formats (T9)", () => {
+  test("json/csv/tsv are accepted, defaulting delimiter per format", () => {
+    expect(resolveConfig({ ...base, input: { path: "x.json", format: "json" } }, "/repo").inputFormat).toBe("json");
+
+    const csv = resolveConfig({ ...base, input: { path: "x.csv", format: "csv" } }, "/repo");
+    expect(csv.inputFormat).toBe("csv");
+    expect(csv.inputDelimiter).toBe(",");
+
+    const tsv = resolveConfig({ ...base, input: { path: "x.tsv", format: "tsv" } }, "/repo");
+    expect(tsv.inputFormat).toBe("tsv");
+    expect(tsv.inputDelimiter).toBe("\t");
+  });
+
+  test("honors an explicit delimiter override for csv/tsv", () => {
+    const resolved = resolveConfig({ ...base, input: { path: "x.csv", format: "csv", delimiter: ";" } }, "/repo");
+    expect(resolved.inputDelimiter).toBe(";");
+  });
+
+  test("rejects a delimiter override on ndjson/json input", () => {
+    const bad: StaticShardConfig = { ...base, input: { path: "x.ndjson", delimiter: ";" } };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/delimiter.*json|json.*delimiter/i);
+  });
+
+  test("carries a records selector path through for json input", () => {
+    const resolved = resolveConfig({ ...base, input: { path: "x.json", format: "json", records: "data.records" } }, "/repo");
+    expect(resolved.inputRecordsPath).toBe("data.records");
+  });
+
+  test("omits inputRecordsPath entirely when not configured", () => {
+    const resolved = resolveConfig(base, "/repo");
+    expect(resolved.inputRecordsPath).toBeUndefined();
+  });
+
+  test("rejects a records selector on a non-json format", () => {
+    const bad: StaticShardConfig = { ...base, input: { path: "x.ndjson", records: "data.records" } };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/records.*json|json.*records/i);
   });
 });
 

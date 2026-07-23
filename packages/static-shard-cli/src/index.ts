@@ -4,6 +4,7 @@ export { getFormatVersion, getGeneratorVersion } from "./version.js";
 export type {
   FieldConfig,
   FieldKind,
+  InputFormat,
   Manifest,
   ResolvedConfig,
   SchemaDescriptor,
