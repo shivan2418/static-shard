@@ -99,10 +99,15 @@ function looksLikePk(name: string, f: InferredField, recordCount: number): boole
   return !f.multi && !f.absent && f.cardinality === recordCount && ID_LIKE_NAME_RE.test(name);
 }
 
+/** A field can be a sort-field candidate iff it's an always-present, single-valued number/date
+ * (ADR-0002 §2) — exported so the wizard's sort-field step (T12) shares this exact predicate
+ * instead of a second copy that could silently drift from what `init --yes` would recommend. */
+export function isSortFieldCandidate(f: Pick<InferredField, "kind" | "multi" | "absent">): boolean {
+  return (f.kind === "number" || f.kind === "date") && !f.multi && !f.absent;
+}
+
 function recommendSortField(fields: Record<string, InferredField>, recordCount: number): string {
-  const candidates = Object.entries(fields).filter(
-    ([, f]) => (f.kind === "number" || f.kind === "date") && !f.multi && !f.absent,
-  );
+  const candidates = Object.entries(fields).filter(([, f]) => isSortFieldCandidate(f));
   if (candidates.length === 0) {
     throw new Error(
       "static-shard: init could not infer a sort field — no always-present, single-valued number/date field " +

@@ -5,7 +5,8 @@ import type { InputFormat, ResolvedConfig, StaticShardConfig } from "./types.js"
 const DEFAULT_OUTPUT = "public/shard-data";
 const DEFAULT_CLIENT_OUT = "src/shard-db";
 const DEFAULT_SHARD_BYTES = 2_097_152; // 2 MiB
-const DEFAULT_INDEX_CHUNK_BYTES = 45_000; // ~45 KB gzipped anchor (ADR-0003 §5)
+/** ~45 KB gzipped anchor (ADR-0003 §5) — exported so the wizard's live estimates (T12) use the same default `build` would. */
+export const DEFAULT_INDEX_CHUNK_BYTES = 45_000;
 const INPUT_FORMATS = ["ndjson", "json", "csv", "tsv"] as const;
 const DEFAULT_DELIMITERS: Partial<Record<InputFormat, string>> = { csv: ",", tsv: "\t" };
 

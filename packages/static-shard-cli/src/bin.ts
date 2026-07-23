@@ -4,7 +4,8 @@ import { build } from "./build.js";
 import { loadConfigFile } from "./config.js";
 import { init } from "./init.js";
 import { inspect } from "./inspect.js";
-import type { InitOptions } from "./init.js";
+import { runInteractiveInit } from "./wizard-tui.js";
+import type { InitOptions, InitResult } from "./init.js";
 import type { InspectReport } from "./inspect.js";
 import type { InputFormat } from "./types.js";
 
@@ -141,10 +142,19 @@ function parseInitArgs(rest: string[]): { configPath: string; options: Omit<Init
   };
 }
 
-function runInit(rest: string[]): void {
+/**
+ * `--yes` always runs the non-interactive core directly. Without it, a real TTY launches the
+ * interactive wizard (T12); a non-TTY (CI, a pipe) falls back to `init()`'s own "pass --yes" error
+ * instead of hanging on keypresses that will never arrive (ADR-0006 §4).
+ */
+async function runInit(rest: string[]): Promise<void> {
   const { configPath, options } = parseInitArgs(rest);
   const resolvedConfigPath = path.resolve(process.cwd(), configPath);
-  const result = init({ cwd: process.cwd(), configPath: resolvedConfigPath, ...options });
+
+  const result: InitResult =
+    !options.yes && process.stdin.isTTY
+      ? await runInteractiveInit({ cwd: process.cwd(), configPath: resolvedConfigPath, ...options })
+      : init({ cwd: process.cwd(), configPath: resolvedConfigPath, ...options });
 
   console.log(
     `static-shard: wrote ${result.configPath}` +
@@ -218,14 +228,14 @@ function runInspect(rest: string[]): void {
   }
 }
 
-function main(argv: string[]): void {
+async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
   if (command === "build") {
     runBuild(rest);
     return;
   }
   if (command === "init") {
-    runInit(rest);
+    await runInit(rest);
     return;
   }
   if (command === "inspect") {
@@ -239,4 +249,7 @@ function main(argv: string[]): void {
   process.exitCode = 1;
 }
 
-main(process.argv.slice(2));
+main(process.argv.slice(2)).catch((err: unknown) => {
+  console.error(err instanceof Error ? `static-shard: ${err.message}` : String(err));
+  process.exitCode = 1;
+});

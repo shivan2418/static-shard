@@ -1,0 +1,655 @@
+import {
+  MANIFEST_BUDGET_BYTES,
+  estimateCosts,
+  estimateIndexSize,
+  estimateShardCount,
+  profileDataset,
+  recommendShardBytes,
+  type CostEstimate,
+  type DatasetProfile,
+  type IndexSizeEstimate,
+} from "./estimator.js";
+import { DEFAULT_INDEX_CHUNK_BYTES } from "./config.js";
+import { inferSchema, isSortFieldCandidate } from "./infer.js";
+import { lowCardinalitySortFieldWarning, oversizedRecordWarning } from "./warnings.js";
+import type { FieldConfig, FieldKind } from "./types.js";
+
+/**
+ * ADR-0006 §2/§5: the file-size step's fixed `↑/↓` list of byte targets. Spans below the ADR-0002
+ * §5 recommended floor too, so a user can watch the manifest/contains costs react as shards shrink.
+ */
+export const CHUNK_STEPS = [65_536, 131_072, 262_144, 524_288, 1_048_576, 2_097_152, 4_194_304, 8_388_608];
+
+export const STAGE_LABELS = ["Detect", "Sort field", "Filter fields", "Text search", "File size", "Review"] as const;
+export const LAST_STAGE = STAGE_LABELS.length - 1;
+
+function nearestChunkStep(bytes: number): number {
+  return CHUNK_STEPS.reduce((best, step) => (Math.abs(step - bytes) < Math.abs(best - bytes) ? step : best), CHUNK_STEPS[0]!);
+}
+
+export interface WizardField {
+  name: string;
+  kind: FieldKind;
+  cardinality: number;
+  absent: boolean;
+  multi: boolean;
+}
+
+export interface WizardData {
+  recordCount: number;
+  /** Alphabetical — the type-to-filter query (ADR-0006 §5), not field order, is what makes a
+   * ~90-field real dataset navigable, so a stable, predictable order is more useful than a heuristic one. */
+  fields: WizardField[];
+  recommendedSortField: string;
+  recommendedPk?: string;
+  recommendedIndexed: string[];
+  /** Fields eligible as the sort field: always-present, single-valued number/date (ADR-0002 §2). */
+  sortCandidates: string[];
+  /** The (sample or full-scan) records the wizard's live estimates are profiled against. */
+  records: Record<string, unknown>[];
+}
+
+/**
+ * Builds the wizard's pure, in-memory model from a sample (or full scan) of parsed records via the
+ * same `inferSchema` (T10) `init --yes` uses, so the wizard's recommendations never drift from the
+ * non-interactive path's. The wizard always (re)infers fresh — mirroring `init --reinfer` — since
+ * confirming/adjusting a fresh detection is what the six-stage flow (ADR-0006 §1) is for; reusing an
+ * existing baked schema interactively is out of scope for T12 (already served by `init --yes` without
+ * `--reinfer`).
+ */
+export function buildWizardData(records: Record<string, unknown>[]): WizardData {
+  if (records.length === 0) {
+    throw new Error("static-shard: the wizard found no records in the input to infer a schema from");
+  }
+  const inferred = inferSchema(records);
+  const fields: WizardField[] = Object.entries(inferred.fields)
+    .map(([name, f]) => ({ name, kind: f.kind, cardinality: f.cardinality, absent: f.absent, multi: f.multi }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
+  const sortCandidates = fields.filter(isSortFieldCandidate).map((f) => f.name);
+
+  return {
+    recordCount: inferred.recordCount,
+    fields,
+    recommendedSortField: inferred.sortField,
+    recommendedPk: inferred.pk,
+    recommendedIndexed: inferred.indexedFields,
+    sortCandidates,
+    records,
+  };
+}
+
+export interface WizardState {
+  stage: number;
+  /** Cursor within the current step's (possibly filtered) list. */
+  cursor: number;
+  sortField: string;
+  indexedFields: Set<string>;
+  endsWithFields: Set<string>;
+  containsFields: Set<string>;
+  shardBytes: number;
+  /** Type-to-filter query (ADR-0006 §5) — shared by the filter-fields and text-search steps, reset on stage change. */
+  filterQuery: string;
+  reviewJsonExpanded: boolean;
+  persisted: boolean;
+  quit: boolean;
+}
+
+export function createInitialState(data: WizardData): WizardState {
+  const baseline = profileDataset(data.records, { sortField: data.recommendedSortField, fields: {} });
+  return {
+    stage: 0,
+    cursor: 0,
+    sortField: data.recommendedSortField,
+    indexedFields: new Set(data.recommendedIndexed),
+    endsWithFields: new Set(),
+    containsFields: new Set(),
+    shardBytes: nearestChunkStep(recommendShardBytes(baseline.p95RecordBytes)),
+    filterQuery: "",
+    reviewJsonExpanded: false,
+    persisted: false,
+    quit: false,
+  };
+}
+
+export type WizardKey =
+  | { type: "up" }
+  | { type: "down" }
+  | { type: "left" }
+  | { type: "right" }
+  | { type: "space" }
+  | { type: "enter" }
+  | { type: "backspace" }
+  | { type: "char"; value: string }
+  | { type: "cancel" };
+
+function matchesQuery(name: string, query: string): boolean {
+  return query === "" || name.toLowerCase().includes(query.toLowerCase());
+}
+
+/** Sort-field step's candidate list (ADR-0006 §2), narrowed by the type-to-filter query. */
+function sortCandidateFields(data: WizardData, state: WizardState): WizardField[] {
+  const byName = new Map(data.fields.map((f) => [f.name, f]));
+  return data.sortCandidates
+    .map((name) => byName.get(name)!)
+    .filter((f) => matchesQuery(f.name, state.filterQuery));
+}
+
+/** Filter-fields step's candidate list: every field except the current sort field (ADR-0006 §2). */
+function filterableFields(data: WizardData, state: WizardState): WizardField[] {
+  return data.fields.filter((f) => f.name !== state.sortField && matchesQuery(f.name, state.filterQuery));
+}
+
+export interface TextSearchRow {
+  field: string;
+  operator: "endsWith" | "contains";
+}
+
+/**
+ * Text-search step's flat (field × operator) checklist (ADR-0006 §2) — one row per indexed,
+ * non-sort, scalar-string field per operator; only those fields can carry `endsWith`/`contains`
+ * (ADR-0003 §7). Recomputed from current state so toggling a field's indexed-ness on the previous
+ * step immediately changes what's eligible here.
+ */
+function textSearchRows(data: WizardData, state: WizardState): TextSearchRow[] {
+  const eligible = data.fields.filter(
+    (f) => f.name !== state.sortField && state.indexedFields.has(f.name) && f.kind === "string" && !f.multi,
+  );
+  const rows: TextSearchRow[] = [];
+  for (const f of eligible) rows.push({ field: f.name, operator: "endsWith" }, { field: f.name, operator: "contains" });
+  return rows.filter((r) => matchesQuery(r.field, state.filterQuery));
+}
+
+function clampCursor(cursor: number, length: number): number {
+  if (length === 0) return 0;
+  return ((cursor % length) + length) % length;
+}
+
+function enterStage(state: WizardState, stage: number): WizardState {
+  const next: WizardState = { ...state, stage, cursor: 0, filterQuery: "" };
+  if (stage === 4) next.cursor = CHUNK_STEPS.indexOf(nearestChunkStep(state.shardBytes));
+  return next;
+}
+
+function clearFieldFromOptionalSets(state: WizardState, name: string): Pick<WizardState, "indexedFields" | "endsWithFields" | "containsFields"> {
+  const indexedFields = new Set(state.indexedFields);
+  const endsWithFields = new Set(state.endsWithFields);
+  const containsFields = new Set(state.containsFields);
+  indexedFields.delete(name);
+  endsWithFields.delete(name);
+  containsFields.delete(name);
+  return { indexedFields, endsWithFields, containsFields };
+}
+
+/**
+ * The wizard's pure reducer — every keypress goes through here, no I/O. Kept separate from the
+ * terminal driver (`wizard-tui.ts`) so the whole interaction model (ADR-0006 §2) is unit-testable
+ * without a real TTY: drive a sequence of keys, then assert on the resulting `WizardChoices`.
+ */
+export function applyKey(data: WizardData, state: WizardState, key: WizardKey): WizardState {
+  if (key.type === "cancel") return { ...state, quit: true };
+  if (key.type === "left") return state.stage > 0 ? enterStage(state, state.stage - 1) : state;
+  if (key.type === "right") return state.stage < LAST_STAGE ? enterStage(state, state.stage + 1) : state;
+
+  if (state.stage === 0) {
+    return key.type === "enter" ? enterStage(state, 1) : state;
+  }
+
+  if (state.stage === 1) {
+    const candidates = sortCandidateFields(data, state);
+    if (key.type === "up") return { ...state, cursor: clampCursor(state.cursor - 1, candidates.length) };
+    if (key.type === "down") return { ...state, cursor: clampCursor(state.cursor + 1, candidates.length) };
+    if (key.type === "space") {
+      const picked = candidates[state.cursor];
+      return picked ? { ...state, sortField: picked.name, ...clearFieldFromOptionalSets(state, picked.name) } : state;
+    }
+    if (key.type === "char") return { ...state, filterQuery: state.filterQuery + key.value, cursor: 0 };
+    if (key.type === "backspace") return { ...state, filterQuery: state.filterQuery.slice(0, -1), cursor: 0 };
+    return state;
+  }
+
+  if (state.stage === 2) {
+    const candidates = filterableFields(data, state);
+    if (key.type === "up") return { ...state, cursor: clampCursor(state.cursor - 1, candidates.length) };
+    if (key.type === "down") return { ...state, cursor: clampCursor(state.cursor + 1, candidates.length) };
+    if (key.type === "space") {
+      const picked = candidates[state.cursor];
+      if (!picked) return state;
+      if (state.indexedFields.has(picked.name)) return { ...state, ...clearFieldFromOptionalSets(state, picked.name) };
+      const indexedFields = new Set(state.indexedFields);
+      indexedFields.add(picked.name);
+      return { ...state, indexedFields };
+    }
+    if (key.type === "char") return { ...state, filterQuery: state.filterQuery + key.value, cursor: 0 };
+    if (key.type === "backspace") return { ...state, filterQuery: state.filterQuery.slice(0, -1), cursor: 0 };
+    return state;
+  }
+
+  if (state.stage === 3) {
+    const rows = textSearchRows(data, state);
+    if (key.type === "up") return { ...state, cursor: clampCursor(state.cursor - 1, rows.length) };
+    if (key.type === "down") return { ...state, cursor: clampCursor(state.cursor + 1, rows.length) };
+    if (key.type === "space") {
+      const row = rows[state.cursor];
+      if (!row) return state;
+      const target = row.operator === "endsWith" ? "endsWithFields" : "containsFields";
+      const set = new Set(state[target]);
+      set.has(row.field) ? set.delete(row.field) : set.add(row.field);
+      return { ...state, [target]: set };
+    }
+    if (key.type === "char") return { ...state, filterQuery: state.filterQuery + key.value, cursor: 0 };
+    if (key.type === "backspace") return { ...state, filterQuery: state.filterQuery.slice(0, -1), cursor: 0 };
+    return state;
+  }
+
+  if (state.stage === 4) {
+    if (key.type === "up" || key.type === "down") {
+      const cursor = Math.max(0, Math.min(CHUNK_STEPS.length - 1, state.cursor + (key.type === "up" ? -1 : 1)));
+      return { ...state, cursor, shardBytes: CHUNK_STEPS[cursor]! };
+    }
+    return state;
+  }
+
+  // stage 5 — review
+  if (key.type === "space") return { ...state, reviewJsonExpanded: !state.reviewJsonExpanded };
+  if (key.type === "enter") return { ...state, persisted: true };
+  return state;
+}
+
+export interface WizardChoices {
+  sortField: string;
+  indexedFields: string[];
+  endsWithFields: string[];
+  containsFields: string[];
+  shardBytes: number;
+}
+
+/**
+ * Translates wizard state into the exact flags `init`'s non-interactive core (`--yes` + flags)
+ * accepts (ADR-0006 §1: "the wizard is flag-equivalent to `init --yes`"). `wizard-tui.ts` feeds this
+ * straight into `init()` on persist — there is no separate config-writing code path to drift.
+ */
+export function deriveWizardChoices(state: WizardState): WizardChoices {
+  return {
+    sortField: state.sortField,
+    indexedFields: [...state.indexedFields],
+    endsWithFields: [...state.endsWithFields],
+    containsFields: [...state.containsFields],
+    shardBytes: state.shardBytes,
+  };
+}
+
+function forcedIndexedFieldConfigs(data: WizardData, sortField: string): Record<string, FieldConfig> {
+  const out: Record<string, FieldConfig> = {};
+  for (const f of data.fields) {
+    if (f.name === sortField) continue;
+    out[f.name] = { kind: f.kind, indexed: true, ...(f.multi ? { multi: true } : {}) };
+  }
+  return out;
+}
+
+export interface WizardEstimate {
+  costs: CostEstimate;
+  warnings: string[];
+  masterProfile: DatasetProfile;
+  /** What enabling `endsWith`/`contains` on a field WOULD cost, independent of whether it's toggled on yet — the text-search step's live preview (ADR-0006 §2/§3). */
+  probeIndex(name: string, opts: { endsWith?: boolean; contains?: boolean }): IndexSizeEstimate;
+}
+
+/**
+ * The live estimate for the current wizard state (ADR-0006 §3): re-profiles every field as if
+ * indexed once per call (cheap — the wizard samples, it doesn't full-scan by default) so toggling
+ * the indexed/endsWith/contains sets is a plain filter over already-computed per-field stats, not a
+ * re-scan of the records.
+ */
+export function estimateForState(data: WizardData, state: WizardState): WizardEstimate {
+  const forced = forcedIndexedFieldConfigs(data, state.sortField);
+  const masterProfile = profileDataset(data.records, { sortField: state.sortField, fields: forced });
+
+  const currentFields: Record<string, FieldConfig> = {};
+  const selectedProfileFields: DatasetProfile["fields"] = {};
+  for (const f of data.fields) {
+    if (f.name === state.sortField) continue;
+    currentFields[f.name] = {
+      kind: f.kind,
+      indexed: state.indexedFields.has(f.name),
+      ...(f.multi ? { multi: true } : {}),
+      ...(state.endsWithFields.has(f.name) ? { endsWith: true } : {}),
+      ...(state.containsFields.has(f.name) ? { contains: true } : {}),
+    };
+    if (state.indexedFields.has(f.name)) {
+      const profile = masterProfile.fields[f.name];
+      if (profile) selectedProfileFields[f.name] = profile;
+    }
+  }
+
+  const costs = estimateCosts(
+    { ...masterProfile, fields: selectedProfileFields },
+    currentFields,
+    { shardBytes: state.shardBytes, indexChunkBytes: DEFAULT_INDEX_CHUNK_BYTES },
+  );
+
+  // `skewedShardsWarning` (warnings.ts) isn't wired in here: it reads real cut `ShardDescriptor[]`
+  // bytes, which only exist post-`build`/`inspect` materialization. Pre-build, `warnings.ts`'s own
+  // skew message names the same two root causes surfaced below (an equal-key sort-field pileup, or
+  // an oversized record) — this is the upstream, estimate-time view of the same phenomenon, not a
+  // missing warning category.
+  const warnings: string[] = [];
+  const lowCard = lowCardinalitySortFieldWarning(data.recordCount, masterProfile.sortFieldCardinality);
+  if (lowCard) warnings.push(lowCard);
+  const oversized = oversizedRecordWarning(masterProfile.maxRecordBytes, state.shardBytes);
+  if (oversized) warnings.push(oversized);
+  for (const [name, idx] of Object.entries(costs.indexes)) {
+    if (idx.containsExceedsColumn) {
+      warnings.push(
+        `static-shard: "${name}"'s contains index would be bigger than the field's own data — usually not worth it (ADR-0003 §7).`,
+      );
+    }
+  }
+
+  function probeIndex(name: string, opts: { endsWith?: boolean; contains?: boolean }): IndexSizeEstimate {
+    const profile = masterProfile.fields[name];
+    if (!profile) return { baseBytes: 0, baseChunks: 0 };
+    return estimateIndexSize(profile, costs.shardCount, { indexChunkBytes: DEFAULT_INDEX_CHUNK_BYTES, ...opts });
+  }
+
+  return { costs, warnings, masterProfile, probeIndex };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering — pure string-building (ADR-0006 §4: dep-light, hand-rolled ANSI).
+// ---------------------------------------------------------------------------
+
+const ESC = "\x1b[";
+const ANSI = {
+  reset: `${ESC}0m`,
+  bold: `${ESC}1m`,
+  dim: `${ESC}2m`,
+  inverse: `${ESC}7m`,
+  red: `${ESC}31m`,
+  green: `${ESC}32m`,
+  yellow: `${ESC}33m`,
+  cyan: `${ESC}36m`,
+};
+
+function bold(s: string): string {
+  return ANSI.bold + s + ANSI.reset;
+}
+function dim(s: string): string {
+  return ANSI.dim + s + ANSI.reset;
+}
+function color(code: string, s: string): string {
+  return code + s + ANSI.reset;
+}
+function stripAnsi(s: string): string {
+  return s.replace(/\x1b\[[0-9;]*m/g, "");
+}
+function pad(s: string, n: number): string {
+  return s.length >= n ? s : s + " ".repeat(n - s.length);
+}
+
+/** Overlays a single highlight on an otherwise-plain row — kept to one color per row so nested ANSI resets never clobber each other (a real terminal concern the /prototype hit too). */
+function renderRow(plain: string, opts: { cursor: boolean; danger?: boolean }): string {
+  if (opts.cursor) return color(ANSI.inverse, stripAnsi(plain));
+  if (opts.danger) return color(ANSI.red, stripAnsi(plain));
+  return plain;
+}
+
+function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${Math.round(bytes)}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+function fmtInt(n: number): string {
+  return Math.round(n).toLocaleString("en-US");
+}
+
+const VISIBLE_ROWS = 10;
+
+/** ADR-0006 §5: scrollable list — a fixed window centered on the cursor, not the whole (possibly ~90-field) list. */
+function windowed<T>(items: T[], cursor: number): { items: T[]; offset: number } {
+  if (items.length <= VISIBLE_ROWS) return { items, offset: 0 };
+  const half = Math.floor(VISIBLE_ROWS / 2);
+  const offset = Math.max(0, Math.min(items.length - VISIBLE_ROWS, cursor - half));
+  return { items: items.slice(offset, offset + VISIBLE_ROWS), offset };
+}
+
+/**
+ * ADR-0006 §3: the plain-language consequence axes, jargon-free ("no zonemap/postings on screen"),
+ * as named blocks rather than one flat array — so each step picks the axes relevant to what it just
+ * changed by name, not by a positional slice that silently breaks if a block gains/loses a line.
+ */
+interface EstimateAxes {
+  dataFiles: string[];
+  firstDownload: string[];
+  perQuery: string[];
+  extraIndexes: string[];
+}
+
+function estimateAxes(costs: CostEstimate): EstimateAxes {
+  const dataFiles = [
+    bold("  Data files") + dim("  your data, split into many small files"),
+    `    ${color(ANSI.cyan, fmtInt(costs.shardCount) + " files")} ${dim("about " + fmtInt(costs.recordsPerShard) + " records each")}`,
+  ];
+
+  const firstDownload = [
+    bold("  First download") + dim("  everyone loads this once, before any query"),
+    `    ${color(costs.manifest.overBudget ? ANSI.yellow : ANSI.green, fmtBytes(costs.manifest.gzipBytes))} ${dim("of a " + fmtBytes(MANIFEST_BUDGET_BYTES) + " comfort limit")}`,
+  ];
+
+  const perQuery = [bold("  Download per query") + dim("  what a typical query pulls down")];
+  if (costs.perQuery.equality) {
+    perQuery.push(
+      `    filter by exact value: ${color(ANSI.cyan, fmtBytes(costs.perQuery.equality.bytes))} in ${costs.perQuery.equality.requests} request(s)`,
+    );
+  }
+  perQuery.push(
+    `    filter by a range: ${color(ANSI.cyan, fmtBytes(costs.perQuery.range.bytes))} in ${costs.perQuery.range.requests} request(s)`,
+  );
+
+  const extraBytes = Object.values(costs.indexes).reduce(
+    (sum, i) => sum + i.baseBytes + (i.reversedBytes ?? 0) + (i.trigramBytes ?? 0),
+    0,
+  );
+  const extraIndexes = [
+    bold("  Extra search indexes") + dim("  load only when a query actually uses them") + `  ${color(ANSI.cyan, fmtBytes(extraBytes))}`,
+  ];
+
+  return { dataFiles, firstDownload, perQuery, extraIndexes };
+}
+
+function allEstimateLines(costs: CostEstimate): string[] {
+  const axes = estimateAxes(costs);
+  return [...axes.dataFiles, ...axes.firstDownload, ...axes.perQuery, ...axes.extraIndexes];
+}
+
+function renderDetect(data: WizardData): string[] {
+  const lines = [bold(`Detected ${fmtInt(data.recordCount)} record(s), ${fmtInt(data.fields.length)} field(s).`), ""];
+  lines.push(dim("  field                  type      cardinality   role"));
+  for (const f of data.fields) {
+    const role =
+      f.name === data.recommendedPk
+        ? color(ANSI.green, "PK guess")
+        : f.name === data.recommendedSortField
+          ? color(ANSI.cyan, "sort field guess")
+          : f.multi
+            ? color(ANSI.cyan, "multi-valued")
+            : "";
+    lines.push(`  ${pad(f.name, 22)} ${pad(f.kind, 9)} ${pad(fmtInt(f.cardinality), 13)} ${role}`);
+  }
+  lines.push("", color(ANSI.cyan, "  [Enter] looks right, continue →"));
+  return lines;
+}
+
+function renderSortField(data: WizardData, state: WizardState, estimate: WizardEstimate): string[] {
+  const candidates = sortCandidateFields(data, state);
+  const lines = [
+    bold("Pick ONE field to sort by."),
+    dim("  Free range filtering (before/after, less/greater) on this field; every other field needs an index."),
+    "",
+  ];
+  if (state.filterQuery) lines.push(dim(`  filter: "${state.filterQuery}"`), "");
+  const { items, offset } = windowed(candidates, state.cursor);
+  items.forEach((f, i) => {
+    const idx = offset + i;
+    const selected = f.name === state.sortField;
+    const marker = selected ? color(ANSI.green, "◉") : "○";
+    const rec = f.name === data.recommendedSortField ? color(ANSI.green, " ★ recommended") : "";
+    const plain = `  ${marker} ${pad(f.name, 22)} ${dim(pad(f.kind + " · " + fmtInt(f.cardinality) + " distinct", 28))}${rec}`;
+    lines.push(renderRow(plain, { cursor: idx === state.cursor }));
+  });
+  if (candidates.length === 0) lines.push(dim("  no matching fields"));
+  lines.push("", ...estimateAxes(estimate.costs).dataFiles);
+  lines.push("", dim("  [↑/↓] move  [space] choose  [type] filter  [←/→] change step"));
+  return lines;
+}
+
+function renderFilterFields(data: WizardData, state: WizardState, estimate: WizardEstimate): string[] {
+  const candidates = filterableFields(data, state);
+  const lines = [
+    bold("Which fields do you want to filter on?"),
+    dim("  Only indexed fields are queryable. Each one adds a little to the first download, plus an index that loads only when a query uses it."),
+    "",
+  ];
+  if (state.filterQuery) lines.push(dim(`  filter: "${state.filterQuery}"`), "");
+  const { items, offset } = windowed(candidates, state.cursor);
+  items.forEach((f, i) => {
+    const idx = offset + i;
+    const on = state.indexedFields.has(f.name);
+    const box = on ? color(ANSI.green, "[x]") : dim("[ ]");
+    const idxEstimate = estimate.costs.indexes[f.name];
+    const cost = on && idxEstimate ? dim(`index loads on use: ${fmtBytes(idxEstimate.baseBytes)}`) : dim("not indexed");
+    const plain = `  ${box} ${pad(f.name, 22)} ${cost}`;
+    lines.push(renderRow(plain, { cursor: idx === state.cursor }));
+  });
+  if (candidates.length === 0) lines.push(dim("  no matching fields"));
+  lines.push("", ...estimateAxes(estimate.costs).firstDownload);
+  lines.push("", dim("  [↑/↓] move  [space] toggle  [type] filter  [←/→] change step"));
+  return lines;
+}
+
+function renderTextSearch(data: WizardData, state: WizardState, estimate: WizardEstimate): string[] {
+  const rows = textSearchRows(data, state);
+  const lines = [
+    bold("Extra ways to search text"),
+    dim('  Exact match, "is one of", and starts-with are already on for every indexed text field.'),
+    dim("  These add more, each with an extra index that loads only when it's used."),
+    "",
+  ];
+  if (state.filterQuery) lines.push(dim(`  filter: "${state.filterQuery}"`), "");
+  if (rows.length === 0) {
+    lines.push(dim("  no indexed text fields yet — go back and index one first"));
+  } else {
+    const { items, offset } = windowed(rows, state.cursor);
+    items.forEach((row, i) => {
+      const idx = offset + i;
+      const on = row.operator === "endsWith" ? state.endsWithFields.has(row.field) : state.containsFields.has(row.field);
+      const box = on ? color(ANSI.green, "[x]") : dim("[ ]");
+      let costText: string;
+      let danger = false;
+      if (row.operator === "endsWith") {
+        const probe = estimate.probeIndex(row.field, { endsWith: true });
+        costText = `adds ${fmtBytes(probe.reversedBytes ?? 0)}`;
+      } else {
+        const probe = estimate.probeIndex(row.field, { contains: true });
+        danger = probe.containsExceedsColumn === true;
+        costText = danger
+          ? `adds ${fmtBytes(probe.trigramBytes ?? 0)} — bigger than the data!`
+          : `adds ${fmtBytes(probe.trigramBytes ?? 0)}`;
+      }
+      const label = row.operator === "endsWith" ? "ends with" : "contains";
+      const plain = `  ${box} ${pad(row.field, 18)} ${pad(label, 10)} ${dim(costText)}`;
+      lines.push(renderRow(plain, { cursor: idx === state.cursor, danger }));
+    });
+  }
+  lines.push("", ...estimateAxes(estimate.costs).extraIndexes);
+  lines.push("", dim("  [↑/↓] move  [space] toggle  [type] filter  [←/→] change step"));
+  return lines;
+}
+
+function renderFileSize(state: WizardState, estimate: WizardEstimate): string[] {
+  const lines = [
+    bold("How big should each data file be?"),
+    dim("  Smaller files waste less bandwidth per query but need more requests. Bigger files are the opposite."),
+    "",
+  ];
+  CHUNK_STEPS.forEach((step, i) => {
+    const fileCount = estimateShardCount(estimate.masterProfile.datasetBytes, step);
+    const marker = step === state.shardBytes ? color(ANSI.green, "◆") : " ";
+    const plain = `  ${marker} ${pad(fmtBytes(step), 8)} → ${fmtInt(fileCount)} file(s)`;
+    lines.push(renderRow(plain, { cursor: i === state.cursor }));
+  });
+  lines.push("", ...allEstimateLines(estimate.costs));
+  lines.push("", dim("  [↑/↓] pick a size  [←/→] change step"));
+  return lines;
+}
+
+/**
+ * `configPreview`, when the JSON is expanded, must be the *exact* JSON `init()` would write for the
+ * current choices — computed by `wizard-tui.ts` via `resolveInitConfig` (the same resolution logic
+ * persist calls), not reconstructed here. `wizard.ts` stays I/O-free, so it renders whatever string
+ * it's handed rather than building its own second, possibly-divergent approximation of the config.
+ */
+function renderReview(state: WizardState, estimate: WizardEstimate, configPreview?: string): string[] {
+  const choices = deriveWizardChoices(state);
+  const lines = [bold("Review"), ""];
+  lines.push(
+    `  Sorted by ${bold(choices.sortField)} — ${fmtInt(estimate.costs.shardCount)} file(s), about ${fmtInt(estimate.costs.recordsPerShard)} records each`,
+  );
+  lines.push(`  Filterable fields: ${choices.indexedFields.length ? choices.indexedFields.join(", ") : dim("none")}`);
+  const extraOps = [
+    ...choices.endsWithFields.map((f) => `${f} (ends with)`),
+    ...choices.containsFields.map((f) => `${f} (contains)`),
+  ];
+  lines.push(`  Extra text search: ${extraOps.length ? extraOps.join(", ") : dim("none")}`);
+  lines.push(`  File size target: ${fmtBytes(choices.shardBytes)}`);
+  lines.push("");
+  if (estimate.warnings.length === 0) {
+    lines.push(dim("  no warnings — config within budget"));
+  } else {
+    lines.push(bold("  Warnings"));
+    for (const w of estimate.warnings) lines.push(`${color(ANSI.yellow, "  ▲ ")}${w}`);
+  }
+  lines.push("");
+  lines.push(dim(state.reviewJsonExpanded ? "  [space] hide config preview" : "  [space] preview config (collapsed)"));
+  if (state.reviewJsonExpanded) {
+    const preview = configPreview ?? "(computing preview…)";
+    lines.push("", ...preview.split("\n").map((l) => "  " + dim(l)));
+  }
+  lines.push("", color(ANSI.cyan, "  [Enter] write static-shard.config.json") + dim("   [←] back"));
+  return lines;
+}
+
+/**
+ * The whole rendered frame for one keystroke — `wizard-tui.ts` clears the screen and writes this
+ * each time. `configPreview`, if given, is only used on the review stage (see `renderReview`).
+ */
+export function renderFrame(data: WizardData, state: WizardState, estimate: WizardEstimate, configPreview?: string): string {
+  const crumbs = STAGE_LABELS.map((label, i) =>
+    i === state.stage ? color(ANSI.inverse, ` ${i + 1} ${label} `) : dim(` ${i + 1} ${label} `),
+  ).join(dim("→"));
+  const header = `${bold(color(ANSI.cyan, "static-shard init"))}\n${crumbs}\n`;
+
+  let body: string[];
+  switch (state.stage) {
+    case 0:
+      body = renderDetect(data);
+      break;
+    case 1:
+      body = renderSortField(data, state, estimate);
+      break;
+    case 2:
+      body = renderFilterFields(data, state, estimate);
+      break;
+    case 3:
+      body = renderTextSearch(data, state, estimate);
+      break;
+    case 4:
+      body = renderFileSize(state, estimate);
+      break;
+    default:
+      body = renderReview(state, estimate, configPreview);
+      break;
+  }
+  return `${header}\n${body.join("\n")}\n`;
+}

@@ -6,7 +6,16 @@ import { readInputRecords } from "./input.js";
 import type { FieldConfig, InputFormat, StaticShardConfig } from "./types.js";
 import { getFormatVersion } from "./version.js";
 
-const DEFAULT_SAMPLE_SIZE = 1000;
+/** Exported so callers that sample records the same way `init` does (the wizard, T12) never drift from this default. */
+export const DEFAULT_SAMPLE_SIZE = 1000;
+
+/** Shared by `init` and the wizard's live estimates (T12): a full scan uses every record, otherwise the leading `sampleSize` (default `DEFAULT_SAMPLE_SIZE`). */
+export function sampleRecords(
+  records: Record<string, unknown>[],
+  opts: { fullScan?: boolean; sampleSize?: number },
+): Record<string, unknown>[] {
+  return opts.fullScan ? records : records.slice(0, opts.sampleSize ?? DEFAULT_SAMPLE_SIZE);
+}
 
 /** Convention for editor JSON-schema resolution: `config.schema.json` ships inside the installed devDependency. */
 const CONFIG_SCHEMA_REF = "node_modules/static-shard-cli/config.schema.json";
@@ -16,7 +25,9 @@ export interface InitOptions {
   cwd: string;
   /** Absolute path to read/write `static-shard.config.json`. */
   configPath: string;
-  /** `init` has no interactive wizard yet (T12) — must be true, or this throws. */
+  /** Non-interactive confirmation — must be true, or this throws. The interactive wizard (T12,
+   * `wizard-tui.ts`) sits above `init()` in `bin.ts` and always passes `true` here itself, once its
+   * review step confirms; `init()` has no separate interactive path of its own. */
   yes: boolean;
   /** Re-run inference even if a config already exists, refreshing the baked schema block. */
   reinfer?: boolean;
@@ -115,15 +126,16 @@ export interface InitResult {
 }
 
 /**
- * The non-interactive half of `init` (ADR-0005 §4 / ADR-0006 §1): infer → recommend → persist
- * `static-shard.config.json`. `init --yes` + flags is fully scriptable; the interactive wizard
- * (T12) is a UX layer over this exact same core. Precedence is flags > existing file > inferred
- * defaults (ADR-0005 §3).
+ * Computes the config `init` would write, without writing it — the pure(-ish; it still reads the
+ * input file and any existing config) core `init()` builds on. Exported so the wizard's review step
+ * (T12) can render an exact, byte-faithful "what will be written" preview by calling the *same*
+ * resolution logic the actual persist step uses, instead of hand-reconstructing its own JSON shape
+ * that could silently drift from it.
  */
-export function init(opts: InitOptions): InitResult {
+export function resolveInitConfig(opts: InitOptions): InitResult {
   if (!opts.yes) {
     throw new Error(
-      'static-shard: "init" requires --yes — the interactive wizard is not implemented yet; run with --yes plus flags',
+      'static-shard: "init" requires --yes to run non-interactively — pass --yes plus flags, or re-run in a real terminal for the interactive wizard',
     );
   }
 
@@ -155,7 +167,7 @@ export function init(opts: InitOptions): InitResult {
     if (allRecords.length === 0) {
       throw new Error(`static-shard: init found no records in "${inputPath}" to infer a schema from`);
     }
-    const sample = opts.fullScan ? allRecords : allRecords.slice(0, opts.sampleSize ?? DEFAULT_SAMPLE_SIZE);
+    const sample = sampleRecords(allRecords, opts);
     const inferred = inferSchema(sample);
 
     sortField = opts.sortField ?? inferred.sortField;
@@ -208,8 +220,19 @@ export function init(opts: InitOptions): InitResult {
   // Fail loud on any invalid combination before writing anything — reuses build's own invariants.
   resolveConfig(config, path.dirname(opts.configPath));
 
-  mkdirSync(path.dirname(opts.configPath), { recursive: true });
-  writeFileSync(opts.configPath, JSON.stringify(config, null, 2) + "\n");
-
   return { configPath: opts.configPath, config, reinferred };
+}
+
+/**
+ * The non-interactive core of `init` (ADR-0005 §4 / ADR-0006 §1): infer → recommend → persist
+ * `static-shard.config.json`. `init --yes` + flags is fully scriptable; the interactive wizard
+ * (T12, `wizard-tui.ts`) is a UX layer that calls this exact function with `yes: true` once its
+ * review step confirms — there is no separate wizard-side config writer to drift from this one.
+ * Precedence is flags > existing file > inferred defaults (ADR-0005 §3).
+ */
+export function init(opts: InitOptions): InitResult {
+  const result = resolveInitConfig(opts);
+  mkdirSync(path.dirname(opts.configPath), { recursive: true });
+  writeFileSync(opts.configPath, JSON.stringify(result.config, null, 2) + "\n");
+  return result;
 }
