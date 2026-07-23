@@ -96,3 +96,38 @@ export function candidateShardIndices(
   if (endIdx < startIdx) return [];
   return range(startIdx, endIdx);
 }
+
+/** A secondary field's equals/in constraint — the only shapes a per-shard [min,max] pair can weakly prune (ADR-0003 §6 step 1). */
+export interface PairRangeFilter {
+  equals?: unknown;
+  in?: unknown[];
+}
+
+function withinPair(pair: readonly [unknown, unknown], value: unknown): boolean {
+  const [min, max] = pair;
+  // A shard with zero non-null values for this field has no bound to compare against (ADR-0002 §5/T7).
+  if (min === undefined || max === undefined) return false;
+  return (min as never) <= (value as never) && (value as never) <= (max as never);
+}
+
+/**
+ * Shard ordinals whose per-shard `[min,max]` pair could contain any of `filter`'s values — the
+ * secondary-field counterpart of `candidateShardIndices` (ADR-0003 §6 step 1: "apply all free
+ * zonemap pruning first"). String bounds are truncated but never past the true value (ADR-0003
+ * §2), so this can only ever OVER-approximate — it never excludes a real match. `undefined` means
+ * the filter shape (e.g. `startsWith`) isn't one a min/max pair can prune; the caller should treat
+ * that as "no zonemap signal" rather than as an empty set.
+ */
+export function pairCandidateShardIndices(
+  pairs: readonly (readonly [unknown, unknown])[],
+  filter: PairRangeFilter,
+): Set<number> | undefined {
+  if (filter.equals === undefined && filter.in === undefined) return undefined;
+
+  const indices = new Set<number>();
+  const values = filter.in ?? [filter.equals];
+  pairs.forEach((pair, i) => {
+    if (values.some((value) => withinPair(pair, value))) indices.add(i);
+  });
+  return indices;
+}

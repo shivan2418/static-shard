@@ -94,6 +94,31 @@ export async function fetchText(
   }
 }
 
+/**
+ * Fetch + gzip-decompress + text, for opt-in build-time-gzipped shards (ADR-0002 §8) — the native
+ * `DecompressionStream` API, no library/WASM. A 2xx body that isn't valid gzip, or won't read
+ * once decompressed, is CORRUPT_DATA (same contract as `fetchText`).
+ */
+export async function fetchGzippedText(
+  url: string,
+  kind: FetchedFileKind,
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal,
+): Promise<string> {
+  const response = await fetchOk(url, kind, fetchImpl, signal);
+  try {
+    const decompressed = response.body!.pipeThrough(new DecompressionStream("gzip"));
+    return await new Response(decompressed).text();
+  } catch (cause) {
+    throw new ShardError({
+      code: "CORRUPT_DATA",
+      url,
+      message: `static-shard: the gzip body of "${url}" could not be decompressed — the deploy is corrupt. Re-run \`static-shard build\` and redeploy.`,
+      cause,
+    });
+  }
+}
+
 /** Parse/decode a 2xx body's CONTENT into a domain structure; failures are CORRUPT_DATA. */
 export function parseCorruptible<T>(url: string, parse: () => T): T {
   try {

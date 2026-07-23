@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { materialize } from "./build.js";
 import { loadConfigFile, resolveConfig } from "./config.js";
 import {
@@ -12,7 +12,9 @@ import {
 } from "./estimator.js";
 import { readInputRecords } from "./input.js";
 import { valuesOf } from "./secondary-index.js";
+import { shardRelPath } from "./shard.js";
 import type { IndexChunkDirEntry, Manifest } from "./types.js";
+import { lowCardinalitySortFieldWarning, oversizedRecordWarning, skewedShardsWarning, sortFieldCardinalityOf } from "./warnings.js";
 
 export interface InspectOptions {
   /** Absolute path to a `static-shard.config.json` — materializes the served tree in memory from the (unbuilt) input and reports it exactly, without ever writing `output`. */
@@ -70,16 +72,6 @@ function readChunkStats(chunks: IndexChunkDirEntry[], readChunk: (relPath: strin
     entryCount += (JSON.parse(content) as { entries: unknown[] }).entries.length;
   }
   return { bytes, entryCount };
-}
-
-/** Heuristic average sort-value run length past which a sort field counts as "low cardinality" (ADR-0002 §6) — scale-free, so it works identically whether cardinality came from raw records (`--config`) or shard-boundary split-points (`--dir`). Not a hard rule: `cutIntoShards` caps real `shardCount` at cardinality (equal-key runs never split), so this can't be phrased as "fewer distinct values than shards". */
-const LOW_CARDINALITY_AVG_RUN_LENGTH = 20;
-
-function lowCardinalitySortFieldWarning(recordCount: number, sortFieldCardinality: number): string | undefined {
-  if (sortFieldCardinality === 0 || recordCount < LOW_CARDINALITY_AVG_RUN_LENGTH) return undefined;
-  const avgRunLength = recordCount / sortFieldCardinality;
-  if (avgRunLength <= LOW_CARDINALITY_AVG_RUN_LENGTH) return undefined;
-  return `static-shard: the sort field has only ${sortFieldCardinality} distinct value(s) across ${recordCount} records (~${Math.round(avgRunLength)} per value) — low-cardinality sort fields shard unevenly (equal-key runs stay contiguous, ADR-0002 §6).`;
 }
 
 interface StructuralReport {
@@ -147,17 +139,11 @@ function buildStructuralReport(opts: {
 
   if (manifestOverBudget) {
     warnings.push(
-      `static-shard: root manifest is ${manifestGzipBytes} gzipped bytes, over the ~${MANIFEST_BUDGET_BYTES} budget — consider fewer indexed fields (secondary zonemaps spilling to per-field sidecars past this budget is not yet implemented, T13).`,
+      `static-shard: root manifest is ${manifestGzipBytes} gzipped bytes, over the ~${MANIFEST_BUDGET_BYTES} budget even after spilling every secondary zonemap to a sidecar (ADR-0003 §3) — consider fewer indexed fields.`,
     );
   }
-  if (shards.meanBytes > 0) {
-    const oversized = manifest.shards.filter((s) => s.bytes > shards.meanBytes * 2);
-    if (oversized.length > 0) {
-      warnings.push(
-        `static-shard: ${oversized.length} shard(s) are more than 2x the mean shard size (${Math.round(shards.meanBytes)} bytes) — likely an equal-key pileup on the sort field or an oversized record (ADR-0002 §5/§6).`,
-      );
-    }
-  }
+  const skewWarning = skewedShardsWarning(manifest.shards);
+  if (skewWarning) warnings.push(skewWarning);
 
   const equalityField = Object.entries(cardinalityByField)[0];
   const perQuery: InspectReport["perQuery"] = {
@@ -212,17 +198,15 @@ function inspectConfig(configPath: string): InspectReport {
   const structural = buildStructuralReport({ manifest, manifestJson, readChunk, columnBytesFor });
 
   const warnings = [...structural.warnings];
-  const sortValues = records.map((r) => r[resolved.sortField]).filter((v) => v !== null && v !== undefined);
-  const sortFieldCardinality = new Set(sortValues.map((v) => JSON.stringify(v))).size;
-  const cardinalityWarning = lowCardinalitySortFieldWarning(manifest.dataset.recordCount, sortFieldCardinality);
+  const cardinalityWarning = lowCardinalitySortFieldWarning(
+    manifest.dataset.recordCount,
+    sortFieldCardinalityOf(records, resolved.sortField),
+  );
   if (cardinalityWarning) warnings.push(cardinalityWarning);
 
   const maxRecordBytes = records.reduce((max, r) => Math.max(max, Buffer.byteLength(JSON.stringify(r), "utf8")), 0);
-  if (maxRecordBytes > resolved.shardBytes) {
-    warnings.push(
-      `static-shard: the largest record is ${maxRecordBytes} bytes, over the ${resolved.shardBytes}-byte shard target — it will get its own oversized, flagged shard (ADR-0002 §5).`,
-    );
-  }
+  const oversizedWarning = oversizedRecordWarning(maxRecordBytes, resolved.shardBytes);
+  if (oversizedWarning) warnings.push(oversizedWarning);
 
   return {
     mode: "config",
@@ -246,7 +230,10 @@ function inspectDir(dir: string): InspectReport {
   const columnBytesFor = (field: string, multi: boolean): number => {
     let bytes = 0;
     for (const shard of manifest.shards) {
-      const content = readFileSync(path.join(dir, "shards", `${shard.hash}.ndjson`), "utf8");
+      const shardPath = path.join(dir, shardRelPath(shard.hash, manifest.shards.length, manifest.dataset.gzip === true));
+      const content = manifest.dataset.gzip === true
+        ? gunzipSync(readFileSync(shardPath)).toString("utf8")
+        : readFileSync(shardPath, "utf8");
       for (const line of content.split("\n")) {
         if (line.length === 0) continue;
         const record = JSON.parse(line) as Record<string, unknown>;

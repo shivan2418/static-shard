@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { candidateShardIndices } from "../src/zonemap.js";
+import { candidateShardIndices, pairCandidateShardIndices } from "../src/zonemap.js";
 
 // 3 shards: shard0 [1900,1950), shard1 [1950,2000), shard2 [2000,2020] (inclusive both ends, last shard).
 const splitPoints = [1900, 1950, 2000, 2020];
@@ -40,5 +40,39 @@ describe("candidateShardIndices", () => {
 
   test("an empty manifest (no shards) selects nothing", () => {
     expect(candidateShardIndices([], { equals: 2000 })).toEqual([]);
+  });
+});
+
+describe("pairCandidateShardIndices", () => {
+  // shard0 [Alpha,Golf], shard1 [Hotel,Papa], shard2 [Quebec,Zulu]
+  const pairs: [string, string][] = [
+    ["Alpha", "Golf"],
+    ["Hotel", "Papa"],
+    ["Quebec", "Zulu"],
+  ];
+
+  test("equals selects every shard whose pair could contain the value", () => {
+    expect(pairCandidateShardIndices(pairs, { equals: "Kilo" })).toEqual(new Set([1]));
+  });
+
+  test("equals outside every pair's range selects nothing", () => {
+    expect(pairCandidateShardIndices(pairs, { equals: "0" })).toEqual(new Set());
+  });
+
+  test("in selects the union across values", () => {
+    expect(pairCandidateShardIndices(pairs, { in: ["Bravo", "Romeo"] })).toEqual(new Set([0, 2]));
+  });
+
+  test("a filter shape with neither equals nor in returns undefined (no zonemap signal)", () => {
+    expect(pairCandidateShardIndices(pairs, {})).toBeUndefined();
+  });
+
+  test("skips a shard with no bound (zero non-null values for the field)", () => {
+    const withGap: [unknown, unknown][] = [
+      ["Alpha", "Golf"],
+      [undefined, undefined],
+      ["Quebec", "Zulu"],
+    ];
+    expect(pairCandidateShardIndices(withGap, { equals: "Charlie" })).toEqual(new Set([0]));
   });
 });

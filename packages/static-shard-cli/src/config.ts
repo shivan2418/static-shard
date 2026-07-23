@@ -121,6 +121,7 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
     clientOut: path.resolve(baseDir, config.clientOut ?? DEFAULT_CLIENT_OUT),
     basePath: config.basePath ?? defaultBasePath(output),
     shardBytes: config.shardBytes ?? DEFAULT_SHARD_BYTES,
+    gzip: config.gzip ?? false,
     indexChunkBytes: config.indexChunkBytes ?? DEFAULT_INDEX_CHUNK_BYTES,
     sortField,
     ...(pk !== undefined ? { pk } : {}),

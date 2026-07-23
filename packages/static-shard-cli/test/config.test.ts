@@ -23,6 +23,12 @@ describe("resolveConfig", () => {
     expect(resolved.shardBytes).toBeGreaterThan(0);
     expect(resolved.inputPath).toBe("/repo/data/movies.ndjson");
     expect(resolved.inputFormat).toBe("ndjson");
+    expect(resolved.gzip).toBe(false);
+  });
+
+  test("honors an explicit gzip: true override (T13, ADR-0002 §8)", () => {
+    const resolved = resolveConfig({ ...base, gzip: true }, "/repo");
+    expect(resolved.gzip).toBe(true);
   });
 
   test("honors explicit output/clientOut/basePath/shardBytes overrides", () => {

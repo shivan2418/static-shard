@@ -1,11 +1,13 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
 import { resolveConfig } from "./config.js";
 import { generateClientTs, generateSchemaTs } from "./codegen.js";
 import { assertNoSchemaDrift } from "./drift.js";
 import { contentHash } from "./hash.js";
 import { readInputRecords } from "./input.js";
-import { buildManifest, computeSplitPoints } from "./manifest.js";
+import { buildManifest, computeMissingBlock, computeSplitPoints } from "./manifest.js";
 import {
   buildInvertedIndex,
   buildReversedIndex,
@@ -13,22 +15,31 @@ import {
   computeColumnBytes,
   computeSecondaryZonemap,
 } from "./secondary-index.js";
-import { cutIntoShards, materializeShards } from "./shard.js";
+import { cutIntoShards, materializeShards, shardRelPath } from "./shard.js";
 import type { ShardFile } from "./shard.js";
-import { compareSortValues, type SortKind } from "./sort.js";
+import { externalSort, type SortKind } from "./sort.js";
 import type { BuiltIndexChunk } from "./secondary-index.js";
 import type { IndexChunkDirEntry, Manifest, PairZonemapEntry, ResolvedConfig, StaticShardConfig } from "./types.js";
 import { getFormatVersion, getGeneratorVersion } from "./version.js";
+import { lowCardinalitySortFieldWarning, oversizedRecordWarning, skewedShardsWarning, sortFieldCardinalityOf } from "./warnings.js";
+import { spillOversizedZonemaps } from "./zonemap-budget.js";
+
+/** Records buffered per sorted run before `externalSort` spills to disk (ADR-0002 §9) — tunable per-call for tests, not part of the persisted config (an execution concern, not a design decision). */
+const DEFAULT_SORT_RUN_RECORDS = 200_000;
 
 export interface MaterializeOptions {
   generatorVersion?: string;
   formatVersion?: number;
+  /** Records buffered per sorted run before the global sort spills to disk. Default 200,000. */
+  sortRunRecords?: number;
+  /** Scratch directory the external sort may use when spilling. Default `os.tmpdir()`. */
+  tmpDir?: string;
 }
 
 export interface MaterializeResult {
   manifest: Manifest;
   shardFiles: ShardFile[];
-  /** Every non-shard content-hashed file the manifest's `indexes` chunk directories point at. */
+  /** Every non-shard content-hashed file the manifest points at: index chunk directories and, past the manifest budget, spilled zonemap sidecars (ADR-0003 §3). */
   indexFiles: { relPath: string; content: string }[];
   /** Loud, non-fatal build-time warnings (e.g. a `contains` trigram index bigger than its column, ADR-0003 §7). */
   warnings: string[];
@@ -37,8 +48,11 @@ export interface MaterializeResult {
 /**
  * The walking skeleton, minus disk I/O: read config's baked schema → global sort by the sort
  * field → cut into byte-target shards → compute the manifest (zonemaps + lazy indexes). Pure
- * given `records` already in memory — `build` writes this result to disk; `inspect --config`
- * (T11) reads it directly for an exact re-report without ever touching `output`.
+ * given `records` already in memory — never touches `output`/`clientOut` — with one exception:
+ * the sort step may spill memory-bounded runs to OS-tmpdir scratch files (T13's external sort),
+ * cleaned up before returning, so the result is still deterministic and side-effect-free from the
+ * caller's perspective. `build` writes this result to disk; `inspect --config` (T11) reads it
+ * directly for an exact re-report without ever touching `output`.
  */
 export function materialize(
   resolved: ResolvedConfig,
@@ -50,13 +64,18 @@ export function materialize(
   const sortKind = resolved.fields[resolved.sortField]!.kind as SortKind;
 
   assertNoSchemaDrift(records, resolved.fields);
-  const sorted = [...records].sort((a, b) =>
-    compareSortValues(a[resolved.sortField], b[resolved.sortField], sortKind),
-  );
+  const sorted = externalSort(records, {
+    sortField: resolved.sortField,
+    kind: sortKind,
+    pk: resolved.pk,
+    runRecords: opts.sortRunRecords ?? DEFAULT_SORT_RUN_RECORDS,
+    tmpDir: opts.tmpDir ?? os.tmpdir(),
+  });
 
   const groups = cutIntoShards(sorted, resolved.sortField, resolved.shardBytes);
   const shardFiles = materializeShards(groups);
   const splitPoints = computeSplitPoints(groups, resolved.sortField);
+  const missing = computeMissingBlock(groups, resolved.sortField);
 
   const indexedSecondaryFields = Object.entries(resolved.fields).filter(
     ([name, field]) => name !== resolved.sortField && field.indexed === true,
@@ -110,10 +129,11 @@ export function materialize(
     }
   }
 
-  const manifest = buildManifest({
+  const rawManifest = buildManifest({
     config: resolved,
     shardFiles,
     splitPoints,
+    missing,
     secondaryZonemaps,
     indexChunkDirs,
     reversedChunkDirs,
@@ -121,6 +141,24 @@ export function materialize(
     formatVersion,
     generatorVersion,
   });
+
+  // Root-manifest budget (ADR-0003 §3): spill the largest secondary zonemaps to per-field
+  // sidecars, largest first, until the gzipped root is back under budget.
+  const { manifest, sidecarFiles } = spillOversizedZonemaps(rawManifest);
+  indexFiles.push(...sidecarFiles);
+
+  const maxRecordBytes = records.reduce((max, r) => Math.max(max, Buffer.byteLength(JSON.stringify(r), "utf8")), 0);
+  const oversizedWarning = oversizedRecordWarning(maxRecordBytes, resolved.shardBytes);
+  if (oversizedWarning) warnings.push(oversizedWarning);
+
+  const skewWarning = skewedShardsWarning(shardFiles);
+  if (skewWarning) warnings.push(skewWarning);
+
+  const cardinalityWarning = lowCardinalitySortFieldWarning(
+    records.length,
+    sortFieldCardinalityOf(records, resolved.sortField),
+  );
+  if (cardinalityWarning) warnings.push(cardinalityWarning);
 
   return { manifest, shardFiles, indexFiles, warnings };
 }
@@ -130,6 +168,10 @@ export interface BuildOptions {
   baseDir: string;
   generatorVersion?: string;
   formatVersion?: number;
+  /** Records buffered per sorted run before the global sort spills to disk. Default 200,000. */
+  sortRunRecords?: number;
+  /** Scratch directory the external sort may use when spilling. Default `os.tmpdir()`. */
+  tmpDir?: string;
 }
 
 export interface BuildResult {
@@ -160,13 +202,19 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
   const { manifest, shardFiles, indexFiles, warnings } = materialize(resolved, records, {
     generatorVersion,
     formatVersion,
+    sortRunRecords: opts.sortRunRecords,
+    tmpDir: opts.tmpDir,
   });
 
   rmSync(resolved.output, { recursive: true, force: true });
-  const shardsDir = path.join(resolved.output, "shards");
-  mkdirSync(shardsDir, { recursive: true });
+  mkdirSync(resolved.output, { recursive: true });
   for (const file of shardFiles) {
-    writeFileSync(path.join(shardsDir, `${file.hash}.ndjson`), file.content);
+    const filePath = path.join(resolved.output, shardRelPath(file.hash, shardFiles.length, resolved.gzip));
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    // Compression is a transport concern applied only at write time — the content-hash (computed
+    // in `shard.ts`) stays over the LOGICAL uncompressed NDJSON, so toggling gzip between rebuilds
+    // never perturbs shard hashes or the manifest/index structures keyed on them.
+    writeFileSync(filePath, resolved.gzip ? gzipSync(file.content) : file.content);
   }
   for (const { relPath, content } of indexFiles) {
     const filePath = path.join(resolved.output, relPath);

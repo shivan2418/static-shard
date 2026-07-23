@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { computeSplitPoints, buildManifest } from "../src/manifest.js";
+import { computeMissingBlock, computeSplitPoints, buildManifest } from "../src/manifest.js";
 import type { ResolvedConfig, ShardDescriptor } from "../src/types.js";
 
 const config: ResolvedConfig = {
@@ -31,6 +31,22 @@ describe("computeSplitPoints", () => {
 
   test("returns an empty array for no shards", () => {
     expect(computeSplitPoints([], "year")).toEqual([]);
+  });
+});
+
+describe("computeMissingBlock", () => {
+  test("returns undefined when every record has a real sort-field value", () => {
+    const groups = [[{ year: 2000 }], [{ year: 2001 }]];
+    expect(computeMissingBlock(groups, "year")).toBeUndefined();
+  });
+
+  test("reports the earliest shard containing a missing value and counts null vs absent separately (T13)", () => {
+    const groups = [
+      [{ year: 2000 }, { year: 2001 }],
+      [{ year: 2002 }, { year: null }],
+      [{ year: null }, {}],
+    ];
+    expect(computeMissingBlock(groups, "year")).toEqual({ shardFrom: 1, nullCount: 2, absentCount: 1 });
   });
 });
 
@@ -343,5 +359,19 @@ describe("buildManifest", () => {
       generatorVersion: "0.0.0",
     });
     expect(manifest.schema.pk).toBeUndefined();
+  });
+
+  test("T13: config.gzip true carries dataset.gzip: true; false/absent omits it entirely", () => {
+    const gzipManifest = buildManifest({
+      config: { ...config, gzip: true },
+      shardFiles,
+      splitPoints,
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(gzipManifest.dataset.gzip).toBe(true);
+
+    const plainManifest = buildManifest({ config, shardFiles, splitPoints, formatVersion: 0, generatorVersion: "0.0.0" });
+    expect(plainManifest.dataset.gzip).toBeUndefined();
   });
 });

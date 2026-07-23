@@ -639,3 +639,85 @@ describe("createClient / maxResults guardrail — fail-loud, never truncating (T
     await expect(client.movies.count()).resolves.toEqual({ count: 6, exact: true });
   });
 });
+
+describe("createClient / secondary zonemap sidecars (T13, ADR-0003 §3)", () => {
+  // Same shards/index as the shared fixture, plus a `title` zonemap spilled to a sidecar —
+  // per-shard [min,max]: shard0 "The Matrix", shard1 "Gladiator".."Snatch", shard2 "Dark Knight".."Reloaded".
+  const sidecarBody = JSON.stringify({
+    pairs: [
+      ["The Matrix", "The Matrix"],
+      ["Gladiator", "Snatch"],
+      ["Dark Knight", "Reloaded"],
+    ],
+    truncated: true,
+  });
+  const manifestWithSidecar: Manifest = {
+    ...manifest,
+    zonemap: { ...manifest.zonemap, title: { sidecar: "zonemap/title-abc123.json" } },
+  };
+
+  function fakeFetchWithSidecar(requests: string[], sidecarResponse: { status: number; body: string }): typeof fetch {
+    return (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url.endsWith("manifest.json")) {
+        return { ok: true, status: 200, json: async () => manifestWithSidecar, text: async () => JSON.stringify(manifestWithSidecar) } as Response;
+      }
+      if (url.endsWith("zonemap/title-abc123.json")) {
+        const { status, body } = sidecarResponse;
+        return { ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body), text: async () => body } as Response;
+      }
+      const indexMatch = url.match(/index\/title\/(\w+)\.json$/);
+      if (indexMatch) {
+        const body = indexChunks[indexMatch[1]!];
+        if (!body) return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+        return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body } as Response;
+      }
+      const hash = url.split("/").pop()!.replace(".ndjson", "");
+      const body = shardContents[hash];
+      if (!body) return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+      return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body } as Response;
+    }) as typeof fetch;
+  }
+
+  test("a query touching a spilled field lazily fetches its zonemap sidecar and still returns correct results", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, {
+      basePath: "/data",
+      fetch: fakeFetchWithSidecar(requests, { status: 200, body: sidecarBody }),
+    });
+    const { records } = await client.movies.findMany({ where: { title: { equals: "Gladiator" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["Gladiator"]);
+    expect(requests).toContain("/data/zonemap/title-abc123.json");
+  });
+
+  test("a query NOT touching the spilled field never fetches its sidecar", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, {
+      basePath: "/data",
+      fetch: fakeFetchWithSidecar(requests, { status: 200, body: sidecarBody }),
+    });
+    await client.movies.findMany({ where: { year: { equals: 1999 } } });
+
+    expect(requests.some((u) => u.includes("zonemap/"))).toBe(false);
+  });
+
+  test("a missing zonemap sidecar surfaces DEPLOY_INTEGRITY through findMany, same as any other manifest-referenced file (ADR-0007 §6)", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, {
+      basePath: "/data",
+      fetch: fakeFetchWithSidecar(requests, { status: 404, body: "" }),
+    });
+
+    const error = await client.movies.findMany({ where: { title: { equals: "Gladiator" } } }).then(
+      () => {
+        throw new Error("expected rejection");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("DEPLOY_INTEGRITY");
+    expect((error as ShardError).url).toBe("/data/zonemap/title-abc123.json");
+  });
+});

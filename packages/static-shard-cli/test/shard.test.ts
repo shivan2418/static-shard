@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { cutIntoShards } from "../src/shard.js";
+import { cutIntoShards, shardRelPath } from "../src/shard.js";
 
 function records(years: number[]): Record<string, unknown>[] {
   return years.map((year, i) => ({ id: i, year, title: `Movie ${i}` }));
@@ -39,5 +39,16 @@ describe("cutIntoShards", () => {
     for (const shard of shards) {
       expect(shard.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("shardRelPath", () => {
+  test("stays flat at or under the ~1,000-shard threshold", () => {
+    expect(shardRelPath("abc123", 1)).toBe("shards/abc123.ndjson");
+    expect(shardRelPath("abc123", 1000)).toBe("shards/abc123.ndjson");
+  });
+
+  test("nests under a 2-hex-char prefix subdir past the threshold", () => {
+    expect(shardRelPath("abc123", 1001)).toBe("shards/ab/abc123.ndjson");
   });
 });

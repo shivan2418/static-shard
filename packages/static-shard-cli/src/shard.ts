@@ -1,6 +1,22 @@
 import { contentHash } from "./hash.js";
 import type { ShardDescriptor } from "./types.js";
 
+/** Past this many shards, files nest under a 2-hex-char prefix subdir so no one directory holds an unwieldy number of files (ADR-0002 §8). */
+export const HASH_PREFIX_THRESHOLD = 1000;
+const HASH_PREFIX_LEN = 2;
+
+/**
+ * The on-disk (and served) path of a shard file relative to `output`, given the TOTAL shard
+ * count — a deterministic, threshold-based rule shared with the runtime's read path
+ * (`shard-fetch.ts`), so no extra manifest field is needed to record the directory layout. The
+ * gzip extension IS recorded in the manifest (`dataset.gzip`) since a query doesn't otherwise
+ * know a deploy's build-time compression choice.
+ */
+export function shardRelPath(hash: string, shardCount: number, gzip = false): string {
+  const filename = gzip ? `${hash}.ndjson.gz` : `${hash}.ndjson`;
+  return shardCount > HASH_PREFIX_THRESHOLD ? `shards/${hash.slice(0, HASH_PREFIX_LEN)}/${filename}` : `shards/${filename}`;
+}
+
 /**
  * Cuts records (already globally sorted by `sortField`) into byte-target
  * shards. Equal-key runs are kept contiguous even when that means a shard

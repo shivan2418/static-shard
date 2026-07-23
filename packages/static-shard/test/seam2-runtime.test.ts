@@ -906,3 +906,45 @@ describe("seam #2 — absentable ops, multi-valued some & not rider (T7), over a
     expect(requests).toEqual([]);
   });
 });
+
+/** Like `diskFetch`, but reads raw bytes and exposes a real `.body` stream — needed so `DecompressionStream` can pipe gzipped shard payloads (T13, ADR-0002 §8). Handles plain (non-gzip) files too, so it doubles as a drop-in for the manifest/index-chunk JSON fetches in the same query. */
+function diskFetchBinary(requests: string[]): typeof fetch {
+  return (async (input: RequestInfo | URL) => {
+    const filePath = String(input);
+    requests.push(filePath);
+    try {
+      const buf = await readFile(filePath);
+      return {
+        ok: true,
+        status: 200,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(buf));
+            controller.close();
+          },
+        }),
+        json: async () => JSON.parse(buf.toString("utf8")),
+        text: async () => buf.toString("utf8"),
+      } as unknown as Response;
+    } catch {
+      return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+    }
+  }) as typeof fetch;
+}
+
+describe("seam #2 — gzip shard payloads (T13, ADR-0002 §8)", () => {
+  test("findMany transparently decompresses gzip shard payloads end-to-end over a real build", async () => {
+    const gzipConfig: StaticShardConfig = { ...config, gzip: true };
+    const { outputDir, clientOutDir } = build(gzipConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetchBinary(requests),
+    });
+
+    const result = await client.movies.findMany({ where: { year: { equals: 2000 } } });
+    expect(result.records.map((r) => r.title).sort()).toEqual(["Gladiator", "Memento", "Snatch"].sort());
+    expect(requests.some((u) => u.endsWith(".ndjson.gz"))).toBe(true);
+  });
+});

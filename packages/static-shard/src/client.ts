@@ -2,7 +2,7 @@ import { fetchIndexChunk } from "./index-fetch.js";
 import { ShardError } from "./errors.js";
 import { parseCorruptible } from "./fetch-file.js";
 import { matchesWhere } from "./filter.js";
-import { fetchManifest, type IndexChunkDirEntry, type Manifest } from "./manifest.js";
+import { fetchManifest, type IndexChunkDirEntry, type Manifest, type PairZonemapEntry } from "./manifest.js";
 import {
   chunksForFilter,
   decodeIndexChunk,
@@ -22,7 +22,8 @@ import {
   type GenericClient,
   type SchemaMeta,
 } from "./types.js";
-import { candidateShardIndices, type SortFieldFilter, type SortValue } from "./zonemap.js";
+import { candidateShardIndices, pairCandidateShardIndices, type SortFieldFilter, type SortValue } from "./zonemap.js";
+import { fetchZonemapSidecar } from "./zonemap-fetch.js";
 
 interface RawFindManyArgs {
   where?: Record<string, Record<string, unknown>>;
@@ -56,6 +57,8 @@ interface FetchContext {
   basePath: string;
   fetchImpl: typeof fetch;
   chunkCache: Map<string, Promise<IndexChunkFile>>;
+  /** Spilled secondary zonemaps this query has already fetched, keyed by sidecar path (ADR-0003 §3) — one fetch per sidecar per query, however many fields/filters touch it. */
+  zonemapCache: Map<string, Promise<PairZonemapEntry>>;
   /** Passed to every fetch in this query; fired on the first failure (ADR-0007 §7). */
   signal: AbortSignal;
   /** First-failure-wins: aborts the shared controller, then rethrows — so Promise.all rejects fast and outstanding fetches cancel. */
@@ -74,6 +77,7 @@ function makeFetchContext(basePath: string, fetchImpl: typeof fetch): FetchConte
     basePath,
     fetchImpl,
     chunkCache: new Map(),
+    zonemapCache: new Map(),
     signal: controller.signal,
     track: (promise) => promise.catch(abortAndRethrow),
     trackSync: (fn) => {
@@ -84,6 +88,29 @@ function makeFetchContext(basePath: string, fetchImpl: typeof fetch): FetchConte
       }
     },
   };
+}
+
+/**
+ * Resolves a secondary field's zonemap — already-inline `pairs`, or a lazy fetch of its sidecar
+ * the first time this query touches it (ADR-0003 §3: root stays "routing-essential only", rich
+ * pruning data is pay-on-use). `undefined` when the field carries no zonemap entry at all (e.g.
+ * it isn't indexed, or is the sort field, which is pruned separately via `splitPoints`).
+ */
+async function resolveSecondaryZonemap(
+  manifest: Manifest,
+  ctx: FetchContext,
+  field: string,
+): Promise<PairZonemapEntry | undefined> {
+  const entry = manifest.zonemap[field];
+  if (!entry || "splitPoints" in entry) return undefined;
+  if (!("sidecar" in entry)) return entry;
+
+  let promise = ctx.zonemapCache.get(entry.sidecar);
+  if (!promise) {
+    promise = ctx.track(fetchZonemapSidecar(ctx.basePath, entry.sidecar, ctx.fetchImpl, ctx.signal));
+    ctx.zonemapCache.set(entry.sidecar, promise);
+  }
+  return await promise;
 }
 
 /** `a ∩ b` over shard ordinals — the one intersection shape every AND-combination step shares. */
@@ -160,7 +187,17 @@ async function secondaryFieldCandidates(
   const sets: Set<number>[] = [];
 
   const baseFilter = secondaryFilterOf(effectiveFilter);
-  if (baseFilter) sets.push(await candidatesFromChunkedIndex(ctx, indexDescriptor.chunks, kind, baseFilter));
+  if (baseFilter) {
+    // ADR-0003 §6 step 1: free zonemap pruning before the pay-on-use index-chunk fetch. The
+    // zonemap can only over-approximate (never wrongly excludes a real match — ADR-0003 §2), so
+    // intersecting it in never changes the final (already-exact) index result; it's how a
+    // secondary field's zonemap — inline or a lazily-fetched sidecar (T13, ADR-0003 §3) — gets
+    // exercised at all, since equals/in are otherwise resolved exactly via the index alone.
+    const zonemap = await resolveSecondaryZonemap(manifest, ctx, field);
+    const zonemapSet = zonemap && pairCandidateShardIndices(zonemap.pairs, baseFilter);
+    if (zonemapSet) sets.push(zonemapSet);
+    sets.push(await candidatesFromChunkedIndex(ctx, indexDescriptor.chunks, kind, baseFilter));
+  }
 
   if (endsWith !== undefined && indexDescriptor.reversed) {
     sets.push(
@@ -251,7 +288,16 @@ async function executeFindMany(
   const fetched = await Promise.all(
     candidateIndices.map(async (index) => ({
       index,
-      records: await ctx.track(fetchShardRecords(ctx.basePath, manifest.shards[index]!.hash, ctx.fetchImpl, ctx.signal)),
+      records: await ctx.track(
+        fetchShardRecords(
+          ctx.basePath,
+          manifest.shards[index]!.hash,
+          manifest.shards.length,
+          manifest.dataset.gzip === true,
+          ctx.fetchImpl,
+          ctx.signal,
+        ),
+      ),
     })),
   );
   fetched.sort((a, b) => a.index - b.index);

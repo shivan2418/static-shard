@@ -29,9 +29,21 @@ export interface SchemaDescriptor {
   fields: Record<string, FieldSchemaEntry>;
 }
 
+/** Records with a null/absent sort-field value cluster in a contiguous block at the high end (ADR-0002 §9). */
+export interface MissingZonemapInfo {
+  /** Ordinal of the earliest shard containing any missing (null or absent) sort-field value. */
+  shardFrom: number;
+  /** Records with an explicit `null` sort-field value. */
+  nullCount: number;
+  /** Records whose sort-field key is absent entirely (not just null). */
+  absentCount: number;
+}
+
 /** Sort field: N+1 monotonic split-points, binary-searchable (ADR-0003 §2). */
 export interface SplitPointZonemapEntry {
   splitPoints: unknown[];
+  /** Present iff at least one record had a null/absent sort-field value (ADR-0002 §9). */
+  missing?: MissingZonemapInfo;
 }
 
 /** Secondary field: per-shard [min,max] pairs, ordinal-aligned with `shards[]` (ADR-0003 §2/§9). */
@@ -40,7 +52,12 @@ export interface PairZonemapEntry {
   truncated?: boolean;
 }
 
-export type ZonemapEntry = SplitPointZonemapEntry | PairZonemapEntry;
+/** A secondary field's zonemap moved out of root into a per-field sidecar file (ADR-0003 §3) — spilled when the root manifest would exceed the gzip budget. */
+export interface SidecarZonemapEntry {
+  sidecar: string;
+}
+
+export type ZonemapEntry = SplitPointZonemapEntry | PairZonemapEntry | SidecarZonemapEntry;
 
 /** One index chunk's value-range coverage — routing metadata only (ADR-0003 §9). */
 export interface IndexChunkDirEntry {
@@ -66,6 +83,8 @@ export interface Manifest {
     recordCount: number;
     shardCount: number;
     sortField: string;
+    /** Present (`true`) only when shard payloads are gzipped at build time (ADR-0002 §8) — omitted otherwise. */
+    gzip?: true;
   };
   schema: SchemaDescriptor;
   shards: ShardDescriptor[];

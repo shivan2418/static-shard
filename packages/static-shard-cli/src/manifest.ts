@@ -4,6 +4,7 @@ import type {
   IndexChunkDirEntry,
   IndexDescriptor,
   Manifest,
+  MissingZonemapInfo,
   PairZonemapEntry,
   ResolvedConfig,
   SchemaDescriptor,
@@ -47,6 +48,32 @@ export function computeSplitPoints(groups: Record<string, unknown>[][], sortFiel
   return points;
 }
 
+/**
+ * Locates the contiguous null/absent block at the high end of the globally sorted records
+ * (ADR-0002 §9) and counts the two kinds separately. `undefined` when every record has a real
+ * sort-field value.
+ */
+export function computeMissingBlock(groups: Record<string, unknown>[][], sortField: string): MissingZonemapInfo | undefined {
+  let nullCount = 0;
+  let absentCount = 0;
+  let shardFrom: number | undefined;
+
+  groups.forEach((group, shardIndex) => {
+    for (const record of group) {
+      const value = record[sortField];
+      if (value === null) {
+        nullCount++;
+        if (shardFrom === undefined) shardFrom = shardIndex;
+      } else if (value === undefined) {
+        absentCount++;
+        if (shardFrom === undefined) shardFrom = shardIndex;
+      }
+    }
+  });
+
+  return shardFrom === undefined ? undefined : { shardFrom, nullCount, absentCount };
+}
+
 function buildSchemaDescriptor(config: ResolvedConfig): SchemaDescriptor {
   const fields: Record<string, FieldSchemaEntry> = {};
   for (const [name, field] of Object.entries(config.fields)) {
@@ -74,6 +101,8 @@ export function buildManifest(opts: {
   config: ResolvedConfig;
   shardFiles: ShardDescriptor[];
   splitPoints: unknown[];
+  /** The sort field's contiguous null/absent block, if any (ADR-0002 §9). */
+  missing?: MissingZonemapInfo;
   /** Per non-sort indexed field, its per-shard [min,max] zonemap entry (ADR-0003). */
   secondaryZonemaps?: Record<string, PairZonemapEntry>;
   /** Per non-sort indexed field, its index chunk directory (ADR-0003). */
@@ -89,6 +118,7 @@ export function buildManifest(opts: {
     config,
     shardFiles,
     splitPoints,
+    missing,
     secondaryZonemaps = {},
     indexChunkDirs = {},
     reversedChunkDirs = {},
@@ -99,7 +129,9 @@ export function buildManifest(opts: {
   const recordCount = shardFiles.reduce((sum, s) => sum + s.count, 0);
   const schema = buildSchemaDescriptor(config);
 
-  const zonemap: Record<string, ZonemapEntry> = { [config.sortField]: { splitPoints } };
+  const zonemap: Record<string, ZonemapEntry> = {
+    [config.sortField]: { splitPoints, ...(missing ? { missing } : {}) },
+  };
   for (const [field, entry] of Object.entries(secondaryZonemaps)) zonemap[field] = entry;
 
   const indexes: Record<string, IndexDescriptor> = {};
@@ -123,6 +155,7 @@ export function buildManifest(opts: {
       recordCount,
       shardCount: shardFiles.length,
       sortField: config.sortField,
+      ...(config.gzip ? { gzip: true as const } : {}),
     },
     schema,
     shards: shardFiles.map(({ hash, bytes, count }) => ({ hash, bytes, count })),

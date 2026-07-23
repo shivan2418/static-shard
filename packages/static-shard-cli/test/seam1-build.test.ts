@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { build } from "../src/build.js";
@@ -848,5 +849,170 @@ describe("seam #1 — init --yes → build (T10)", () => {
 
     expect(reinferred).toBe(false);
     expect(after.schema).toEqual(before.schema);
+  });
+});
+
+describe("seam #1 — external sort scale hardening (T13)", () => {
+  test("forcing the disk-spill path (a tiny sortRunRecords) produces the same manifest+shards as the in-memory path", () => {
+    const inMemory = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const spilled = build(config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+      sortRunRecords: 2,
+    });
+
+    expect(spilled.manifest).toEqual(inMemory.manifest);
+    expect(spilled.manifest.shards.map((s) => s.hash)).toEqual(inMemory.manifest.shards.map((s) => s.hash));
+  });
+
+  test("rebuilding after changing one record's data changes only that record's shard hash, not the others (ADR-0003 §8)", () => {
+    const tinyShardConfig: StaticShardConfig = { ...config, shardBytes: 60 }; // forces multiple shards
+    writeFileSync(path.join(tmpDir, "movies.ndjson"), MOVIES.map((m) => JSON.stringify(m)).join("\n") + "\n");
+    const before = build(tinyShardConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(before.manifest.shards.length).toBeGreaterThan(1);
+
+    // Same byte length ("8.7" → "1.7") so the shard byte-target cut points don't shift — isolates
+    // the assertion to "did the hash change", not "did shard boundaries also move".
+    const changed = MOVIES.map((m, i) => (i === 0 ? { ...m, rating: 1.7 } : m));
+    writeFileSync(path.join(tmpDir, "movies.ndjson"), changed.map((m) => JSON.stringify(m)).join("\n") + "\n");
+    const after = build(tinyShardConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(after.manifest.shards.length).toBe(before.manifest.shards.length);
+    const changedOrdinals = before.manifest.shards
+      .map((_, i) => i)
+      .filter((i) => before.manifest.shards[i]!.hash !== after.manifest.shards[i]!.hash);
+    expect(changedOrdinals).toHaveLength(1); // exactly the one shard holding the changed record
+  });
+
+  test("rebuilding from a shuffled copy of the same records produces byte-identical shard hashes (ADR-0002 §6/ADR-0003 §8)", () => {
+    const shuffled = [...MOVIES].reverse();
+    writeFileSync(path.join(tmpDir, "movies.ndjson"), shuffled.map((m) => JSON.stringify(m)).join("\n") + "\n");
+
+    const fromShuffled = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    writeFileSync(path.join(tmpDir, "movies.ndjson"), MOVIES.map((m) => JSON.stringify(m)).join("\n") + "\n");
+    const fromOriginal = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(fromShuffled.manifest).toEqual(fromOriginal.manifest);
+  });
+
+  test("clusters null/absent sort values into a contiguous, flagged tail block", () => {
+    const withMissing = [
+      { year: 2000, title: "Gladiator" },
+      { year: null, title: "Untitled Null" },
+      { year: 2010, title: "Inception" },
+      { title: "Untitled Absent" },
+    ];
+    writeFileSync(path.join(tmpDir, "movies.ndjson"), withMissing.map((m) => JSON.stringify(m)).join("\n") + "\n");
+
+    const { manifest, outputDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const yearZonemap = manifest.zonemap.year as {
+      splitPoints: unknown[];
+      missing?: { shardFrom: number; nullCount: number; absentCount: number };
+    };
+    expect(yearZonemap.missing).toBeDefined();
+    expect(yearZonemap.missing!.nullCount).toBe(1);
+    expect(yearZonemap.missing!.absentCount).toBe(1);
+
+    // real values sort first (ascending), then null, then absent — contiguous at the tail.
+    const lastShard = manifest.shards[manifest.shards.length - 1]!;
+    const lastShardContent = readFileSync(path.join(outputDir, "shards", `${lastShard.hash}.ndjson`), "utf8");
+    const lastShardTitles = lastShardContent
+      .trim()
+      .split("\n")
+      .map((line) => (JSON.parse(line) as { title: string }).title);
+    expect(lastShardTitles).toEqual(["Gladiator", "Inception", "Untitled Null", "Untitled Absent"]);
+    expect(yearZonemap.missing!.shardFrom).toBe(manifest.shards.length - 1);
+  });
+
+  test("build() itself (not just inspect) warns on a low-cardinality sort field", () => {
+    const lowCardConfig: StaticShardConfig = {
+      collection: "events",
+      input: { path: "events.ndjson" },
+      schema: { sortField: "year", fields: { year: { kind: "number" }, name: { kind: "string" } } },
+    };
+    const records = Array.from({ length: 30 }, (_, i) => ({ year: 2000, name: `event-${i}` }));
+    writeFileSync(path.join(tmpDir, "events.ndjson"), records.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+    const { warnings } = build(lowCardConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(warnings.some((w) => w.includes("distinct value"))).toBe(true);
+  });
+
+  test("build() itself warns on a record bigger than the shard-byte target (oversized-record skew)", () => {
+    const oversizedConfig: StaticShardConfig = {
+      collection: "blobs",
+      input: { path: "blobs.ndjson" },
+      schema: { sortField: "id", fields: { id: { kind: "number" }, blob: { kind: "string" } } },
+      shardBytes: 100,
+    };
+    const records = [
+      { id: 1, blob: "x".repeat(500) },
+      { id: 2, blob: "y" },
+    ];
+    writeFileSync(path.join(tmpDir, "blobs.ndjson"), records.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+    const { warnings } = build(oversizedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(warnings.some((w) => w.includes("oversized"))).toBe(true);
+  });
+
+  test("build() itself warns when shards skew more than 2x the mean size (equal-key pileup)", () => {
+    const skewConfig: StaticShardConfig = {
+      collection: "blobs",
+      input: { path: "blobs.ndjson" },
+      schema: { sortField: "id", fields: { id: { kind: "number" }, blob: { kind: "string" } } },
+      shardBytes: 20,
+    };
+    const records = [
+      { id: 1, blob: "a" },
+      { id: 2, blob: "b" },
+      { id: 3, blob: "c" },
+      { id: 4, blob: "d" },
+      { id: 5, blob: "e" },
+      { id: 6, blob: "x".repeat(2000) },
+    ];
+    writeFileSync(path.join(tmpDir, "blobs.ndjson"), records.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+    const { warnings } = build(skewConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(warnings.some((w) => /mean shard size/.test(w))).toBe(true);
+  });
+
+  test("shards nest under hash-prefix subdirs on disk once shardCount exceeds ~1,000 (ADR-0002 §8)", () => {
+    const manyShardsConfig: StaticShardConfig = {
+      collection: "events",
+      input: { path: "events.ndjson" },
+      schema: { sortField: "id", fields: { id: { kind: "number" } } },
+      shardBytes: 1,
+    };
+    const records = Array.from({ length: 1001 }, (_, i) => ({ id: i }));
+    writeFileSync(path.join(tmpDir, "events.ndjson"), records.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+    const { manifest, outputDir } = build(manyShardsConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(manifest.shards.length).toBe(1001);
+    const firstHash = manifest.shards[0]!.hash;
+    expect(existsSync(path.join(outputDir, "shards", `${firstHash}.ndjson`))).toBe(false);
+    expect(existsSync(path.join(outputDir, "shards", firstHash.slice(0, 2), `${firstHash}.ndjson`))).toBe(true);
+  });
+
+  test("optional build-time gzip writes .ndjson.gz shards, flags manifest.dataset.gzip, and preserves shard hashes (ADR-0002 §8)", () => {
+    const gzipConfig: StaticShardConfig = { ...config, output: "public/shard-data-gz", gzip: true };
+
+    const plain = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const gzipped = build(gzipConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(gzipped.manifest.dataset.gzip).toBe(true);
+    expect(plain.manifest.dataset.gzip).toBeUndefined();
+    // toggling gzip doesn't perturb shard hashes — the hash is over logical, pre-compression content
+    expect(gzipped.manifest.shards.map((s) => s.hash)).toEqual(plain.manifest.shards.map((s) => s.hash));
+
+    const hash = gzipped.manifest.shards[0]!.hash;
+    expect(existsSync(path.join(gzipped.outputDir, "shards", `${hash}.ndjson.gz`))).toBe(true);
+    expect(existsSync(path.join(gzipped.outputDir, "shards", `${hash}.ndjson`))).toBe(false);
+
+    const compressed = readFileSync(path.join(gzipped.outputDir, "shards", `${hash}.ndjson.gz`));
+    const plainContent = readFileSync(path.join(plain.outputDir, "shards", `${hash}.ndjson`), "utf8");
+    expect(gunzipSync(compressed).toString("utf8")).toBe(plainContent);
   });
 });
