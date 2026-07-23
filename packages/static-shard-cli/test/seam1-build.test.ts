@@ -48,6 +48,52 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
+/** T3/T4 shared fixture: same movies, with title secondary-indexed. */
+const indexedConfig: StaticShardConfig = {
+  ...config,
+  schema: {
+    sortField: "year",
+    fields: {
+      year: { kind: "number" },
+      title: { kind: "string", indexed: true },
+      rating: { kind: "number" },
+    },
+  },
+};
+
+/**
+ * Seam #3 harness: write a consumer against the generated client in
+ * `clientOutDir` and assert `tsc -p` over it exits 0 — so every
+ * `@ts-expect-error` inside `consumerSource` must genuinely error.
+ */
+function assertConsumerCompiles(clientOutDir: string, consumerSource: string): void {
+  writeFileSync(path.join(clientOutDir, "consumer.ts"), consumerSource);
+  // Real consumers are ESM projects; declare it here so NodeNext treats these .ts files as modules.
+  writeFileSync(path.join(clientOutDir, "package.json"), JSON.stringify({ type: "module" }));
+
+  const tsconfigContent = {
+    extends: path.join(repoRoot, "tsconfig.base.json"),
+    compilerOptions: {
+      paths: { "static-shard": [path.join(repoRoot, "packages/static-shard/src/index.ts")] },
+      noEmit: true,
+    },
+    include: ["*.ts"],
+  };
+  writeFileSync(path.join(clientOutDir, "tsconfig.json"), JSON.stringify(tsconfigContent, null, 2));
+
+  const tscBin = path.join(repoRoot, "node_modules", ".bin", "tsc");
+  let output = "";
+  let status = 0;
+  try {
+    output = execFileSync(tscBin, ["-p", path.join(clientOutDir, "tsconfig.json")], { encoding: "utf8" });
+  } catch (err) {
+    const e = err as { status?: number; stdout?: string; message: string };
+    status = e.status ?? 1;
+    output = e.stdout ?? e.message;
+  }
+  expect(output + `\n(exit ${status})`).toBe(`\n(exit 0)`);
+}
+
 describe("seam #1 — config + NDJSON → build artifacts", () => {
   test("produces a manifest matching the spec's shape for the sort-field-only case", () => {
     const { manifest, outputDir, clientOutDir } = build(config, {
@@ -238,45 +284,10 @@ async function invalid() {
 void valid;
 void invalid;
 `;
-    writeFileSync(path.join(clientOutDir, "consumer.ts"), consumerSource);
-    // Real consumers are ESM projects; declare it here so NodeNext treats these .ts files as modules.
-    writeFileSync(path.join(clientOutDir, "package.json"), JSON.stringify({ type: "module" }));
-
-    const tsconfigContent = {
-      extends: path.join(repoRoot, "tsconfig.base.json"),
-      compilerOptions: {
-        paths: { "static-shard": [path.join(repoRoot, "packages/static-shard/src/index.ts")] },
-        noEmit: true,
-      },
-      include: ["*.ts"],
-    };
-    writeFileSync(path.join(clientOutDir, "tsconfig.json"), JSON.stringify(tsconfigContent, null, 2));
-
-    const tscBin = path.join(repoRoot, "node_modules", ".bin", "tsc");
-    let output = "";
-    let status = 0;
-    try {
-      output = execFileSync(tscBin, ["-p", path.join(clientOutDir, "tsconfig.json")], { encoding: "utf8" });
-    } catch (err) {
-      const e = err as { status?: number; stdout?: string; message: string };
-      status = e.status ?? 1;
-      output = e.stdout ?? e.message;
-    }
-    expect(output + `\n(exit ${status})`).toBe(`\n(exit 0)`);
+    assertConsumerCompiles(clientOutDir, consumerSource);
   });
 
   test("T3: tsc exits 0 for a consumer exercising secondary-field equals/in/startsWith and rejecting disabled operators", () => {
-    const indexedConfig: StaticShardConfig = {
-      ...config,
-      schema: {
-        sortField: "year",
-        fields: {
-          year: { kind: "number" },
-          title: { kind: "string", indexed: true },
-          rating: { kind: "number" },
-        },
-      },
-    };
     const { clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
 
     const consumerSource = `
@@ -308,29 +319,46 @@ async function invalid() {
 void valid;
 void invalid;
 `;
-    writeFileSync(path.join(clientOutDir, "consumer.ts"), consumerSource);
-    writeFileSync(path.join(clientOutDir, "package.json"), JSON.stringify({ type: "module" }));
+    assertConsumerCompiles(clientOutDir, consumerSource);
+  });
 
-    const tsconfigContent = {
-      extends: path.join(repoRoot, "tsconfig.base.json"),
-      compilerOptions: {
-        paths: { "static-shard": [path.join(repoRoot, "packages/static-shard/src/index.ts")] },
-        noEmit: true,
-      },
-      include: ["*.ts"],
-    };
-    writeFileSync(path.join(clientOutDir, "tsconfig.json"), JSON.stringify(tsconfigContent, null, 2));
+  test("T4: tsc exits 0 for a consumer exercising count() and rejecting exact: true (ADR-0008 §4)", () => {
+    const { clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
 
-    const tscBin = path.join(repoRoot, "node_modules", ".bin", "tsc");
-    let output = "";
-    let status = 0;
-    try {
-      output = execFileSync(tscBin, ["-p", path.join(clientOutDir, "tsconfig.json")], { encoding: "utf8" });
-    } catch (err) {
-      const e = err as { status?: number; stdout?: string; message: string };
-      status = e.status ?? 1;
-      output = e.stdout ?? e.message;
-    }
-    expect(output + `\n(exit ${status})`).toBe(`\n(exit 0)`);
+    const consumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function valid() {
+  const all = await db.movies.count();
+  const constrained = await db.movies.count({ year: { gte: 2000 } });
+  const secondary = await db.movies.count({ title: { equals: "Gladiator" } });
+  const explicitFalse = await db.movies.count({ year: { gte: 2000 } }, { exact: false });
+
+  // The return shape: { count: number; exact: boolean }.
+  const n: number = all.count;
+  const e: boolean = all.exact;
+  void n; void e; void constrained; void secondary; void explicitFalse;
+}
+
+async function invalid() {
+  // the exact mode is deferred to v2 — 1.0 locks opts.exact to false (ADR-0008 §4).
+  // @ts-expect-error
+  await db.movies.count({ year: { gte: 2000 } }, { exact: true });
+
+  // \`{ exact: true }\` is not a where either — the option lives in the second argument.
+  // @ts-expect-error
+  await db.movies.count({ exact: true });
+
+  // rating is NOT indexed in this config — unknown field in where.
+  // @ts-expect-error
+  await db.movies.count({ rating: { equals: 9.0 } });
+}
+
+void valid;
+void invalid;
+`;
+    assertConsumerCompiles(clientOutDir, consumerSource);
   });
 });

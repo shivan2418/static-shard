@@ -7,6 +7,7 @@ import {
   assertWhereHasPruning,
   type ClientOptions,
   type CollectionMeta,
+  type CountResult,
   type FieldKind,
   type GenericClient,
   type SchemaMeta,
@@ -59,22 +60,24 @@ async function secondaryFieldCandidates(
   return shardIndices;
 }
 
-async function executeFindMany(
+/**
+ * Shard ordinals surviving zonemap + postings pruning for `where`, ascending.
+ * Free zonemap pruning on the sort field first (ADR-0003 §6 step 1), then
+ * fetch+intersect the index chunks for every equals/in/startsWith-constrained
+ * secondary field (step 2) — cheap chunk fetches before shards.
+ */
+async function candidateIndicesForWhere(
   manifest: Manifest,
-  basePath: string,
-  fetchImpl: typeof fetch,
-  args: RawFindManyArgs | undefined,
-): Promise<{ records: Record<string, unknown>[]; hasMore: boolean }> {
+  ctx: FetchContext,
+  where: Record<string, Record<string, unknown>> | undefined,
+): Promise<number[]> {
   const sortField = manifest.dataset.sortField;
-  const sortFieldFilter = args?.where?.[sortField] as SortFieldFilter | undefined;
+  const sortFieldFilter = where?.[sortField] as SortFieldFilter | undefined;
   const sortZonemap = manifest.zonemap[sortField] as { splitPoints?: SortValue[] } | undefined;
   const splitPoints = sortZonemap?.splitPoints ?? [];
 
-  // Free zonemap pruning on the sort field first (ADR-0003 §6 step 1), then fetch+intersect the index chunks
-  // for every equals/in/startsWith-constrained secondary field (step 2) — cheap chunk fetches before shards.
   let candidateSet = new Set(candidateShardIndices(splitPoints, sortFieldFilter));
-  const secondaryEntries = Object.entries(args?.where ?? {}).filter(([field]) => field !== sortField);
-  const ctx: FetchContext = { basePath, fetchImpl, chunkCache: new Map() };
+  const secondaryEntries = Object.entries(where ?? {}).filter(([field]) => field !== sortField);
   const secondarySets = await Promise.all(
     secondaryEntries.map(([field, filter]) => secondaryFieldCandidates(manifest, ctx, field, filter)),
   );
@@ -82,12 +85,39 @@ async function executeFindMany(
     if (set === undefined) continue;
     candidateSet = new Set([...candidateSet].filter((index) => set.has(index)));
   }
+  return [...candidateSet].sort((a, b) => a - b);
+}
 
-  const candidateIndices = [...candidateSet].sort((a, b) => a - b);
+/**
+ * Approximate upper bound with zero data-shard fetches (ADR-0008 §2): sum
+ * `manifest.shards[i].count` over the shards surviving zonemap + postings
+ * pruning. `exact: true` only for an empty where and pruned-to-zero (§3).
+ */
+async function executeCount(
+  manifest: Manifest,
+  ctx: FetchContext,
+  where: Record<string, Record<string, unknown>> | undefined,
+): Promise<CountResult> {
+  if (!where || Object.keys(where).length === 0) {
+    return { count: manifest.dataset.recordCount, exact: true };
+  }
+  const candidateIndices = await candidateIndicesForWhere(manifest, ctx, where);
+  if (candidateIndices.length === 0) return { count: 0, exact: true };
+  let count = 0;
+  for (const index of candidateIndices) count += manifest.shards[index]!.count;
+  return { count, exact: false };
+}
+
+async function executeFindMany(
+  manifest: Manifest,
+  ctx: FetchContext,
+  args: RawFindManyArgs | undefined,
+): Promise<{ records: Record<string, unknown>[]; hasMore: boolean }> {
+  const candidateIndices = await candidateIndicesForWhere(manifest, ctx, args?.where);
   const fetched = await Promise.all(
     candidateIndices.map(async (index) => ({
       index,
-      records: await fetchShardRecords(basePath, manifest.shards[index]!.hash, fetchImpl),
+      records: await fetchShardRecords(ctx.basePath, manifest.shards[index]!.hash, ctx.fetchImpl),
     })),
   );
   fetched.sort((a, b) => a.index - b.index);
@@ -102,7 +132,7 @@ async function executeFindMany(
     }
   }
 
-  const orderDirection = args?.orderBy?.[sortField];
+  const orderDirection = args?.orderBy?.[manifest.dataset.sortField];
   if (orderDirection === "desc") matches = matches.reverse();
 
   const offset = args?.offset ?? 0;
@@ -126,7 +156,13 @@ export function createClient<S extends SchemaMeta, Records>(
     findMany: async (args?: RawFindManyArgs) => {
       assertWhereHasPruning(args?.where);
       const manifest = await getManifest();
-      return executeFindMany(manifest, basePath, fetchImpl, args);
+      const ctx: FetchContext = { basePath, fetchImpl, chunkCache: new Map() };
+      return executeFindMany(manifest, ctx, args);
+    },
+    count: async (where?: Record<string, Record<string, unknown>>) => {
+      const manifest = await getManifest();
+      const ctx: FetchContext = { basePath, fetchImpl, chunkCache: new Map() };
+      return executeCount(manifest, ctx, where);
     },
     getSchema: () => meta,
   });

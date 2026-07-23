@@ -137,8 +137,8 @@ export function assertWhereHasPruning(where: Record<string, Record<string, unkno
 }
 
 // ---------------------------------------------------------------------------
-// The collection surface. T2 scope only: `findMany` + `getSchema`. `get(id)`
-// (user PK) and `count` land in later tickets that extend this contract.
+// The collection surface: `findMany` (T2) + `count` (T4) + `getSchema`.
+// `get(id)` (user PK) lands in a later ticket that extends this contract.
 // ---------------------------------------------------------------------------
 export interface FindManyArgs<C extends CollectionMeta, W extends WhereOf<C>> {
   where?: W & ValidateWhere<W, C> & RiderGuard<W>;
@@ -152,8 +152,30 @@ export interface FindManyResult<Rec> {
   hasMore: boolean;
 }
 
+/**
+ * Approximate upper bound for pagination totals (ADR-0008 §2/§3): `exact: true`
+ * only for an empty where (→ recordCount) and pruned-to-zero (→ 0), so
+ * `count === 0` is always a trustworthy existence check.
+ */
+export interface CountResult {
+  count: number;
+  exact: boolean;
+}
+
+/**
+ * Reserved for the deferred v2 exact mode — 1.0 locks the slot to `false`, so
+ * passing `exact: true` is a compile-time error (ADR-0008 §4).
+ */
+export interface CountOptions {
+  exact?: false;
+}
+
 export interface Collection<C extends CollectionMeta, Rec> {
   findMany<W extends WhereOf<C>>(args?: FindManyArgs<C, W>): Promise<FindManyResult<Rec>>;
+  // No RiderGuard here, deliberately: a `not`-only where cannot refine an
+  // un-fetched count, so it just widens the upper bound (ADR-0008 §3) — count
+  // never full-scans, so the rider rule has nothing to guard.
+  count<W extends WhereOf<C>>(where?: W & ValidateWhere<W, C>, opts?: CountOptions): Promise<CountResult>;
   getSchema(): C;
 }
 

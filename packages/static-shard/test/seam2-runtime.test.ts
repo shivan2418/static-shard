@@ -139,18 +139,20 @@ describe("seam #2 — connect({ basePath, fetch }) → results, over a seam #1-b
   });
 });
 
-describe("seam #2 — secondary inverted index & multi-field AND (T3), over a seam #1-built fixture tree", () => {
-  const indexedConfig: StaticShardConfig = {
-    ...config,
-    schema: {
-      sortField: "year",
-      fields: {
-        year: { kind: "number" },
-        title: { kind: "string", indexed: true },
-        rating: { kind: "number", indexed: true },
-      },
+/** T3/T4 shared fixture: same movies, with title + rating secondary-indexed. */
+const indexedConfig: StaticShardConfig = {
+  ...config,
+  schema: {
+    sortField: "year",
+    fields: {
+      year: { kind: "number" },
+      title: { kind: "string", indexed: true },
+      rating: { kind: "number", indexed: true },
     },
-  };
+  },
+};
+
+describe("seam #2 — secondary inverted index & multi-field AND (T3), over a seam #1-built fixture tree", () => {
 
   test("equals/in/startsWith on the secondary field return correct records, fetching only surviving shards + constrained chunks", async () => {
     const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
@@ -236,6 +238,84 @@ describe("seam #2 — secondary inverted index & multi-field AND (T3), over a se
     // "Parasite" (year 2019) can never satisfy year:1999 — disjoint constraints.
     const result = await client.movies.findMany({ where: { year: { equals: 1999 }, title: { equals: "Parasite" } } });
     expect(result.records).toEqual([]);
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+});
+
+describe("seam #2 — count() approximate upper bound & pagination totals (T4), over a seam #1-built fixture tree", () => {
+  test("count(where) is an upper bound ≥ the true match count, flagged exact: false, fetching no data shards", async () => {
+    const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const wheres = [
+      { year: { gte: 2000 } },
+      { title: { startsWith: "The" } },
+      { year: { gte: 2000 }, title: { startsWith: "The" } },
+      { rating: { equals: 8.6 } },
+    ] as const;
+    for (const where of wheres) {
+      const before = requests.length;
+      const result = await client.movies.count(where);
+      // Zero data-shard fetches per count call, whatever else it fetched.
+      expect(requests.slice(before).filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+      // The truth, independently observed through the findMany seam.
+      const truth = (await client.movies.findMany({ where })).records.length;
+      expect(result.count).toBeGreaterThanOrEqual(truth);
+      expect(result.exact).toBe(false);
+    }
+  });
+
+  test("the two exact cases: empty where → recordCount, pruned-to-zero → 0", async () => {
+    const { outputDir, clientOutDir, manifest } = build(indexedConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    // Empty where → the free, exact recordCount — and literally nothing but the manifest is fetched.
+    await expect(client.movies.count()).resolves.toEqual({ count: MOVIES.length, exact: true });
+    expect(manifest.dataset.recordCount).toBe(MOVIES.length);
+    expect(requests).toEqual([path.join(outputDir, "manifest.json")]);
+
+    // Disjoint AND (year:1999 ∩ title:"Parasite") prunes to zero shards → an exact, trustworthy "none".
+    await expect(client.movies.count({ year: { equals: 1999 }, title: { equals: "Parasite" } })).resolves.toEqual({
+      count: 0,
+      exact: true,
+    });
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+
+  test("a constrained secondary field costs only its index chunk(s) — manifest + chunks, never a shard body", async () => {
+    const { outputDir, clientOutDir, manifest } = build(indexedConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const result = await client.movies.count({ rating: { equals: 9.0 } });
+    expect(result.exact).toBe(false);
+    expect(result.count).toBeGreaterThanOrEqual(1); // The Dark Knight's shard — maybe loose, never below the truth.
+
+    const indexRequests = requests.filter((r) => r.includes(`${path.sep}index${path.sep}`));
+    expect(indexRequests.length).toBeGreaterThan(0); // the constrained field's chunk(s) ARE the allowed cost
+    expect(indexRequests.length).toBeLessThanOrEqual(manifest.indexes.rating!.chunks.length);
     expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
   });
 });

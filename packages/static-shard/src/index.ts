@@ -5,6 +5,8 @@ export {
   type ClientOptions,
   type Collection,
   type CollectionMeta,
+  type CountOptions,
+  type CountResult,
   type FieldKind,
   type FieldMeta,
   type FindManyArgs,

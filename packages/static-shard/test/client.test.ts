@@ -162,6 +162,87 @@ describe("createClient / findMany", () => {
   });
 });
 
+describe("createClient / count — approximate upper bound (T4, ADR-0008)", () => {
+  test("no where → { count: recordCount, exact: true } fetching only the manifest", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    const result = await client.movies.count();
+    expect(result).toEqual({ count: 6, exact: true });
+    expect(requests).toEqual(["/data/manifest.json"]);
+  });
+
+  test("sort-field constraint sums surviving shards' counts — an upper bound, exact: false, no shard fetches", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+
+    // year == 2000 → only shard1 survives the zonemap → bound = shard1.count (3 records, all matching here).
+    await expect(client.movies.count({ year: { equals: 2000 } })).resolves.toEqual({ count: 3, exact: false });
+    // year >= 2000 → shards [1,2] survive → bound = 3 + 2 = 5 ≥ the 5 true matches.
+    await expect(client.movies.count({ year: { gte: 2000 } })).resolves.toEqual({ count: 5, exact: false });
+
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual([]);
+  });
+
+  test("secondary-field constraint fetches only the covering chunks — the bound can strictly exceed the truth", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+
+    // year >= 2000 → shards [1,2]; title == "Gladiator" → shard [1]. Intersection [1] → bound = 3,
+    // strictly above the 1 true match: "shard 1 holds the value" ≠ "all of shard 1's rows match".
+    await expect(client.movies.count({ year: { gte: 2000 }, title: { equals: "Gladiator" } })).resolves.toEqual({
+      count: 3,
+      exact: false,
+    });
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual(["/data/index/title/c1.json"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
+  });
+
+  test("secondary in unions postings across chunks into the bound", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]) });
+    // "Dark Knight" → shard2, "The Matrix" → shard0 → bound = 2 + 1 = 3 ≥ the 2 true matches.
+    await expect(client.movies.count({ title: { in: ["Dark Knight", "The Matrix"] } })).resolves.toEqual({
+      count: 3,
+      exact: false,
+    });
+  });
+
+  test("pruned-to-zero → { count: 0, exact: true } — a trustworthy existence check, still no shard fetches", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+
+    // Disjoint AND: year == 1999 → shard0, title == "Gladiator" → shard1. Empty intersection ⇒ exactly none.
+    await expect(client.movies.count({ year: { equals: 1999 }, title: { equals: "Gladiator" } })).resolves.toEqual({
+      count: 0,
+      exact: true,
+    });
+    // Zonemap alone can also prune to zero: 3000 is outside the global [1999, 2008] range.
+    await expect(client.movies.count({ year: { equals: 3000 } })).resolves.toEqual({ count: 0, exact: true });
+
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
+  });
+
+  test("a `not`-only where is accepted (no rider rule for count) and just widens the bound to recordCount", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+
+    // ADR-0008 §3: `not` cannot refine an un-fetched count — never wrong, just loose.
+    // Unlike findMany, count must NOT throw the rider error: it never full-scans.
+    await expect(client.movies.count({ title: { not: "Gladiator" } })).resolves.toEqual({ count: 6, exact: false });
+    expect(requests.filter((u) => u.includes("/shards/") || u.includes("/index/"))).toEqual([]);
+  });
+
+  test("contains/endsWith only widen the bound (exact: false) — no chunk routing exists for them in 1.0", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+
+    // ADR-0008 §3 names all three non-refining operators; T6 builds their indexes later.
+    await expect(client.movies.count({ title: { contains: "atrix" } })).resolves.toEqual({ count: 6, exact: false });
+    await expect(client.movies.count({ title: { endsWith: "x" } })).resolves.toEqual({ count: 6, exact: false });
+    expect(requests.filter((u) => u.includes("/shards/") || u.includes("/index/"))).toEqual([]);
+  });
+});
+
 describe("createClient / findMany — secondary inverted index (T3)", () => {
   test("equals on a secondary field fetches only the covering chunk and the matching shard", async () => {
     const requests: string[] = [];
