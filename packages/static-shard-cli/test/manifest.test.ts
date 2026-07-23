@@ -170,6 +170,73 @@ describe("buildManifest", () => {
     });
   });
 
+  test("T6: endsWith opt-in appends the operator and merges the reversed chunk directory", () => {
+    const indexedConfig: ResolvedConfig = {
+      ...config,
+      fields: { ...config.fields, title: { kind: "string", indexed: true, endsWith: true } },
+    };
+    const manifest = buildManifest({
+      config: indexedConfig,
+      shardFiles,
+      splitPoints,
+      indexChunkDirs: { title: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }] },
+      reversedChunkDirs: { title: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith"]);
+    expect(manifest.indexes.title).toEqual({
+      operators: ["equals", "in", "startsWith", "endsWith"],
+      chunks: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }],
+      reversed: { chunks: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
+    });
+  });
+
+  test("T6: contains opt-in appends the operator and merges the trigram chunk directory", () => {
+    const indexedConfig: ResolvedConfig = {
+      ...config,
+      fields: { ...config.fields, title: { kind: "string", indexed: true, contains: true } },
+    };
+    const manifest = buildManifest({
+      config: indexedConfig,
+      shardFiles,
+      splitPoints,
+      indexChunkDirs: { title: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }] },
+      trigramChunkDirs: { title: [{ from: "aaa", to: "zzz", file: "index/title/trigram/ghi789.json" }] },
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "contains"]);
+    expect(manifest.indexes.title).toEqual({
+      operators: ["equals", "in", "startsWith", "contains"],
+      chunks: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }],
+      trigram: { chunks: [{ from: "aaa", to: "zzz", file: "index/title/trigram/ghi789.json" }] },
+    });
+  });
+
+  test("T6: reversed/trigram chunk dirs merge safely even without a matching indexChunkDirs entry for that field", () => {
+    const indexedConfig: ResolvedConfig = {
+      ...config,
+      fields: { ...config.fields, title: { kind: "string", indexed: true, endsWith: true } },
+    };
+    const manifest = buildManifest({
+      config: indexedConfig,
+      shardFiles,
+      splitPoints,
+      // Deliberately omit indexChunkDirs.title — buildManifest must not crash on `indexes[field]!`.
+      reversedChunkDirs: { title: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.indexes.title).toEqual({
+      operators: ["equals", "in", "startsWith", "endsWith"],
+      chunks: [],
+      reversed: { chunks: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
+    });
+  });
+
   test("an opted-in secondary boolean field gets only equals", () => {
     const indexedConfig: ResolvedConfig = {
       ...config,

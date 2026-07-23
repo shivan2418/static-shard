@@ -44,6 +44,10 @@ export interface IndexChunkDirEntry {
 export interface IndexDescriptor {
   operators: readonly string[];
   chunks: IndexChunkDirEntry[];
+  /** Reversed-value index chunk directory — present iff `endsWith` opted in (ADR-0003 §7/§9). */
+  reversed?: { chunks: IndexChunkDirEntry[] };
+  /** Trigram index chunk directory — present iff `contains` opted in (ADR-0003 §7/§9). */
+  trigram?: { chunks: IndexChunkDirEntry[] };
 }
 
 export interface Manifest {

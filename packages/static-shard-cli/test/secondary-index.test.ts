@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
   buildInvertedIndex,
+  buildReversedIndex,
+  buildTrigramIndex,
+  computeColumnBytes,
   computeSecondaryZonemap,
+  reverseString,
   truncateStringLower,
   truncateStringUpper,
 } from "../src/secondary-index.js";
@@ -126,5 +130,81 @@ describe("buildInvertedIndex", () => {
 
   test("returns no chunks when the field has no non-null values", () => {
     expect(buildInvertedIndex([[{ title: null }]], "title", "string", 1_000_000)).toEqual([]);
+  });
+});
+
+describe("reverseString", () => {
+  test("reverses a plain ASCII string", () => {
+    expect(reverseString("Gladiator")).toBe("rotaidalG");
+  });
+
+  test("is codepoint-safe for astral characters", () => {
+    expect(reverseString("a😄b")).toBe("b😄a");
+  });
+});
+
+describe("buildReversedIndex (T6 — endsWith)", () => {
+  test("dictionary is keyed on the reversed value, sorted in reversed order", () => {
+    const groups = [[{ title: "Gladiator" }], [{ title: "Interstellar" }]];
+    const chunks = buildReversedIndex(groups, "title", 1_000_000);
+    expect(chunks).toHaveLength(1);
+    const decoded = decodeChunk(chunks[0]!.content);
+    // "Gladiator" -> "rotaidalG", "Interstellar" -> "ralletsretnI" — sorted lexicographically.
+    expect(decoded.map((d) => d.value)).toEqual(["ralletsretnI", "rotaidalG"].sort());
+  });
+
+  test("shards a value's reversed form spans are still tracked per-shard, including repeats across shards", () => {
+    const groups = [[{ title: "Snatch" }], [{ title: "Gladiator" }], [{ title: "Gladiator" }]];
+    const chunks = buildReversedIndex(groups, "title", 1_000_000);
+    const decoded = decodeChunk(chunks[0]!.content);
+    expect(decoded.find((d) => d.value === reverseString("Gladiator"))?.shards).toEqual([1, 2]);
+  });
+
+  test("ignores null/undefined values", () => {
+    expect(buildReversedIndex([[{ title: null }, { title: undefined }]], "title", 1_000_000)).toEqual([]);
+  });
+});
+
+describe("buildTrigramIndex (T6 — contains)", () => {
+  test("dictionary is keyed on distinct trigrams, sorted, with per-shard postings", () => {
+    const groups = [[{ title: "cat" }], [{ title: "car" }]];
+    const chunks = buildTrigramIndex(groups, "title", 1_000_000);
+    const decoded = decodeChunk(chunks[0]!.content);
+    // "cat" -> {"cat"}, "car" -> {"car"} — share the "ca" prefix but are distinct trigrams.
+    expect(decoded.map((d) => d.value).sort()).toEqual(["car", "cat"]);
+    expect(decoded.find((d) => d.value === "cat")?.shards).toEqual([0]);
+    expect(decoded.find((d) => d.value === "car")?.shards).toEqual([1]);
+  });
+
+  test("a value contributes every sliding 3-char window, deduplicated per shard", () => {
+    const groups = [[{ title: "abcabc" }]];
+    const chunks = buildTrigramIndex(groups, "title", 1_000_000);
+    const decoded = decodeChunk(chunks[0]!.content);
+    // windows: abc, bca, cab, abc(dup) -> distinct trigrams {abc, bca, cab}, each posting [0] once.
+    expect(decoded.map((d) => d.value).sort()).toEqual(["abc", "bca", "cab"]);
+    for (const entry of decoded) expect(entry.shards).toEqual([0]);
+  });
+
+  test("values shorter than 3 characters contribute no trigrams", () => {
+    expect(buildTrigramIndex([[{ title: "ab" }]], "title", 1_000_000)).toEqual([]);
+  });
+
+  test("ignores null/undefined values", () => {
+    expect(buildTrigramIndex([[{ title: null }, { title: undefined }]], "title", 1_000_000)).toEqual([]);
+  });
+});
+
+describe("computeColumnBytes", () => {
+  test("sums UTF-8 byte length of the field's non-null string values across all groups", () => {
+    const groups = [[{ title: "cat" }, { title: null }], [{ title: "dog" }]];
+    expect(computeColumnBytes(groups, "title")).toBe(6);
+  });
+
+  test("counts multi-byte UTF-8 characters correctly", () => {
+    expect(computeColumnBytes([[{ title: "😄" }]], "title")).toBe(Buffer.byteLength("😄", "utf8"));
+  });
+
+  test("returns 0 for an empty/absent field", () => {
+    expect(computeColumnBytes([[{ title: null }]], "title")).toBe(0);
   });
 });

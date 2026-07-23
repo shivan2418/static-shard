@@ -4,9 +4,16 @@ import { resolveConfig } from "./config.js";
 import { generateClientTs, generateSchemaTs } from "./codegen.js";
 import { contentHash } from "./hash.js";
 import { buildManifest, computeSplitPoints } from "./manifest.js";
-import { buildInvertedIndex, computeSecondaryZonemap } from "./secondary-index.js";
+import {
+  buildInvertedIndex,
+  buildReversedIndex,
+  buildTrigramIndex,
+  computeColumnBytes,
+  computeSecondaryZonemap,
+} from "./secondary-index.js";
 import { cutIntoShards, materializeShards } from "./shard.js";
 import { compareSortValues, type SortKind } from "./sort.js";
+import type { BuiltIndexChunk } from "./secondary-index.js";
 import type { IndexChunkDirEntry, Manifest, PairZonemapEntry, StaticShardConfig } from "./types.js";
 import { getFormatVersion, getGeneratorVersion } from "./version.js";
 
@@ -21,6 +28,8 @@ export interface BuildResult {
   manifest: Manifest;
   outputDir: string;
   clientOutDir: string;
+  /** Loud, non-fatal build-time warnings (e.g. a `contains` trigram index bigger than its column, ADR-0003 §7). */
+  warnings: string[];
 }
 
 function readNdjson(inputPath: string): Record<string, unknown>[] {
@@ -59,16 +68,45 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
 
   const secondaryZonemaps: Record<string, PairZonemapEntry> = {};
   const indexChunkDirs: Record<string, IndexChunkDirEntry[]> = {};
-  const indexChunkFiles: { field: string; hash: string; content: string }[] = [];
+  const reversedChunkDirs: Record<string, IndexChunkDirEntry[]> = {};
+  const trigramChunkDirs: Record<string, IndexChunkDirEntry[]> = {};
+  const indexFiles: { relPath: string; content: string }[] = [];
+  const warnings: string[] = [];
+
+  const addIndexChunks = (field: string, subdir: string | null, builtChunks: BuiltIndexChunk[]): IndexChunkDirEntry[] =>
+    builtChunks.map(({ from, to, content }) => {
+      const hash = contentHash(content);
+      const relPath = subdir ? `index/${field}/${subdir}/${hash}.json` : `index/${field}/${hash}.json`;
+      indexFiles.push({ relPath, content });
+      return { from, to, file: relPath };
+    });
+
   for (const [name, field] of indexedSecondaryFields) {
     secondaryZonemaps[name] = computeSecondaryZonemap(groups, name, field.kind);
+    indexChunkDirs[name] = addIndexChunks(
+      name,
+      null,
+      buildInvertedIndex(groups, name, field.kind, resolved.indexChunkBytes),
+    );
 
-    const builtChunks = buildInvertedIndex(groups, name, field.kind, resolved.indexChunkBytes);
-    indexChunkDirs[name] = builtChunks.map(({ from, to, content }) => {
-      const hash = contentHash(content);
-      indexChunkFiles.push({ field: name, hash, content });
-      return { from, to, file: `index/${name}/${hash}.json` };
-    });
+    if (field.endsWith) {
+      reversedChunkDirs[name] = addIndexChunks(name, "reversed", buildReversedIndex(groups, name, resolved.indexChunkBytes));
+    }
+
+    if (field.contains) {
+      const trigramChunks = buildTrigramIndex(groups, name, resolved.indexChunkBytes);
+      trigramChunkDirs[name] = addIndexChunks(name, "trigram", trigramChunks);
+
+      const trigramBytes = trigramChunks.reduce((sum, c) => sum + Buffer.byteLength(c.content, "utf8"), 0);
+      const columnBytes = computeColumnBytes(groups, name);
+      if (trigramBytes > columnBytes) {
+        warnings.push(
+          `static-shard: contains(${name}): trigram index (${trigramBytes} bytes) is bigger than the data — ` +
+            `the raw "${name}" column is only ${columnBytes} bytes. This is the single biggest build-output cost; ` +
+            `consider disabling contains for this field.`,
+        );
+      }
+    }
   }
 
   const manifest = buildManifest({
@@ -77,6 +115,8 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
     splitPoints,
     secondaryZonemaps,
     indexChunkDirs,
+    reversedChunkDirs,
+    trigramChunkDirs,
     formatVersion,
     generatorVersion,
   });
@@ -87,10 +127,10 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
   for (const file of shardFiles) {
     writeFileSync(path.join(shardsDir, `${file.hash}.ndjson`), file.content);
   }
-  for (const { field, hash, content } of indexChunkFiles) {
-    const fieldDir = path.join(resolved.output, "index", field);
-    mkdirSync(fieldDir, { recursive: true });
-    writeFileSync(path.join(fieldDir, `${hash}.json`), content);
+  for (const { relPath, content } of indexFiles) {
+    const filePath = path.join(resolved.output, relPath);
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, content);
   }
   writeFileSync(path.join(resolved.output, "manifest.json"), JSON.stringify(manifest, null, 2));
 
@@ -101,5 +141,5 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
     generateClientTs(manifest, { basePath: resolved.basePath, generatorVersion }),
   );
 
-  return { manifest, outputDir: resolved.output, clientOutDir: resolved.clientOut };
+  return { manifest, outputDir: resolved.output, clientOutDir: resolved.clientOut, warnings };
 }

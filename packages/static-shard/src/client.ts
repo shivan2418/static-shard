@@ -2,8 +2,16 @@ import { fetchIndexChunk } from "./index-fetch.js";
 import { ShardError } from "./errors.js";
 import { parseCorruptible } from "./fetch-file.js";
 import { matchesWhere } from "./filter.js";
-import { fetchManifest, type Manifest } from "./manifest.js";
-import { chunksForFilter, decodeIndexChunk, shardIndicesForFilter, type IndexChunkFile, type SecondaryFieldFilter } from "./secondary-index.js";
+import { fetchManifest, type IndexChunkDirEntry, type Manifest } from "./manifest.js";
+import {
+  chunksForFilter,
+  decodeIndexChunk,
+  reverseString,
+  shardIndicesForFilter,
+  trigramsOf,
+  type IndexChunkFile,
+  type SecondaryFieldFilter,
+} from "./secondary-index.js";
 import { fetchShardRecords } from "./shard-fetch.js";
 import {
   assertWhereHasPruning,
@@ -65,20 +73,20 @@ function makeFetchContext(basePath: string, fetchImpl: typeof fetch): FetchConte
   };
 }
 
-/** Fetches+intersects the index chunks covering one secondary field's filter into its candidate shard set. */
-async function secondaryFieldCandidates(
-  manifest: Manifest,
-  ctx: FetchContext,
-  field: string,
-  rawFilter: Record<string, unknown>,
-): Promise<Set<number> | undefined> {
-  const indexDescriptor = manifest.indexes[field];
-  const secondaryFilter = indexDescriptor && secondaryFilterOf(rawFilter);
-  if (!indexDescriptor || !secondaryFilter) return undefined;
+/** `a ∩ b` over shard ordinals — the one intersection shape every AND-combination step shares. */
+function intersectSets(a: Set<number>, b: Set<number>): Set<number> {
+  return new Set([...a].filter((i) => b.has(i)));
+}
 
-  const kind = manifest.schema.fields[field]!.kind as FieldKind;
+/** Fetches+decodes the chunks a filter could touch, resolving them into a candidate shard set. */
+async function candidatesFromChunkedIndex(
+  ctx: FetchContext,
+  chunks: IndexChunkDirEntry[],
+  kind: FieldKind,
+  filter: SecondaryFieldFilter,
+): Promise<Set<number>> {
   const shardIndices = new Set<number>();
-  for (const chunkDir of chunksForFilter(indexDescriptor.chunks, secondaryFilter)) {
+  for (const chunkDir of chunksForFilter(chunks, filter)) {
     let chunkPromise = ctx.chunkCache.get(chunkDir.file);
     if (!chunkPromise) {
       chunkPromise = ctx.track(fetchIndexChunk(ctx.basePath, chunkDir.file, ctx.fetchImpl, ctx.signal));
@@ -88,9 +96,72 @@ async function secondaryFieldCandidates(
     const decoded = ctx.trackSync(() =>
       parseCorruptible(`${ctx.basePath}/${chunkDir.file}`, () => decodeIndexChunk(awaitedChunk, kind)),
     );
-    for (const shardIndex of shardIndicesForFilter(decoded, secondaryFilter)) shardIndices.add(shardIndex);
+    for (const shardIndex of shardIndicesForFilter(decoded, filter)) shardIndices.add(shardIndex);
   }
   return shardIndices;
+}
+
+/**
+ * `contains`'s candidate set (ADR-0003 §7): AND-intersect the shard sets of
+ * every query trigram — any shard truly holding a match has ALL of them
+ * present somewhere, so intersecting can only over-approximate, never miss.
+ * A query shorter than 3 chars has no trigrams to route on — `undefined`
+ * signals "can't prune via this field," same as an absent index.
+ */
+async function containsCandidates(
+  ctx: FetchContext,
+  chunks: IndexChunkDirEntry[],
+  substring: string,
+): Promise<Set<number> | undefined> {
+  const grams = trigramsOf(substring);
+  if (grams.length === 0) return undefined;
+
+  let result: Set<number> | undefined;
+  for (const gram of grams) {
+    const gramSet = await candidatesFromChunkedIndex(ctx, chunks, "string", { equals: gram });
+    result = result === undefined ? gramSet : intersectSets(result, gramSet);
+    if (result.size === 0) break;
+  }
+  return result;
+}
+
+/**
+ * Fetches+intersects EVERY structure one secondary field's filter constrains
+ * — the base index (equals/in/startsWith), the reversed index (endsWith),
+ * and the trigram index (contains) are independent structures, so each
+ * contributes its own candidate set and they AND together (ADR-0003 §7/§9).
+ */
+async function secondaryFieldCandidates(
+  manifest: Manifest,
+  ctx: FetchContext,
+  field: string,
+  rawFilter: Record<string, unknown>,
+): Promise<Set<number> | undefined> {
+  const indexDescriptor = manifest.indexes[field];
+  if (!indexDescriptor) return undefined;
+  const kind = manifest.schema.fields[field]!.kind as FieldKind;
+
+  const { endsWith, contains } = rawFilter as { endsWith?: string; contains?: string };
+  const sets: Set<number>[] = [];
+
+  const baseFilter = secondaryFilterOf(rawFilter);
+  if (baseFilter) sets.push(await candidatesFromChunkedIndex(ctx, indexDescriptor.chunks, kind, baseFilter));
+
+  if (endsWith !== undefined && indexDescriptor.reversed) {
+    sets.push(
+      await candidatesFromChunkedIndex(ctx, indexDescriptor.reversed.chunks, "string", {
+        startsWith: reverseString(endsWith),
+      }),
+    );
+  }
+
+  if (contains !== undefined && indexDescriptor.trigram) {
+    const trigramSet = await containsCandidates(ctx, indexDescriptor.trigram.chunks, contains);
+    if (trigramSet) sets.push(trigramSet);
+  }
+
+  if (sets.length === 0) return undefined;
+  return sets.reduce(intersectSets);
 }
 
 /**
@@ -116,7 +187,7 @@ async function candidateIndicesForWhere(
   );
   for (const set of secondarySets) {
     if (set === undefined) continue;
-    candidateSet = new Set([...candidateSet].filter((index) => set.has(index)));
+    candidateSet = intersectSets(candidateSet, set);
   }
   return [...candidateSet].sort((a, b) => a - b);
 }

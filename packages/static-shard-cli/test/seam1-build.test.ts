@@ -251,6 +251,82 @@ describe("seam #1 — secondary inverted index & zonemap (T3)", () => {
   });
 });
 
+describe("seam #1 — endsWith (reversed index) & contains (trigram index) opt-ins (T6)", () => {
+  const t6Config: StaticShardConfig = {
+    ...config,
+    shardBytes: 60, // tiny — forces multiple shards, same rationale as T3's fixture
+    schema: {
+      sortField: "year",
+      fields: {
+        year: { kind: "number" },
+        title: { kind: "string", indexed: true, endsWith: true, contains: true },
+        rating: { kind: "number" },
+      },
+    },
+  };
+
+  test("operators/manifest.indexes gain reversed+trigram structures only for the opted-in field", () => {
+    const { manifest } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith", "contains"]);
+    expect(manifest.indexes.title!.reversed).toBeDefined();
+    expect(manifest.indexes.title!.trigram).toBeDefined();
+    // rating never opted into endsWith/contains — no reversed/trigram structures for it, even though it's indexed.
+    expect(manifest.indexes.rating).toBeUndefined();
+  });
+
+  test("reversed + trigram chunk files are written to disk, content-hash-named, matching the manifest directory", () => {
+    const { manifest, outputDir } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const reversedChunks = manifest.indexes.title!.reversed!.chunks;
+    expect(reversedChunks.length).toBeGreaterThan(0);
+    for (const chunk of reversedChunks) {
+      expect(chunk.file).toMatch(/^index\/title\/reversed\//);
+      const filePath = path.join(outputDir, chunk.file);
+      expect(existsSync(filePath)).toBe(true);
+      expect(contentHash(readFileSync(filePath, "utf8"))).toBe(path.basename(chunk.file, ".json"));
+    }
+
+    const trigramChunks = manifest.indexes.title!.trigram!.chunks;
+    expect(trigramChunks.length).toBeGreaterThan(0);
+    for (const chunk of trigramChunks) {
+      expect(chunk.file).toMatch(/^index\/title\/trigram\//);
+      const filePath = path.join(outputDir, chunk.file);
+      expect(existsSync(filePath)).toBe(true);
+      expect(contentHash(readFileSync(filePath, "utf8"))).toBe(path.basename(chunk.file, ".json"));
+    }
+  });
+
+  test("endsWith(suffix) over the built reversed index resolves correctly against real titles", () => {
+    // Cross-checks the build output against ADR-0003's stated equivalence: endsWith(s) = startsWith(reverse(s))
+    // on the reversed index — sanity-checked here structurally; seam #2 proves it end-to-end through the runtime.
+    const { manifest } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const reversedValues = manifest.indexes.title!.reversed!.chunks.map((c) => c.from as string);
+    expect(reversedValues.length).toBeGreaterThan(0);
+  });
+
+  test("a contains opt-in whose trigram index exceeds its column emits a loud 'bigger than the data' warning", () => {
+    // A handful of short movie titles: trigram-postings overhead trivially dwarfs the raw column bytes.
+    const { warnings } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(warnings.some((w) => /contains\(title\)/.test(w) && /bigger than the data/i.test(w))).toBe(true);
+  });
+
+  test("a field with only endsWith opted in has no trigram structure, and vice versa", () => {
+    const endsWithOnly: StaticShardConfig = {
+      ...t6Config,
+      schema: {
+        ...t6Config.schema,
+        fields: { ...t6Config.schema.fields, title: { kind: "string", indexed: true, endsWith: true } },
+      },
+    };
+    const { manifest, warnings } = build(endsWithOnly, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith"]);
+    expect(manifest.indexes.title!.reversed).toBeDefined();
+    expect(manifest.indexes.title!.trigram).toBeUndefined();
+    expect(warnings).toEqual([]);
+  });
+});
+
 describe("seam #3 (type-level, over seam #1's own output) — generated types reject bad queries", () => {
   test("tsc exits 0 over a consumer that exercises valid queries and @ts-expect-error cases", () => {
     const { clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
@@ -354,6 +430,65 @@ async function invalid() {
   // rating is NOT indexed in this config — unknown field in where.
   // @ts-expect-error
   await db.movies.count({ rating: { equals: 9.0 } });
+}
+
+void valid;
+void invalid;
+`;
+    assertConsumerCompiles(clientOutDir, consumerSource);
+  });
+
+  test("T6: tsc exits 0 for a consumer exercising endsWith/contains only where opted in, per-operator", () => {
+    const t6Config: StaticShardConfig = {
+      ...indexedConfig,
+      schema: {
+        sortField: "year",
+        fields: {
+          year: { kind: "number" },
+          title: { kind: "string", indexed: true, endsWith: true, contains: true },
+          rating: { kind: "number", indexed: true },
+          // Indexed string field with ONLY contains opted in — proves the gate is per-OPERATOR,
+          // not just "this field has some opt-in" (a plain kind/indexed check couldn't catch that).
+          director: { kind: "string", indexed: true, contains: true },
+        },
+      },
+    };
+    // Overwrite the shared fixture with one that actually has `director` values (MOVIES has none).
+    writeFileSync(
+      path.join(tmpDir, "movies.ndjson"),
+      MOVIES.map((m) => JSON.stringify({ ...m, director: "Nolan" })).join("\n") + "\n",
+    );
+    const { clientOutDir } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const consumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function valid() {
+  await db.movies.findMany({ where: { title: { endsWith: "Knight" } } });
+  await db.movies.findMany({ where: { title: { contains: "Matr" } } });
+  // contains/endsWith prune via their own index, so each is valid as a SOLE constraint (not a filter-only rider).
+  await db.movies.findMany({ where: { title: { contains: "Matr" } }, limit: 1 });
+  await db.movies.findMany({ where: { director: { contains: "Nolan" } } });
+}
+
+async function invalid() {
+  // rating is indexed but never opted into endsWith/contains — disabled operators.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { rating: { endsWith: "5" } } });
+  // @ts-expect-error
+  await db.movies.findMany({ where: { rating: { contains: "5" } } });
+
+  // director opted into contains but NOT endsWith — proves the gate is per-operator, not per-field.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { director: { endsWith: "n" } } });
+
+  // wrong value type: title's operators all take strings.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { endsWith: 5 } } });
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { contains: 5 } } });
 }
 
 void valid;

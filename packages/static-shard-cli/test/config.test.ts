@@ -53,3 +53,67 @@ describe("resolveConfig", () => {
     expect(() => resolveConfig(bad, "/repo")).toThrow(/ndjson/);
   });
 });
+
+describe("resolveConfig — endsWith/contains opt-ins (T6)", () => {
+  const indexedString: StaticShardConfig = {
+    ...base,
+    schema: {
+      sortField: "year",
+      fields: { ...base.schema.fields, title: { kind: "string", indexed: true } },
+    },
+  };
+
+  test("accepts endsWith/contains on an indexed string field", () => {
+    const resolved = resolveConfig(
+      { ...indexedString, schema: { ...indexedString.schema, fields: { ...indexedString.schema.fields, title: { kind: "string", indexed: true, endsWith: true, contains: true } } } },
+      "/repo",
+    );
+    expect(resolved.fields.title).toEqual({ kind: "string", indexed: true, endsWith: true, contains: true });
+  });
+
+  test("rejects endsWith on a non-indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", endsWith: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*indexed|indexed.*title/i);
+  });
+
+  test("rejects contains on a non-indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", contains: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*indexed|indexed.*title/i);
+  });
+
+  test("rejects endsWith on a non-string indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: {
+        sortField: "year",
+        fields: { ...base.schema.fields, rating: { kind: "number", indexed: true, endsWith: true } },
+      },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/rating.*string|string.*rating/i);
+  });
+
+  test("rejects contains on a non-string indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: {
+        sortField: "year",
+        fields: { ...base.schema.fields, rating: { kind: "number", indexed: true, contains: true } },
+      },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/rating.*string|string.*rating/i);
+  });
+
+  test("rejects endsWith/contains on the sort field itself (always number/date, never string)", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, year: { kind: "number", endsWith: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/year.*string|string.*year/i);
+  });
+});

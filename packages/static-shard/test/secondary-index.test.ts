@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest";
 import {
   chunksForFilter,
   decodeIndexChunk,
+  reverseString,
   shardIndicesForFilter,
+  trigramsOf,
   type IndexChunkFile,
   type SecondaryFieldFilter,
 } from "../src/secondary-index.js";
@@ -116,5 +118,36 @@ describe("shardIndicesForFilter", () => {
   test("no matching value returns an empty set", () => {
     const filter: SecondaryFieldFilter = { equals: "nonexistent" };
     expect(shardIndicesForFilter(decoded, filter)).toEqual(new Set());
+  });
+});
+
+describe("reverseString (T6 — endsWith)", () => {
+  test("reverses a plain ASCII string", () => {
+    expect(reverseString("Knight")).toBe("thginK");
+  });
+
+  test("is codepoint-safe for astral characters", () => {
+    expect(reverseString("a😄b")).toBe("b😄a");
+  });
+
+  test("endsWith(suffix) becomes startsWith(reversed(suffix)) on the reversed value", () => {
+    const value = "The Dark Knight";
+    const suffix = "Knight";
+    expect(value.endsWith(suffix)).toBe(reverseString(value).startsWith(reverseString(suffix)));
+  });
+});
+
+describe("trigramsOf (T6 — contains)", () => {
+  test("every sliding 3-char window", () => {
+    expect(trigramsOf("abcd")).toEqual(["abc", "bcd"]);
+  });
+
+  test("strings shorter than 3 chars produce no trigrams", () => {
+    expect(trigramsOf("ab")).toEqual([]);
+    expect(trigramsOf("")).toEqual([]);
+  });
+
+  test("exactly 3 chars produces one trigram", () => {
+    expect(trigramsOf("abc")).toEqual(["abc"]);
   });
 });

@@ -29,6 +29,21 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
     );
   }
 
+  for (const [name, field] of Object.entries(config.schema.fields)) {
+    if (!field.endsWith && !field.contains) continue;
+    const opt = field.endsWith ? "endsWith" : "contains";
+    if (field.kind !== "string") {
+      throw new Error(
+        `static-shard: field "${name}" opts into "${opt}" but is kind "${field.kind}" — endsWith/contains require kind: "string"`,
+      );
+    }
+    if (field.indexed !== true) {
+      throw new Error(
+        `static-shard: field "${name}" opts into "${opt}" but is not indexed — set indexed: true first (ADR-0003 §7)`,
+      );
+    }
+  }
+
   const output = config.output ?? DEFAULT_OUTPUT;
 
   return {

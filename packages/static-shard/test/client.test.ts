@@ -300,6 +300,103 @@ describe("createClient / findMany — secondary inverted index (T3)", () => {
   });
 });
 
+describe("createClient / findMany — reversed & trigram indexes (T6, endsWith/contains)", () => {
+  // Reversed dictionary of the fixture's titles, sorted lexicographically on the reversed string:
+  // "Reloaded"->dedaoleR(s2), "Snatch"->hctanS(s1), "Memento"->otnemeM(s1), "Gladiator"->rotaidalG(s1),
+  // "Dark Knight"->thginK kraD(s2), "The Matrix"->xirtaM ehT(s0).
+  const reversedChunk = JSON.stringify({
+    entries: [
+      { prefixLen: 0, suffix: "dedaoleR", postings: [2] },
+      { prefixLen: 0, suffix: "hctanS", postings: [1] },
+      { prefixLen: 0, suffix: "otnemeM", postings: [1] },
+      { prefixLen: 0, suffix: "rotaidalG", postings: [1] },
+      { prefixLen: 0, suffix: "thginK kraD", postings: [2] },
+      { prefixLen: 0, suffix: "xirtaM ehT", postings: [0] },
+    ],
+  });
+  // Trigram dictionary covering "Gla" (fabricated as present in shards 1 AND 2, to prove AND-intersection
+  // narrows rather than unions) and "lad" (shard 1 only) — contains("Glad") must intersect down to shard 1.
+  const trigramChunk = JSON.stringify({
+    entries: [
+      { prefixLen: 0, suffix: "Gla", postings: [1, 1] },
+      { prefixLen: 0, suffix: "lad", postings: [1] },
+    ],
+  });
+
+  const t6Manifest: Manifest = {
+    ...manifest,
+    indexes: {
+      title: {
+        ...manifest.indexes.title!,
+        reversed: { chunks: [{ from: "dedaoleR", to: "xirtaM ehT", file: "index/title/reversed/r1.json" }] },
+        trigram: { chunks: [{ from: "Gla", to: "lad", file: "index/title/trigram/tg1.json" }] },
+      },
+    },
+  };
+  const t6Schema: SchemaMeta = { movies: { fields: t6Manifest.schema.fields } };
+
+  function t6Fetch(requests: string[]): typeof fetch {
+    return (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url.endsWith("manifest.json")) {
+        return { ok: true, status: 200, json: async () => t6Manifest, text: async () => JSON.stringify(t6Manifest) } as Response;
+      }
+      if (url.endsWith("index/title/reversed/r1.json")) {
+        return { ok: true, status: 200, json: async () => JSON.parse(reversedChunk), text: async () => reversedChunk } as Response;
+      }
+      if (url.endsWith("index/title/trigram/tg1.json")) {
+        return { ok: true, status: 200, json: async () => JSON.parse(trigramChunk), text: async () => trigramChunk } as Response;
+      }
+      const indexMatch = url.match(/index\/title\/(\w+)\.json$/);
+      if (indexMatch) {
+        const body = indexChunks[indexMatch[1]!];
+        if (!body) return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+        return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body } as Response;
+      }
+      const hash = url.split("/").pop()!.replace(".ndjson", "");
+      const body = shardContents[hash];
+      if (!body) return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+      return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body } as Response;
+    }) as typeof fetch;
+  }
+
+  test("endsWith prunes via the reversed index to the one shard whose value truly ends with the suffix", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof t6Schema, Records>(t6Schema, { basePath: "/data", fetch: t6Fetch(requests) });
+    const { records } = await client.movies.findMany({ where: { title: { endsWith: "x" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["The Matrix"]);
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual(["/data/index/title/reversed/r1.json"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual(["/data/shards/s0.ndjson"]);
+  });
+
+  test("contains prunes via trigram AND-intersection, fetching the shared chunk file only once", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof t6Schema, Records>(t6Schema, { basePath: "/data", fetch: t6Fetch(requests) });
+    const { records } = await client.movies.findMany({ where: { title: { contains: "Glad" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["Gladiator"]);
+    // Both "Gla" and "lad" route to the same chunk file — the shared chunk cache must dedupe the fetch.
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual(["/data/index/title/trigram/tg1.json"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual(["/data/shards/s1.ndjson"]);
+  });
+
+  test("contains as the SOLE constraint is valid (not a rider) and still prunes", async () => {
+    const client = createClient<typeof t6Schema, Records>(t6Schema, { basePath: "/data", fetch: t6Fetch([]) });
+    await expect(client.movies.findMany({ where: { title: { contains: "Glad" } } })).resolves.not.toThrow();
+  });
+
+  test("endsWith AND a sort-field range intersect both prunes", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof t6Schema, Records>(t6Schema, { basePath: "/data", fetch: t6Fetch(requests) });
+    // year >= 2000 zonemap-prunes to shards [1,2]; endsWith("x") index-prunes to shard [0] — disjoint.
+    const { records } = await client.movies.findMany({ where: { year: { gte: 2000 }, title: { endsWith: "x" } } });
+    expect(records).toEqual([]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
+  });
+});
+
 describe("createClient / failure contract — hard-fail + shared abort (T5, ADR-0007)", () => {
   function deferred<T>() {
     let resolve!: (value: T) => void;

@@ -85,3 +85,15 @@ export function shardIndicesForFilter(decoded: DecodedIndexEntry[], filter: Seco
   }
   return shardIndices;
 }
+
+/** Codepoint-safe reversal (ADR-0003 §7): `endsWith(suffix)` becomes `startsWith` on the reversed index once both sides are reversed. */
+export function reverseString(value: string): string {
+  return [...value].reverse().join("");
+}
+
+/** Every sliding 3-char window of `value` — the query-side counterpart of the trigram index's dictionary keys (ADR-0003 §7). */
+export function trigramsOf(value: string): string[] {
+  const grams: string[] = [];
+  for (let i = 0; i <= value.length - 3; i++) grams.push(value.slice(i, i + 3));
+  return grams;
+}

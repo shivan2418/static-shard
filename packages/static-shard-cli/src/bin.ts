@@ -28,6 +28,7 @@ function main(argv: string[]): void {
       `${result.manifest.dataset.recordCount} record(s) → ${result.outputDir}`,
   );
   console.log(`static-shard: generated client → ${result.clientOutDir}`);
+  for (const warning of result.warnings) console.warn(warning);
 }
 
 main(process.argv.slice(2));

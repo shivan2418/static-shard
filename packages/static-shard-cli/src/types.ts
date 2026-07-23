@@ -4,6 +4,10 @@ export interface FieldConfig {
   kind: FieldKind;
   /** Opt-in secondary index (ADR-0003): builds a chunked inverted index + zonemap for this non-sort field. */
   indexed?: boolean;
+  /** Opt-in reversed-value index — unlocks `endsWith` (ADR-0003 §7). Requires `kind: "string"` and `indexed: true`. */
+  endsWith?: boolean;
+  /** Opt-in trigram index — unlocks `contains` (ADR-0003 §7). Requires `kind: "string"` and `indexed: true`. */
+  contains?: boolean;
 }
 
 export interface StaticShardConfig {
@@ -87,6 +91,10 @@ export interface IndexDescriptor {
   /** Enabled operator set for this field's index — drives T5 codegen. */
   operators: readonly string[];
   chunks: IndexChunkDirEntry[];
+  /** Reversed-value index chunk directory — present iff `endsWith` opted in (ADR-0003 §7/§9). */
+  reversed?: { chunks: IndexChunkDirEntry[] };
+  /** Trigram index chunk directory — present iff `contains` opted in (ADR-0003 §7/§9). */
+  trigram?: { chunks: IndexChunkDirEntry[] };
 }
 
 export interface Manifest {

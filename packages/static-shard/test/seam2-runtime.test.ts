@@ -321,6 +321,109 @@ describe("seam #2 — count() approximate upper bound & pagination totals (T4), 
   });
 });
 
+/** T6 fixture: same movies, title opted into endsWith (reversed) + contains (trigram). */
+const t6Config: StaticShardConfig = {
+  ...config,
+  schema: {
+    sortField: "year",
+    fields: {
+      year: { kind: "number" },
+      title: { kind: "string", indexed: true, endsWith: true, contains: true },
+      rating: { kind: "number" },
+    },
+  },
+};
+
+describe("seam #2 — endsWith (reversed index) & contains (trigram index), over a seam #1-built fixture tree (T6)", () => {
+  test("endsWith returns exactly the records whose value truly ends with the suffix, fetching only the reversed chunk(s) + surviving shards", async () => {
+    const { outputDir, clientOutDir, manifest } = build(t6Config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    expect(manifest.indexes.title!.reversed!.chunks.length).toBeGreaterThan(0);
+
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const result = await client.movies.findMany({ where: { title: { endsWith: "Reloaded" } } });
+    expect(result.records.map((r) => r.title)).toEqual(["The Matrix Reloaded"]);
+
+    const reversedRequests = requests.filter((r) => r.includes(`${path.sep}reversed${path.sep}`));
+    expect(reversedRequests.length).toBeGreaterThan(0);
+    expect(reversedRequests.length).toBeLessThanOrEqual(manifest.indexes.title!.reversed!.chunks.length);
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toHaveLength(1);
+  });
+
+  test("contains returns exactly the records whose value truly contains the substring, valid as a SOLE constraint", async () => {
+    const { outputDir, clientOutDir, manifest } = build(t6Config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    expect(manifest.indexes.title!.trigram!.chunks.length).toBeGreaterThan(0);
+
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const result = await client.movies.findMany({ where: { title: { contains: "Matrix" } } });
+    expect(result.records.map((r) => r.title).sort()).toEqual(["The Matrix", "The Matrix Reloaded"].sort());
+
+    const trigramRequests = requests.filter((r) => r.includes(`${path.sep}trigram${path.sep}`));
+    expect(trigramRequests.length).toBeGreaterThan(0);
+    // Never touches every shard — the trigram AND-intersection must have pruned something.
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`)).length).toBeLessThan(manifest.shards.length);
+  });
+
+  test("implicit AND: contains combined with a sort-field range intersects both prunes", async () => {
+    const { outputDir, clientOutDir } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // title contains "Matrix" -> {The Matrix (1999), The Matrix Reloaded (2003)}; year < 2000 narrows to 1999 alone.
+    const result = await client.movies.findMany({ where: { title: { contains: "Matrix" }, year: { lt: 2000 } } });
+    expect(result.records.map((r) => r.title)).toEqual(["The Matrix"]);
+  });
+
+  test("a contains substring shorter than 3 chars can't route via the trigram index but still matches correctly (falls back to a full scan)", async () => {
+    const { outputDir, clientOutDir } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    const result = await client.movies.findMany({ where: { title: { contains: "By" } } });
+    expect(result.records).toEqual([]);
+  });
+
+  test("a query with no true match returns no records and fetches no shards for a fully-disjoint AND", async () => {
+    const { outputDir, clientOutDir } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    // "Parasite" never ends with "Reloaded" AND year:1999 is disjoint from where "Reloaded"-suffixed titles live.
+    const result = await client.movies.findMany({ where: { title: { endsWith: "Reloaded" }, year: { equals: 1999 } } });
+    expect(result.records).toEqual([]);
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+});
+
 describe("seam #2 — runtime failure contract & maxResults guardrail (T5), over a seam #1-built fixture tree", () => {
   /** Rejects with a ShardError; asserts the exact code + payload, then returns it for message checks. */
   async function expectFailure(

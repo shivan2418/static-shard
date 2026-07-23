@@ -1,5 +1,5 @@
 import type {
-  FieldKind,
+  FieldConfig,
   FieldSchemaEntry,
   IndexChunkDirEntry,
   IndexDescriptor,
@@ -22,11 +22,16 @@ const SECONDARY_STRING_OPERATORS = ["equals", "in", "startsWith"] as const;
 const SECONDARY_RANGE_KIND_OPERATORS = ["equals", "in"] as const;
 const SECONDARY_BOOLEAN_OPERATORS = ["equals"] as const;
 
-function operatorsForField(kind: FieldKind, isSortField: boolean, indexed: boolean): readonly string[] {
+function operatorsForField(field: FieldConfig, isSortField: boolean, indexed: boolean): readonly string[] {
   if (isSortField) return SORT_FIELD_OPERATORS;
   if (!indexed) return [];
-  if (kind === "string") return SECONDARY_STRING_OPERATORS;
-  if (kind === "boolean") return SECONDARY_BOOLEAN_OPERATORS;
+  if (field.kind === "string") {
+    const ops: string[] = [...SECONDARY_STRING_OPERATORS];
+    if (field.endsWith) ops.push("endsWith");
+    if (field.contains) ops.push("contains");
+    return ops;
+  }
+  if (field.kind === "boolean") return SECONDARY_BOOLEAN_OPERATORS;
   return SECONDARY_RANGE_KIND_OPERATORS;
 }
 
@@ -48,7 +53,7 @@ function buildSchemaDescriptor(config: ResolvedConfig): SchemaDescriptor {
       kind: field.kind,
       isDate: field.kind === "date",
       indexed,
-      operators: operatorsForField(field.kind, isSortField, indexed),
+      operators: operatorsForField(field, isSortField, indexed),
     };
   }
   return { collection: config.collection, sortField: config.sortField, fields };
@@ -62,6 +67,10 @@ export function buildManifest(opts: {
   secondaryZonemaps?: Record<string, PairZonemapEntry>;
   /** Per non-sort indexed field, its index chunk directory (ADR-0003). */
   indexChunkDirs?: Record<string, IndexChunkDirEntry[]>;
+  /** Per field opted into `endsWith`, its reversed-value index chunk directory (ADR-0003 §7/§9). */
+  reversedChunkDirs?: Record<string, IndexChunkDirEntry[]>;
+  /** Per field opted into `contains`, its trigram index chunk directory (ADR-0003 §7/§9). */
+  trigramChunkDirs?: Record<string, IndexChunkDirEntry[]>;
   formatVersion: number;
   generatorVersion: string;
 }): Manifest {
@@ -71,6 +80,8 @@ export function buildManifest(opts: {
     splitPoints,
     secondaryZonemaps = {},
     indexChunkDirs = {},
+    reversedChunkDirs = {},
+    trigramChunkDirs = {},
     formatVersion,
     generatorVersion,
   } = opts;
@@ -81,8 +92,16 @@ export function buildManifest(opts: {
   for (const [field, entry] of Object.entries(secondaryZonemaps)) zonemap[field] = entry;
 
   const indexes: Record<string, IndexDescriptor> = {};
+  const indexDescriptorFor = (field: string): IndexDescriptor =>
+    indexes[field] ?? { operators: schema.fields[field]!.operators, chunks: [] };
   for (const [field, chunks] of Object.entries(indexChunkDirs)) {
     indexes[field] = { operators: schema.fields[field]!.operators, chunks };
+  }
+  for (const [field, chunks] of Object.entries(reversedChunkDirs)) {
+    indexes[field] = { ...indexDescriptorFor(field), reversed: { chunks } };
+  }
+  for (const [field, chunks] of Object.entries(trigramChunkDirs)) {
+    indexes[field] = { ...indexDescriptorFor(field), trigram: { chunks } };
   }
 
   return {

@@ -7,6 +7,11 @@ export function truncateStringLower(value: string, maxLen = DEFAULT_TRUNCATE_LEN
   return value.length <= maxLen ? value : value.slice(0, maxLen);
 }
 
+/** Codepoint-safe reversal — used to build the reversed-value index for `endsWith` (ADR-0003 §7). */
+export function reverseString(value: string): string {
+  return [...value].reverse().join("");
+}
+
 /** Increments the last code point of `prefix` so the result strictly exceeds every string sharing it. */
 function incrementString(prefix: string): string {
   const chars = [...prefix];
@@ -118,19 +123,8 @@ function encodeEntry(entry: DictEntry, prevKey: string): IndexChunkEntry {
   return { prefixLen, suffix: entry.key.slice(prefixLen), postings };
 }
 
-/**
- * Builds the chunked inverted index for one non-sort indexed field (ADR-0003):
- * distinct values sorted, front-coded within each chunk (so a chunk decodes
- * standalone), delta-encoded postings (value → shard ordinals), cut into
- * ~chunkBytes-sized groups.
- */
-export function buildInvertedIndex(
-  groups: Record<string, unknown>[][],
-  field: string,
-  kind: FieldKind,
-  chunkBytes: number,
-): BuiltIndexChunk[] {
-  const distinct = collectDistinctValues(groups, field, kind);
+/** Cuts a sorted distinct-value dictionary into front-coded, delta-encoded, ~chunkBytes-sized chunks. */
+function buildChunksFromDictionary(distinct: DictEntry[], chunkBytes: number): BuiltIndexChunk[] {
   if (distinct.length === 0) return [];
 
   const chunks: BuiltIndexChunk[] = [];
@@ -171,4 +165,91 @@ export function buildInvertedIndex(
   flush(distinct[distinct.length - 1]!.value);
 
   return chunks;
+}
+
+/**
+ * Builds the chunked inverted index for one non-sort indexed field (ADR-0003):
+ * distinct values sorted, front-coded within each chunk (so a chunk decodes
+ * standalone), delta-encoded postings (value → shard ordinals), cut into
+ * ~chunkBytes-sized groups.
+ */
+export function buildInvertedIndex(
+  groups: Record<string, unknown>[][],
+  field: string,
+  kind: FieldKind,
+  chunkBytes: number,
+): BuiltIndexChunk[] {
+  return buildChunksFromDictionary(collectDistinctValues(groups, field, kind), chunkBytes);
+}
+
+/**
+ * Builds the reversed-value index that unlocks `endsWith` (ADR-0003 §7): the
+ * SAME chunked-dictionary structure as the base index, keyed on each string
+ * value reversed — so `endsWith("son")` becomes a `startsWith` prefix-range
+ * query on this index once the runtime reverses the query value too.
+ */
+export function buildReversedIndex(
+  groups: Record<string, unknown>[][],
+  field: string,
+  chunkBytes: number,
+): BuiltIndexChunk[] {
+  const reversedGroups = groups.map((group) =>
+    group.map((record) => {
+      const value = record[field];
+      return { [field]: value === null || value === undefined ? value : reverseString(value as string) };
+    }),
+  );
+  return buildInvertedIndex(reversedGroups, field, "string", chunkBytes);
+}
+
+/** Every sliding 3-char window of `value` — the dictionary keys of a trigram index. */
+function trigramsOf(value: string): string[] {
+  const grams: string[] = [];
+  for (let i = 0; i <= value.length - 3; i++) grams.push(value.slice(i, i + 3));
+  return grams;
+}
+
+function collectDistinctTrigrams(groups: Record<string, unknown>[][], field: string): DictEntry[] {
+  const byKey = new Map<string, DictEntry>();
+  groups.forEach((group, shardIndex) => {
+    for (const record of group) {
+      const value = record[field];
+      if (value === null || value === undefined) continue;
+      for (const gram of trigramsOf(value as string)) {
+        let entry = byKey.get(gram);
+        if (!entry) {
+          entry = { value: gram, key: gram, shardIndices: [] };
+          byKey.set(gram, entry);
+        }
+        if (entry.shardIndices[entry.shardIndices.length - 1] !== shardIndex) entry.shardIndices.push(shardIndex);
+      }
+    }
+  });
+  return [...byKey.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
+/**
+ * Builds the trigram index that unlocks `contains` (ADR-0003 §7): every
+ * distinct 3-char substring across the field's values, front-coded/delta-
+ * encoded exactly like the base index, but keyed on trigrams rather than
+ * whole values — a value shorter than 3 chars contributes none.
+ */
+export function buildTrigramIndex(
+  groups: Record<string, unknown>[][],
+  field: string,
+  chunkBytes: number,
+): BuiltIndexChunk[] {
+  return buildChunksFromDictionary(collectDistinctTrigrams(groups, field), chunkBytes);
+}
+
+/** Total UTF-8 bytes of the field's raw (non-null) string values — the "size of the column" ADR-0003 §7 warns against exceeding. */
+export function computeColumnBytes(groups: Record<string, unknown>[][], field: string): number {
+  let bytes = 0;
+  for (const group of groups) {
+    for (const record of group) {
+      const value = record[field];
+      if (typeof value === "string") bytes += Buffer.byteLength(value, "utf8");
+    }
+  }
+  return bytes;
 }

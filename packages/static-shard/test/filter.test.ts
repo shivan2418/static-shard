@@ -36,4 +36,14 @@ describe("matchesWhere", () => {
   test("a missing field value never matches", () => {
     expect(matchesWhere({}, { year: { gte: 2000 } })).toBe(false);
   });
+
+  test("endsWith (T6)", () => {
+    expect(matchesWhere({ title: "The Dark Knight" }, { title: { endsWith: "Knight" } })).toBe(true);
+    expect(matchesWhere({ title: "Gladiator" }, { title: { endsWith: "Knight" } })).toBe(false);
+  });
+
+  test("contains (T6)", () => {
+    expect(matchesWhere({ title: "The Dark Knight" }, { title: { contains: "Dark" } })).toBe(true);
+    expect(matchesWhere({ title: "Gladiator" }, { title: { contains: "Dark" } })).toBe(false);
+  });
 });
