@@ -5,6 +5,7 @@ import type { ResolvedConfig, StaticShardConfig } from "./types.js";
 const DEFAULT_OUTPUT = "public/shard-data";
 const DEFAULT_CLIENT_OUT = "src/shard-db";
 const DEFAULT_SHARD_BYTES = 2_097_152; // 2 MiB
+const DEFAULT_INDEX_CHUNK_BYTES = 45_000; // ~45 KB gzipped anchor (ADR-0003 §5)
 
 function defaultBasePath(output: string): string {
   const normalized = output.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -37,6 +38,7 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
     clientOut: path.resolve(baseDir, config.clientOut ?? DEFAULT_CLIENT_OUT),
     basePath: config.basePath ?? defaultBasePath(output),
     shardBytes: config.shardBytes ?? DEFAULT_SHARD_BYTES,
+    indexChunkBytes: config.indexChunkBytes ?? DEFAULT_INDEX_CHUNK_BYTES,
     sortField,
     fields: config.schema.fields,
   };

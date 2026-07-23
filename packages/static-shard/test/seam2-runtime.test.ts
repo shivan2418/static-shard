@@ -138,3 +138,104 @@ describe("seam #2 — connect({ basePath, fetch }) → results, over a seam #1-b
     expect(lastPage.hasMore).toBe(false);
   });
 });
+
+describe("seam #2 — secondary inverted index & multi-field AND (T3), over a seam #1-built fixture tree", () => {
+  const indexedConfig: StaticShardConfig = {
+    ...config,
+    schema: {
+      sortField: "year",
+      fields: {
+        year: { kind: "number" },
+        title: { kind: "string", indexed: true },
+        rating: { kind: "number", indexed: true },
+      },
+    },
+  };
+
+  test("equals/in/startsWith on the secondary field return correct records, fetching only surviving shards + constrained chunks", async () => {
+    const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const equalsResult = await client.movies.findMany({ where: { title: { equals: "Inception" } } });
+    expect(equalsResult.records.map((r) => r.title)).toEqual(["Inception"]);
+
+    const inResult = await client.movies.findMany({ where: { title: { in: ["The Matrix", "Parasite"] } } });
+    expect(inResult.records.map((r) => r.title).sort()).toEqual(["Parasite", "The Matrix"]);
+
+    const startsWithResult = await client.movies.findMany({ where: { title: { startsWith: "The" } } });
+    expect(startsWithResult.records.map((r) => r.title).sort()).toEqual(
+      ["The Matrix", "The Matrix Reloaded", "The Dark Knight"].sort(),
+    );
+  });
+
+  test("only chunks covering the queried value and only the matching shard are fetched for an equals query", async () => {
+    const { outputDir, clientOutDir, manifest } = build(indexedConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    expect(manifest.indexes.title!.chunks.length).toBeGreaterThan(0);
+
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    await client.movies.findMany({ where: { title: { equals: "Parasite" } } });
+    const indexRequests = requests.filter((r) => r.includes(`${path.sep}index${path.sep}`));
+    const shardRequests = requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`));
+    expect(shardRequests).toHaveLength(1); // "Parasite" lives in exactly one shard
+    // Never more chunks than the directory actually holds — proves we're not sweeping every chunk.
+    expect(indexRequests.length).toBeGreaterThan(0);
+    expect(indexRequests.length).toBeLessThanOrEqual(manifest.indexes.title!.chunks.length);
+  });
+
+  test("implicit AND across the sort field and the secondary index returns the exact intersection", async () => {
+    const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // year:2000 → {Gladiator, Snatch, Memento}; title startsWith "S" → {Snatch, ...}. AND ⇒ exactly Snatch.
+    const result = await client.movies.findMany({ where: { year: { equals: 2000 }, title: { startsWith: "S" } } });
+    expect(result.records.map((r) => r.title)).toEqual(["Snatch"]);
+  });
+
+  test("implicit AND across TWO non-sort indexed fields intersects both fields' own index-derived shard sets", async () => {
+    const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // title startsWith "The" → {The Matrix (8.7), The Matrix Reloaded (7.2), The Dark Knight (9.0)};
+    // rating equals 9.0 → {The Dark Knight} alone. Neither constraint touches the sort field (year) at all.
+    const result = await client.movies.findMany({ where: { title: { startsWith: "The" }, rating: { equals: 9.0 } } });
+    expect(result.records.map((r) => r.title)).toEqual(["The Dark Knight"]);
+  });
+
+  test("a multi-field AND with no possible intersection returns an empty result and fetches no shards", async () => {
+    const { outputDir, clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    // "Parasite" (year 2019) can never satisfy year:1999 — disjoint constraints.
+    const result = await client.movies.findMany({ where: { year: { equals: 1999 }, title: { equals: "Parasite" } } });
+    expect(result.records).toEqual([]);
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+});

@@ -21,6 +21,9 @@ export function matchesFieldFilter(value: unknown, filter: Record<string, unknow
       case "lte":
         if (!((value as number | string) <= (opValue as number | string))) return false;
         break;
+      case "startsWith":
+        if (!(value as string).startsWith(opValue as string)) return false;
+        break;
       default:
         throw new Error(`static-shard: unsupported operator "${op}"`);
     }

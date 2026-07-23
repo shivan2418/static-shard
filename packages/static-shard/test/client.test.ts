@@ -13,6 +13,24 @@ const shardContents: Record<string, string> = {
   s2: '{"year":2003,"title":"Reloaded"}\n{"year":2008,"title":"Dark Knight"}\n',
 };
 
+// Titles sorted: "Dark Knight"(s2), "Gladiator"(s1), "Memento"(s1), "Reloaded"(s2), "Snatch"(s1), "The Matrix"(s0).
+const indexChunks: Record<string, string> = {
+  c1: JSON.stringify({
+    entries: [
+      { prefixLen: 0, suffix: "Dark Knight", postings: [2] },
+      { prefixLen: 0, suffix: "Gladiator", postings: [1] },
+      { prefixLen: 0, suffix: "Memento", postings: [1] },
+    ],
+  }),
+  c2: JSON.stringify({
+    entries: [
+      { prefixLen: 0, suffix: "Reloaded", postings: [2] },
+      { prefixLen: 0, suffix: "Snatch", postings: [1] },
+      { prefixLen: 0, suffix: "The Matrix", postings: [0] },
+    ],
+  }),
+};
+
 const manifest: Manifest = {
   formatVersion: 0,
   generatorVersion: "0.1.0",
@@ -22,7 +40,7 @@ const manifest: Manifest = {
     sortField: "year",
     fields: {
       year: { kind: "number", isDate: false, indexed: true, operators: ["equals", "in", "gt", "gte", "lt", "lte"] },
-      title: { kind: "string", isDate: false, indexed: false, operators: [] },
+      title: { kind: "string", isDate: false, indexed: true, operators: ["equals", "in", "startsWith"] },
     },
   },
   shards: [
@@ -31,6 +49,15 @@ const manifest: Manifest = {
     { hash: "s2", bytes: shardContents.s2!.length, count: 2 },
   ],
   zonemap: { year: { splitPoints: [1999, 2000, 2003, 2008] } },
+  indexes: {
+    title: {
+      operators: ["equals", "in", "startsWith"],
+      chunks: [
+        { from: "Dark Knight", to: "Memento", file: "index/title/c1.json" },
+        { from: "Reloaded", to: "The Matrix", file: "index/title/c2.json" },
+      ],
+    },
+  },
 };
 
 const schema: SchemaMeta = { movies: { fields: manifest.schema.fields } };
@@ -41,6 +68,12 @@ function fakeFetch(requests: string[]): typeof fetch {
     requests.push(url);
     if (url.endsWith("manifest.json")) {
       return { ok: true, status: 200, json: async () => manifest, text: async () => JSON.stringify(manifest) } as Response;
+    }
+    const indexMatch = url.match(/index\/title\/(\w+)\.json$/);
+    if (indexMatch) {
+      const body = indexChunks[indexMatch[1]!];
+      if (!body) return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+      return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body } as Response;
     }
     const hash = url.split("/").pop()!.replace(".ndjson", "");
     const body = shardContents[hash];
@@ -126,5 +159,61 @@ describe("createClient / findMany", () => {
     const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
     expect(client.movies.getSchema()).toEqual(schema.movies);
     expect(requests).toEqual([]);
+  });
+});
+
+describe("createClient / findMany — secondary inverted index (T3)", () => {
+  test("equals on a secondary field fetches only the covering chunk and the matching shard", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    const { records } = await client.movies.findMany({ where: { title: { equals: "Gladiator" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["Gladiator"]);
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual(["/data/index/title/c1.json"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual(["/data/shards/s1.ndjson"]);
+  });
+
+  test("in on a secondary field unions shards across chunks, fetching only what's needed", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    const { records } = await client.movies.findMany({ where: { title: { in: ["Dark Knight", "The Matrix"] } } });
+
+    expect(records.map((r) => r.title).sort()).toEqual(["Dark Knight", "The Matrix"]);
+    expect(requests.filter((u) => u.includes("/index/")).sort()).toEqual([
+      "/data/index/title/c1.json",
+      "/data/index/title/c2.json",
+    ]);
+    expect(requests.filter((u) => u.includes("/shards/")).sort()).toEqual(["/data/shards/s0.ndjson", "/data/shards/s2.ndjson"]);
+  });
+
+  test("startsWith on a secondary field selects only overlapping chunks and post-filters exactly", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    const { records } = await client.movies.findMany({ where: { title: { startsWith: "S" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["Snatch"]);
+    // "S" only overlaps chunk2 (Reloaded..The Matrix) — chunk1 (Dark Knight..Memento) is entirely below "S".
+    expect(requests.filter((u) => u.includes("/index/"))).toEqual(["/data/index/title/c2.json"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual(["/data/shards/s1.ndjson"]);
+  });
+
+  test("multi-field implicit AND intersects the sort-field zonemap prune with the secondary index prune", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    // year >= 2000 zonemap-prunes to shards [1,2]; title equals "Gladiator" index-prunes to shard [1] — intersect to [1].
+    const { records } = await client.movies.findMany({ where: { year: { gte: 2000 }, title: { equals: "Gladiator" } } });
+
+    expect(records.map((r) => r.title)).toEqual(["Gladiator"]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual(["/data/shards/s1.ndjson"]);
+  });
+
+  test("an AND across fields whose index prunes disjointly returns no results and fetches no shards", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests) });
+    // year == 1999 → shard 0 only; title == "Gladiator" → shard 1 only. Disjoint ⇒ empty, no shard fetch needed.
+    const { records } = await client.movies.findMany({ where: { year: { equals: 1999 }, title: { equals: "Gladiator" } } });
+
+    expect(records).toEqual([]);
+    expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
   });
 });

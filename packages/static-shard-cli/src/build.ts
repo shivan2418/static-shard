@@ -2,10 +2,12 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { resolveConfig } from "./config.js";
 import { generateClientTs, generateSchemaTs } from "./codegen.js";
+import { contentHash } from "./hash.js";
 import { buildManifest, computeSplitPoints } from "./manifest.js";
+import { buildInvertedIndex, computeSecondaryZonemap } from "./secondary-index.js";
 import { cutIntoShards, materializeShards } from "./shard.js";
 import { compareSortValues, type SortKind } from "./sort.js";
-import type { Manifest, StaticShardConfig } from "./types.js";
+import type { IndexChunkDirEntry, Manifest, PairZonemapEntry, StaticShardConfig } from "./types.js";
 import { getFormatVersion, getGeneratorVersion } from "./version.js";
 
 export interface BuildOptions {
@@ -51,13 +53,44 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
   const shardFiles = materializeShards(groups);
   const splitPoints = computeSplitPoints(groups, resolved.sortField);
 
-  const manifest = buildManifest({ config: resolved, shardFiles, splitPoints, formatVersion, generatorVersion });
+  const indexedSecondaryFields = Object.entries(resolved.fields).filter(
+    ([name, field]) => name !== resolved.sortField && field.indexed === true,
+  );
+
+  const secondaryZonemaps: Record<string, PairZonemapEntry> = {};
+  const indexChunkDirs: Record<string, IndexChunkDirEntry[]> = {};
+  const indexChunkFiles: { field: string; hash: string; content: string }[] = [];
+  for (const [name, field] of indexedSecondaryFields) {
+    secondaryZonemaps[name] = computeSecondaryZonemap(groups, name, field.kind);
+
+    const builtChunks = buildInvertedIndex(groups, name, field.kind, resolved.indexChunkBytes);
+    indexChunkDirs[name] = builtChunks.map(({ from, to, content }) => {
+      const hash = contentHash(content);
+      indexChunkFiles.push({ field: name, hash, content });
+      return { from, to, file: `index/${name}/${hash}.json` };
+    });
+  }
+
+  const manifest = buildManifest({
+    config: resolved,
+    shardFiles,
+    splitPoints,
+    secondaryZonemaps,
+    indexChunkDirs,
+    formatVersion,
+    generatorVersion,
+  });
 
   rmSync(resolved.output, { recursive: true, force: true });
   const shardsDir = path.join(resolved.output, "shards");
   mkdirSync(shardsDir, { recursive: true });
   for (const file of shardFiles) {
     writeFileSync(path.join(shardsDir, `${file.hash}.ndjson`), file.content);
+  }
+  for (const { field, hash, content } of indexChunkFiles) {
+    const fieldDir = path.join(resolved.output, "index", field);
+    mkdirSync(fieldDir, { recursive: true });
+    writeFileSync(path.join(fieldDir, `${hash}.json`), content);
   }
   writeFileSync(path.join(resolved.output, "manifest.json"), JSON.stringify(manifest, null, 2));
 

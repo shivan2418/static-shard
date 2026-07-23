@@ -16,6 +16,11 @@ describe("matchesWhere", () => {
     expect(matchesWhere({ year: 2002 }, { year: { in: [1999, 2001] } })).toBe(false);
   });
 
+  test("startsWith", () => {
+    expect(matchesWhere({ title: "Gladiator" }, { title: { startsWith: "Glad" } })).toBe(true);
+    expect(matchesWhere({ title: "Snatch" }, { title: { startsWith: "Glad" } })).toBe(false);
+  });
+
   test("gt/gte/lt/lte compose as implicit AND", () => {
     expect(matchesWhere({ year: 2005 }, { year: { gte: 2000, lt: 2010 } })).toBe(true);
     expect(matchesWhere({ year: 2010 }, { year: { gte: 2000, lt: 2010 } })).toBe(false);

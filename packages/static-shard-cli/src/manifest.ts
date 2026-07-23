@@ -1,7 +1,34 @@
-import type { FieldSchemaEntry, Manifest, ResolvedConfig, SchemaDescriptor, ShardDescriptor } from "./types.js";
+import type {
+  FieldKind,
+  FieldSchemaEntry,
+  IndexChunkDirEntry,
+  IndexDescriptor,
+  Manifest,
+  PairZonemapEntry,
+  ResolvedConfig,
+  SchemaDescriptor,
+  ShardDescriptor,
+  ZonemapEntry,
+} from "./types.js";
 
 /** The sort field prunes via zonemap alone, so every numeric/date operator is free. */
 const SORT_FIELD_OPERATORS = ["equals", "in", "gt", "gte", "lt", "lte"] as const;
+/** Secondary string fields: values are sorted in the index, so prefix = a contiguous range (ADR-0003 §7). */
+const SECONDARY_STRING_OPERATORS = ["equals", "in", "startsWith"] as const;
+/**
+ * Secondary number/date fields: their zonemap overlaps (can't pinpoint a value), so `equals`/`in` need the
+ * inverted index; `gt`/`lt` would need the (already-present) zonemap pairs but that's out of T3's scope.
+ */
+const SECONDARY_RANGE_KIND_OPERATORS = ["equals", "in"] as const;
+const SECONDARY_BOOLEAN_OPERATORS = ["equals"] as const;
+
+function operatorsForField(kind: FieldKind, isSortField: boolean, indexed: boolean): readonly string[] {
+  if (isSortField) return SORT_FIELD_OPERATORS;
+  if (!indexed) return [];
+  if (kind === "string") return SECONDARY_STRING_OPERATORS;
+  if (kind === "boolean") return SECONDARY_BOOLEAN_OPERATORS;
+  return SECONDARY_RANGE_KIND_OPERATORS;
+}
 
 /** N+1 monotonic boundaries: splitPoints[i] = min value of shard i; the final entry is the last shard's max. */
 export function computeSplitPoints(groups: Record<string, unknown>[][], sortField: string): unknown[] {
@@ -15,12 +42,13 @@ export function computeSplitPoints(groups: Record<string, unknown>[][], sortFiel
 function buildSchemaDescriptor(config: ResolvedConfig): SchemaDescriptor {
   const fields: Record<string, FieldSchemaEntry> = {};
   for (const [name, field] of Object.entries(config.fields)) {
-    const indexed = name === config.sortField;
+    const isSortField = name === config.sortField;
+    const indexed = isSortField || field.indexed === true;
     fields[name] = {
       kind: field.kind,
       isDate: field.kind === "date",
       indexed,
-      operators: indexed ? SORT_FIELD_OPERATORS : [],
+      operators: operatorsForField(field.kind, isSortField, indexed),
     };
   }
   return { collection: config.collection, sortField: config.sortField, fields };
@@ -30,11 +58,32 @@ export function buildManifest(opts: {
   config: ResolvedConfig;
   shardFiles: ShardDescriptor[];
   splitPoints: unknown[];
+  /** Per non-sort indexed field, its per-shard [min,max] zonemap entry (ADR-0003). */
+  secondaryZonemaps?: Record<string, PairZonemapEntry>;
+  /** Per non-sort indexed field, its index chunk directory (ADR-0003). */
+  indexChunkDirs?: Record<string, IndexChunkDirEntry[]>;
   formatVersion: number;
   generatorVersion: string;
 }): Manifest {
-  const { config, shardFiles, splitPoints, formatVersion, generatorVersion } = opts;
+  const {
+    config,
+    shardFiles,
+    splitPoints,
+    secondaryZonemaps = {},
+    indexChunkDirs = {},
+    formatVersion,
+    generatorVersion,
+  } = opts;
   const recordCount = shardFiles.reduce((sum, s) => sum + s.count, 0);
+  const schema = buildSchemaDescriptor(config);
+
+  const zonemap: Record<string, ZonemapEntry> = { [config.sortField]: { splitPoints } };
+  for (const [field, entry] of Object.entries(secondaryZonemaps)) zonemap[field] = entry;
+
+  const indexes: Record<string, IndexDescriptor> = {};
+  for (const [field, chunks] of Object.entries(indexChunkDirs)) {
+    indexes[field] = { operators: schema.fields[field]!.operators, chunks };
+  }
 
   return {
     formatVersion,
@@ -45,8 +94,9 @@ export function buildManifest(opts: {
       shardCount: shardFiles.length,
       sortField: config.sortField,
     },
-    schema: buildSchemaDescriptor(config),
+    schema,
     shards: shardFiles.map(({ hash, bytes, count }) => ({ hash, bytes, count })),
-    zonemap: { [config.sortField]: { splitPoints } },
+    zonemap,
+    indexes,
   };
 }

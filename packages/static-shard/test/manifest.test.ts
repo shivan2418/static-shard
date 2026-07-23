@@ -8,6 +8,7 @@ const manifest: Manifest = {
   schema: { collection: "movies", sortField: "year", fields: {} },
   shards: [{ hash: "abc", bytes: 1, count: 1 }],
   zonemap: { year: { splitPoints: [2000, 2000] } },
+  indexes: {},
 };
 
 function fakeFetch(responses: Record<string, { status: number; body: string }>): typeof fetch {

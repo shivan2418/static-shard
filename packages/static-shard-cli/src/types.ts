@@ -2,6 +2,8 @@ export type FieldKind = "string" | "number" | "boolean" | "date";
 
 export interface FieldConfig {
   kind: FieldKind;
+  /** Opt-in secondary index (ADR-0003): builds a chunked inverted index + zonemap for this non-sort field. */
+  indexed?: boolean;
 }
 
 export interface StaticShardConfig {
@@ -20,6 +22,8 @@ export interface StaticShardConfig {
   basePath?: string;
   /** Target compressed shard size in bytes. Default 2 MiB. */
   shardBytes?: number;
+  /** Target gzipped size per secondary-index chunk, in bytes. Default ~45 KB (ADR-0003 §5). */
+  indexChunkBytes?: number;
   schema: {
     /** Must name a `number` or `date` field (T2: the sole indexed field). */
     sortField: string;
@@ -34,6 +38,7 @@ export interface ResolvedConfig {
   clientOut: string;
   basePath: string;
   shardBytes: number;
+  indexChunkBytes: number;
   sortField: string;
   fields: Record<string, FieldConfig>;
 }
@@ -57,6 +62,33 @@ export interface SchemaDescriptor {
   fields: Record<string, FieldSchemaEntry>;
 }
 
+/** Sort field: N+1 monotonic split-points, binary-searchable (ADR-0003 §2). */
+export interface SplitPointZonemapEntry {
+  splitPoints: unknown[];
+}
+
+/** Secondary field: per-shard [min,max] pairs, ordinal-aligned with `shards[]` (ADR-0003 §2/§9). */
+export interface PairZonemapEntry {
+  pairs: [unknown, unknown][];
+  /** String min/max are truncated with a next-string-after upper bound (ADR-0003 §2). */
+  truncated?: boolean;
+}
+
+export type ZonemapEntry = SplitPointZonemapEntry | PairZonemapEntry;
+
+/** One index chunk's value-range coverage — routing metadata only (ADR-0003 §9). */
+export interface IndexChunkDirEntry {
+  from: unknown;
+  to: unknown;
+  file: string;
+}
+
+export interface IndexDescriptor {
+  /** Enabled operator set for this field's index — drives T5 codegen. */
+  operators: readonly string[];
+  chunks: IndexChunkDirEntry[];
+}
+
 export interface Manifest {
   formatVersion: number;
   generatorVersion: string;
@@ -68,5 +100,7 @@ export interface Manifest {
   };
   schema: SchemaDescriptor;
   shards: ShardDescriptor[];
-  zonemap: Record<string, { splitPoints: unknown[] }>;
+  zonemap: Record<string, ZonemapEntry>;
+  /** One entry per indexed non-sort field (ADR-0003). */
+  indexes: Record<string, IndexDescriptor>;
 }

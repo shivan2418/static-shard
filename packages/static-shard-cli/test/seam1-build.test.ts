@@ -135,6 +135,76 @@ describe("seam #1 — config + NDJSON → build artifacts", () => {
   });
 });
 
+describe("seam #1 — secondary inverted index & zonemap (T3)", () => {
+  const indexedConfig: StaticShardConfig = {
+    ...config,
+    shardBytes: 60, // tiny — forces multiple shards so the index has real cross-shard postings to prove
+    schema: {
+      sortField: "year",
+      fields: {
+        year: { kind: "number" },
+        title: { kind: "string", indexed: true },
+        rating: { kind: "number", indexed: true },
+      },
+    },
+  };
+
+  test("writes a chunk directory in manifest.json + content-hash-named chunk files on disk covering the full value range", () => {
+    const { manifest, outputDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(manifest.schema.fields.title!.indexed).toBe(true);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith"]);
+    expect(manifest.indexes.title!.chunks.length).toBeGreaterThan(0);
+
+    for (const chunk of manifest.indexes.title!.chunks) {
+      const filePath = path.join(outputDir, chunk.file);
+      expect(existsSync(filePath)).toBe(true);
+      const content = readFileSync(filePath, "utf8");
+      expect(contentHash(content)).toBe(path.basename(chunk.file, ".json"));
+      expect((chunk.from as string) <= (chunk.to as string)).toBe(true);
+    }
+
+    // Chunks partition the distinct-value range in order, with no overlap between consecutive chunks.
+    const chunks = manifest.indexes.title!.chunks;
+    for (let i = 1; i < chunks.length; i++) {
+      expect((chunks[i]!.from as string) > (chunks[i - 1]!.to as string)).toBe(true);
+    }
+
+    const expectedTitles = [...new Set(MOVIES.map((m) => m.title))].sort();
+    expect(expectedTitles[0]! >= (chunks[0]!.from as string)).toBe(true);
+    expect(expectedTitles[expectedTitles.length - 1]! <= (chunks[chunks.length - 1]!.to as string)).toBe(true);
+  });
+
+  test("secondary number field gets equals/in only, and its own chunk directory", () => {
+    const { manifest } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(manifest.schema.fields.rating!.operators).toEqual(["equals", "in"]);
+    expect(manifest.indexes.rating!.chunks.length).toBeGreaterThan(0);
+  });
+
+  test("secondary zonemap pairs are present and ordinal-aligned with shards[], string pairs marked truncated", () => {
+    const { manifest } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    expect(manifest.zonemap.title).toBeDefined();
+    const titleZonemap = manifest.zonemap.title as { pairs: [unknown, unknown][]; truncated?: boolean };
+    expect(titleZonemap.truncated).toBe(true);
+    expect(titleZonemap.pairs).toHaveLength(manifest.shards.length);
+
+    expect(manifest.zonemap.rating).toBeDefined();
+    const ratingZonemap = manifest.zonemap.rating as { pairs: [unknown, unknown][]; truncated?: boolean };
+    expect(ratingZonemap.truncated).toBeUndefined();
+    expect(ratingZonemap.pairs).toHaveLength(manifest.shards.length);
+
+    // the sort field's own zonemap is untouched (still split-points, not pairs)
+    expect(manifest.zonemap.year).toHaveProperty("splitPoints");
+  });
+
+  test("a non-opted-in field stays unindexed and absent from manifest.indexes", () => {
+    const { manifest } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(manifest.schema.fields.title!.indexed).toBe(false);
+    expect(manifest.indexes).toEqual({});
+  });
+});
+
 describe("seam #3 (type-level, over seam #1's own output) — generated types reject bad queries", () => {
   test("tsc exits 0 over a consumer that exercises valid queries and @ts-expect-error cases", () => {
     const { clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
@@ -170,6 +240,75 @@ void invalid;
 `;
     writeFileSync(path.join(clientOutDir, "consumer.ts"), consumerSource);
     // Real consumers are ESM projects; declare it here so NodeNext treats these .ts files as modules.
+    writeFileSync(path.join(clientOutDir, "package.json"), JSON.stringify({ type: "module" }));
+
+    const tsconfigContent = {
+      extends: path.join(repoRoot, "tsconfig.base.json"),
+      compilerOptions: {
+        paths: { "static-shard": [path.join(repoRoot, "packages/static-shard/src/index.ts")] },
+        noEmit: true,
+      },
+      include: ["*.ts"],
+    };
+    writeFileSync(path.join(clientOutDir, "tsconfig.json"), JSON.stringify(tsconfigContent, null, 2));
+
+    const tscBin = path.join(repoRoot, "node_modules", ".bin", "tsc");
+    let output = "";
+    let status = 0;
+    try {
+      output = execFileSync(tscBin, ["-p", path.join(clientOutDir, "tsconfig.json")], { encoding: "utf8" });
+    } catch (err) {
+      const e = err as { status?: number; stdout?: string; message: string };
+      status = e.status ?? 1;
+      output = e.stdout ?? e.message;
+    }
+    expect(output + `\n(exit ${status})`).toBe(`\n(exit 0)`);
+  });
+
+  test("T3: tsc exits 0 for a consumer exercising secondary-field equals/in/startsWith and rejecting disabled operators", () => {
+    const indexedConfig: StaticShardConfig = {
+      ...config,
+      schema: {
+        sortField: "year",
+        fields: {
+          year: { kind: "number" },
+          title: { kind: "string", indexed: true },
+          rating: { kind: "number" },
+        },
+      },
+    };
+    const { clientOutDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const consumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function valid() {
+  await db.movies.findMany({ where: { title: { equals: "Gladiator" } } });
+  await db.movies.findMany({ where: { title: { in: ["Gladiator", "Snatch"] } } });
+  await db.movies.findMany({ where: { title: { startsWith: "Gla" } } });
+  await db.movies.findMany({ where: { year: { gte: 2000 }, title: { equals: "Gladiator" } } });
+}
+
+async function invalid() {
+  // wrong value type: title is a string.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { equals: 5 } } });
+
+  // rating is NOT indexed in this config — unknown field in where.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { rating: { equals: 8.5 } } });
+
+  // contains was never opted in for title — disabled operator.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { contains: "lad" } } });
+}
+
+void valid;
+void invalid;
+`;
+    writeFileSync(path.join(clientOutDir, "consumer.ts"), consumerSource);
     writeFileSync(path.join(clientOutDir, "package.json"), JSON.stringify({ type: "module" }));
 
     const tsconfigContent = {
