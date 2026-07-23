@@ -14,44 +14,41 @@ import {
   computeSecondaryZonemap,
 } from "./secondary-index.js";
 import { cutIntoShards, materializeShards } from "./shard.js";
+import type { ShardFile } from "./shard.js";
 import { compareSortValues, type SortKind } from "./sort.js";
 import type { BuiltIndexChunk } from "./secondary-index.js";
-import type { IndexChunkDirEntry, Manifest, PairZonemapEntry, StaticShardConfig } from "./types.js";
+import type { IndexChunkDirEntry, Manifest, PairZonemapEntry, ResolvedConfig, StaticShardConfig } from "./types.js";
 import { getFormatVersion, getGeneratorVersion } from "./version.js";
 
-export interface BuildOptions {
-  /** Directory config-relative paths (input/output/clientOut) are resolved against. */
-  baseDir: string;
+export interface MaterializeOptions {
   generatorVersion?: string;
   formatVersion?: number;
 }
 
-export interface BuildResult {
+export interface MaterializeResult {
   manifest: Manifest;
-  outputDir: string;
-  clientOutDir: string;
+  shardFiles: ShardFile[];
+  /** Every non-shard content-hashed file the manifest's `indexes` chunk directories point at. */
+  indexFiles: { relPath: string; content: string }[];
   /** Loud, non-fatal build-time warnings (e.g. a `contains` trigram index bigger than its column, ADR-0003 §7). */
   warnings: string[];
 }
 
 /**
- * The walking skeleton: read config's baked schema → read NDJSON → global sort
- * by the sort field → cut into byte-target shards → write the served data
- * tree (manifest + content-hash-named shards) and the generated client
- * (schema.ts + client.ts) in one pass.
+ * The walking skeleton, minus disk I/O: read config's baked schema → global sort by the sort
+ * field → cut into byte-target shards → compute the manifest (zonemaps + lazy indexes). Pure
+ * given `records` already in memory — `build` writes this result to disk; `inspect --config`
+ * (T11) reads it directly for an exact re-report without ever touching `output`.
  */
-export function build(config: StaticShardConfig, opts: BuildOptions): BuildResult {
-  const resolved = resolveConfig(config, opts.baseDir);
+export function materialize(
+  resolved: ResolvedConfig,
+  records: Record<string, unknown>[],
+  opts: MaterializeOptions = {},
+): MaterializeResult {
   const generatorVersion = opts.generatorVersion ?? getGeneratorVersion();
   const formatVersion = opts.formatVersion ?? getFormatVersion();
   const sortKind = resolved.fields[resolved.sortField]!.kind as SortKind;
 
-  const records = readInputRecords(resolved.inputPath, {
-    format: resolved.inputFormat,
-    delimiter: resolved.inputDelimiter,
-    recordsPath: resolved.inputRecordsPath,
-    fields: resolved.fields,
-  });
   assertNoSchemaDrift(records, resolved.fields);
   const sorted = [...records].sort((a, b) =>
     compareSortValues(a[resolved.sortField], b[resolved.sortField], sortKind),
@@ -123,6 +120,46 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
     trigramChunkDirs,
     formatVersion,
     generatorVersion,
+  });
+
+  return { manifest, shardFiles, indexFiles, warnings };
+}
+
+export interface BuildOptions {
+  /** Directory config-relative paths (input/output/clientOut) are resolved against. */
+  baseDir: string;
+  generatorVersion?: string;
+  formatVersion?: number;
+}
+
+export interface BuildResult {
+  manifest: Manifest;
+  outputDir: string;
+  clientOutDir: string;
+  /** Loud, non-fatal build-time warnings (e.g. a `contains` trigram index bigger than its column, ADR-0003 §7). */
+  warnings: string[];
+}
+
+/**
+ * Reads config's input, materializes the served tree in memory (`materialize`), then writes it
+ * out: the manifest + content-hash-named shards/index chunks, and the generated client
+ * (schema.ts + client.ts) in one pass.
+ */
+export function build(config: StaticShardConfig, opts: BuildOptions): BuildResult {
+  const resolved = resolveConfig(config, opts.baseDir);
+  const generatorVersion = opts.generatorVersion ?? getGeneratorVersion();
+  const formatVersion = opts.formatVersion ?? getFormatVersion();
+
+  const records = readInputRecords(resolved.inputPath, {
+    format: resolved.inputFormat,
+    delimiter: resolved.inputDelimiter,
+    recordsPath: resolved.inputRecordsPath,
+    fields: resolved.fields,
+  });
+
+  const { manifest, shardFiles, indexFiles, warnings } = materialize(resolved, records, {
+    generatorVersion,
+    formatVersion,
   });
 
   rmSync(resolved.output, { recursive: true, force: true });

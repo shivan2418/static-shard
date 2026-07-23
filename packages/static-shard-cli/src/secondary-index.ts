@@ -36,7 +36,10 @@ export function truncateStringUpper(value: string, maxLen = DEFAULT_TRUNCATE_LEN
  * `some` — T7); a single-valued field holds one scalar. Null/undefined entries
  * are skipped either way — same "no index entry for absent data" rule as before.
  */
-function valuesOf(record: Record<string, unknown>, field: string, multi: boolean): unknown[] {
+/** The values one record contributes for `field` — a shared primitive: a multi-valued field's
+ * record holds an array (each element indexed individually via `some`, T7); a single-valued
+ * field holds one scalar. Also used by `estimator.ts` to profile the same fields the same way. */
+export function valuesOf(record: Record<string, unknown>, field: string, multi: boolean): unknown[] {
   if (!multi) return [record[field]];
   const value = record[field];
   return Array.isArray(value) ? value : [];

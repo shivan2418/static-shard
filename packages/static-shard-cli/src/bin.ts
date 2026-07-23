@@ -3,7 +3,9 @@ import path from "node:path";
 import { build } from "./build.js";
 import { loadConfigFile } from "./config.js";
 import { init } from "./init.js";
+import { inspect } from "./inspect.js";
 import type { InitOptions } from "./init.js";
+import type { InspectReport } from "./inspect.js";
 import type { InputFormat } from "./types.js";
 
 function runBuild(rest: string[]): void {
@@ -150,6 +152,72 @@ function runInit(rest: string[]): void {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${Math.round(bytes)}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function printInspectReport(report: InspectReport): void {
+  console.log(`static-shard: inspect (${report.mode}) — ${report.collection}, ${report.recordCount} record(s)`);
+  console.log(
+    `  shards: ${report.shards.count} (min ${formatBytes(report.shards.minBytes)}, max ${formatBytes(report.shards.maxBytes)}, ` +
+      `mean ${formatBytes(report.shards.meanBytes)}, total ${formatBytes(report.shards.totalBytes)})`,
+  );
+  console.log(
+    `  manifest: ${formatBytes(report.manifestBytes)} (gzip ~${formatBytes(report.manifestGzipBytes)})` +
+      (report.manifestOverBudget ? " — OVER the ~1MB budget" : " — within the ~1MB budget"),
+  );
+  const indexNames = Object.keys(report.indexes);
+  if (indexNames.length > 0) {
+    console.log("  indexes:");
+    for (const name of indexNames) {
+      const idx = report.indexes[name]!;
+      const parts = [`base ${formatBytes(idx.baseBytes)} (${idx.baseChunks} chunk(s))`];
+      if (idx.reversedBytes !== undefined) parts.push(`endsWith ${formatBytes(idx.reversedBytes)} (${idx.reversedChunks} chunk(s))`);
+      if (idx.trigramBytes !== undefined) parts.push(`contains ${formatBytes(idx.trigramBytes)} (${idx.trigramChunks} chunk(s))`);
+      console.log(`    ${name}: ${parts.join(", ")}`);
+    }
+  }
+  console.log("  representative query cost:");
+  if (report.perQuery.equality) {
+    console.log(`    equality: ${formatBytes(report.perQuery.equality.bytes)} over ${report.perQuery.equality.requests} request(s)`);
+  }
+  console.log(`    range: ${formatBytes(report.perQuery.range.bytes)} over ${report.perQuery.range.requests} request(s)`);
+  for (const warning of report.warnings) console.warn(warning);
+}
+
+function runInspect(rest: string[]): void {
+  let configPath: string | undefined;
+  let dir: string | undefined;
+  let json = false;
+
+  for (let i = 0; i < rest.length; i++) {
+    switch (rest[i]) {
+      case "--config":
+        configPath = rest[++i];
+        break;
+      case "--dir":
+        dir = rest[++i];
+        break;
+      case "--json":
+        json = true;
+        break;
+    }
+  }
+
+  const report = inspect({
+    ...(configPath !== undefined ? { configPath: path.resolve(process.cwd(), configPath) } : {}),
+    ...(dir !== undefined ? { dir: path.resolve(process.cwd(), dir) } : {}),
+  });
+
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printInspectReport(report);
+  }
+}
+
 function main(argv: string[]): void {
   const [command, ...rest] = argv;
   if (command === "build") {
@@ -160,8 +228,14 @@ function main(argv: string[]): void {
     runInit(rest);
     return;
   }
+  if (command === "inspect") {
+    runInspect(rest);
+    return;
+  }
 
-  console.error(`static-shard: unknown command "${command ?? ""}" — usage: static-shard <init|build> [--config <path>]`);
+  console.error(
+    `static-shard: unknown command "${command ?? ""}" — usage: static-shard <init|build|inspect> [--config <path>]`,
+  );
   process.exitCode = 1;
 }
 
