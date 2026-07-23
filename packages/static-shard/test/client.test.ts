@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { createClient } from "../src/client.js";
+import { ShardError } from "../src/errors.js";
 import type { Manifest } from "../src/manifest.js";
 import type { SchemaMeta } from "../src/types.js";
 
@@ -296,5 +297,248 @@ describe("createClient / findMany — secondary inverted index (T3)", () => {
 
     expect(records).toEqual([]);
     expect(requests.filter((u) => u.includes("/shards/"))).toEqual([]);
+  });
+});
+
+describe("createClient / failure contract — hard-fail + shared abort (T5, ADR-0007)", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  const okJson = (body: unknown): Response =>
+    ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) }) as Response;
+  const notOk = (status: number): Response =>
+    ({ ok: false, status, json: async () => ({}), text: async () => "" }) as Response;
+
+  test("one shard's 404 rejects the whole findMany (never a silently-incomplete array) and aborts the outstanding parallel fetches", async () => {
+    // All three shards are candidates for an unfiltered findMany. s1 404s
+    // immediately; s0/s2 hang forever behind a deferred — first failure must
+    // win WITHOUT waiting for them, and their shared signal must fire.
+    const hanging = deferred<Response>();
+    const shardSignals: (AbortSignal | undefined)[] = [];
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("manifest.json")) return okJson(manifest);
+      shardSignals.push(init?.signal);
+      if (url.includes("/shards/s1.")) return notOk(404);
+      return hanging.promise;
+    }) as typeof fetch;
+
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fetchImpl });
+    const error = await client.movies.findMany().then(
+      () => {
+        throw new Error("expected findMany to reject, but it resolved");
+      },
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("DEPLOY_INTEGRITY");
+    expect((error as ShardError).url).toBe("/data/shards/s1.ndjson");
+    expect((error as ShardError).status).toBe(404);
+    // The query rejected while s0/s2 were still hanging — first-failure-wins,
+    // and the ONE shared AbortController's signal fired for every in-flight fetch.
+    expect(shardSignals).toHaveLength(3);
+    const distinctSignals = new Set(shardSignals);
+    expect(distinctSignals.size).toBe(1);
+    for (const signal of shardSignals) expect(signal?.aborted).toBe(true);
+  });
+
+  test("a fetch rejection (network-level) surfaces as NETWORK with no status and aborts the rest", async () => {
+    const hanging = deferred<Response>();
+    const shardSignals: (AbortSignal | undefined)[] = [];
+    const cause = new TypeError("fetch failed");
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("manifest.json")) return okJson(manifest);
+      shardSignals.push(init?.signal);
+      if (url.includes("/shards/s2.")) throw cause;
+      return hanging.promise;
+    }) as typeof fetch;
+
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fetchImpl });
+    const error = await client.movies.findMany().then(
+      () => {
+        throw new Error("expected findMany to reject");
+      },
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("NETWORK");
+    expect((error as ShardError).url).toBe("/data/shards/s2.ndjson");
+    expect("status" in (error as ShardError)).toBe(false);
+    expect((error as ShardError).cause).toBe(cause);
+    for (const signal of shardSignals) expect(signal?.aborted).toBe(true);
+  });
+
+  test("a chunk fetch failure rejects count() the same way — no partial upper bound", async () => {
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("manifest.json")) return okJson(manifest);
+      if (url.includes("/index/")) return notOk(404);
+      return okJson({});
+    }) as typeof fetch;
+
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fetchImpl });
+    const error = await client.movies.count({ title: { equals: "Gladiator" } }).then(
+      () => {
+        throw new Error("expected count to reject");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("DEPLOY_INTEGRITY");
+    expect((error as ShardError).url).toBe("/data/index/title/c1.json");
+  });
+
+  test("a corrupt shard body mid-fan-out surfaces as CORRUPT_DATA, not a raw SyntaxError", async () => {
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("manifest.json")) return okJson(manifest);
+      if (url.includes("/shards/")) {
+        return { ok: true, status: 200, text: async () => "definitely not ndjson\n" } as Response;
+      }
+      return notOk(404);
+    }) as typeof fetch;
+
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fetchImpl });
+    const error = await client.movies.findMany({ where: { year: { equals: 1999 } } }).then(
+      () => {
+        throw new Error("expected findMany to reject");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("CORRUPT_DATA");
+    expect((error as ShardError).cause).toBeInstanceOf(SyntaxError);
+  });
+
+  test("a structurally-corrupt index chunk (JSON-valid, not a chunk) surfaces as CORRUPT_DATA AND aborts the other field's in-flight chunk fetch", async () => {
+    // Two indexed secondary fields, queried together → their chunk fetches run
+    // in parallel. genre's chunk hangs; title's chunk decodes to garbage — the
+    // decode failure must reject the query AND fire the shared abort (ADR-0007 §7).
+    const twoFieldManifest: Manifest = {
+      ...manifest,
+      zonemap: { year: { splitPoints: [1999, 2000, 2003, 2008] } },
+      indexes: {
+        title: { operators: ["equals"], chunks: [{ from: "Gladiator", to: "Gladiator", file: "index/title/t1.json" }] },
+        genre: { operators: ["equals"], chunks: [{ from: "drama", to: "drama", file: "index/genre/g1.json" }] },
+      },
+      schema: {
+        ...manifest.schema,
+        fields: {
+          ...manifest.schema.fields,
+          genre: { kind: "string", isDate: false, indexed: true, operators: ["equals"] },
+        },
+      },
+    };
+    const twoFieldSchema: SchemaMeta = { movies: { fields: twoFieldManifest.schema.fields } };
+    interface TwoFieldRecords {
+      movies: Movie & { genre: string };
+    }
+
+    const hanging = deferred<Response>();
+    const genreSignals: (AbortSignal | undefined)[] = [];
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("manifest.json")) return okJson(twoFieldManifest);
+      if (url.endsWith("index/title/t1.json")) return okJson({ oops: "not a chunk" });
+      if (url.endsWith("index/genre/g1.json")) {
+        genreSignals.push(init?.signal);
+        return hanging.promise;
+      }
+      return notOk(404);
+    }) as typeof fetch;
+
+    const client = createClient<typeof twoFieldSchema, TwoFieldRecords>(twoFieldSchema, {
+      basePath: "/data",
+      fetch: fetchImpl,
+    });
+    const error = await client.movies
+      .findMany({ where: { title: { equals: "Gladiator" }, genre: { equals: "drama" } } })
+      .then(
+        () => {
+          throw new Error("expected findMany to reject");
+        },
+        (e: unknown) => e,
+      );
+
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("CORRUPT_DATA");
+    expect((error as ShardError).url).toBe("/data/index/title/t1.json");
+    expect(genreSignals).toHaveLength(1);
+    expect(genreSignals[0]?.aborted).toBe(true);
+  });
+});
+
+describe("createClient / maxResults guardrail — fail-loud, never truncating (T5, ADR-0004/0007)", () => {
+  const limitExceeded = async (promise: Promise<unknown>, message: RegExp): Promise<ShardError> => {
+    const error = await promise.then(
+      () => {
+        throw new Error("expected the query to reject, but it resolved");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    const shardError = error as ShardError;
+    expect(shardError.code).toBe("LIMIT_EXCEEDED");
+    expect(shardError.message).toMatch(message);
+    // No file was being fetched — url/status are absent, and the query object is never attached (PII).
+    expect("url" in shardError).toBe(false);
+    expect("status" in shardError).toBe(false);
+    expect((shardError as unknown as Record<string, unknown>).query).toBeUndefined();
+    return shardError;
+  };
+
+  test("an explicit limit above the ceiling throws LIMIT_EXCEEDED before ANY fetch", async () => {
+    const requests: string[] = [];
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch(requests), maxResults: 5 });
+    await limitExceeded(client.movies.findMany({ limit: 6 }), /limit 6.*maxResults.*5/);
+    expect(requests).toEqual([]); // not even the manifest — pure client-side validation
+  });
+
+  test("an explicit limit equal to the ceiling is allowed", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]), maxResults: 3 });
+    const { records } = await client.movies.findMany({ limit: 3 });
+    expect(records).toHaveLength(3);
+  });
+
+  test("an unbounded query that would exceed the ceiling throws rather than truncating", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]), maxResults: 5 });
+    // The fixture holds 6 movies; no limit ⇒ all 6 match > 5 ⇒ throw, not a silent 5-record array.
+    await limitExceeded(client.movies.findMany(), /unbounded|limit/);
+  });
+
+  test("an unbounded query within the ceiling resolves normally", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]), maxResults: 6 });
+    const { records, hasMore } = await client.movies.findMany();
+    expect(records).toHaveLength(6);
+    expect(hasMore).toBe(false);
+  });
+
+  test("a bounded query never trips the ceiling even when total matches exceed it", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]), maxResults: 2 });
+    const { records, hasMore } = await client.movies.findMany({ limit: 2 });
+    expect(records).toHaveLength(2);
+    expect(hasMore).toBe(true); // paging through 6 matches two at a time is the intended use
+  });
+
+  test("the default ceiling is 10_000 (ADR-0004)", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]) });
+    await limitExceeded(client.movies.findMany({ limit: 10_001 }), /10_?000|10000/);
+    const { records } = await client.movies.findMany({ limit: 10_000 });
+    expect(records).toHaveLength(6);
+  });
+
+  test("count() is unaffected by the ceiling — it never materializes records", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]), maxResults: 1 });
+    await expect(client.movies.count()).resolves.toEqual({ count: 6, exact: true });
   });
 });

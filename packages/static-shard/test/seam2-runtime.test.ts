@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { build } from "static-shard-cli";
 import type { StaticShardConfig } from "static-shard-cli";
 import { createClient } from "../src/client.js";
+import { ShardError } from "../src/errors.js";
 import type { SchemaMeta } from "../src/types.js";
 
 // Same fixture shape as static-shard-cli's seam #1 test — the point of seam #2
@@ -317,5 +318,247 @@ describe("seam #2 — count() approximate upper bound & pagination totals (T4), 
     expect(indexRequests.length).toBeGreaterThan(0); // the constrained field's chunk(s) ARE the allowed cost
     expect(indexRequests.length).toBeLessThanOrEqual(manifest.indexes.rating!.chunks.length);
     expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+});
+
+describe("seam #2 — runtime failure contract & maxResults guardrail (T5), over a seam #1-built fixture tree", () => {
+  /** Rejects with a ShardError; asserts the exact code + payload, then returns it for message checks. */
+  async function expectFailure(
+    promise: Promise<unknown>,
+    expected: { code: string; url?: string; status?: number; remediation: RegExp },
+  ): Promise<void> {
+    const error = await promise.then(
+      () => {
+        throw new Error(`expected ${expected.code}, but the query resolved`);
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    const shardError = error as ShardError;
+    expect(shardError.code).toBe(expected.code);
+    if (expected.url !== undefined) expect(shardError.url).toBe(expected.url);
+    if (expected.status !== undefined) expect(shardError.status).toBe(expected.status);
+    // Every message carries remediation (ADR-0007 §8), and the query object is never attached (PII).
+    expect(shardError.message).toMatch(expected.remediation);
+    expect((shardError as unknown as Record<string, unknown>).query).toBeUndefined();
+    expect((shardError as unknown as Record<string, unknown>).where).toBeUndefined();
+  }
+
+  test("manifest.json missing (wrong basePath) → CONFIG with url, 404 status and a basePath remediation", async () => {
+    const { clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const missingDir = path.join(tmpDir, "no-such-dataset");
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: missingDir,
+      fetch: diskFetch([]),
+    });
+    await expectFailure(client.movies.findMany(), {
+      code: "CONFIG",
+      url: path.join(missingDir, "manifest.json"),
+      status: 404,
+      remediation: /basePath/,
+    });
+  });
+
+  test("manifest major ≠ runtime major → FORMAT_VERSION at manifest load, before any query work", async () => {
+    const { outputDir, clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 99 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+    await expectFailure(client.movies.findMany({ where: { year: { equals: 2000 } } }), {
+      code: "FORMAT_VERSION",
+      url: path.join(outputDir, "manifest.json"),
+      remediation: /static-shard build/,
+    });
+    // Nothing but the manifest was fetched — the mismatch halts everything downstream.
+    expect(requests).toEqual([path.join(outputDir, "manifest.json")]);
+  });
+
+  test("a manifest-referenced shard missing from the deploy → DEPLOY_INTEGRITY naming the file, never a partial array", async () => {
+    const { outputDir, clientOutDir, manifest } = build(config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    // Sabotage the deploy: delete one shard the manifest promises.
+    const victim = manifest.shards[manifest.shards.length - 1]!;
+    unlinkSync(path.join(outputDir, "shards", `${victim.hash}.ndjson`));
+
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+    await expectFailure(client.movies.findMany(), {
+      code: "DEPLOY_INTEGRITY",
+      url: path.join(outputDir, "shards", `${victim.hash}.ndjson`),
+      status: 404,
+      remediation: /redeploy/,
+    });
+  });
+
+  test("a manifest-referenced index chunk missing → DEPLOY_INTEGRITY on the chunk url", async () => {
+    const { outputDir, clientOutDir, manifest } = build(indexedConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const victim = manifest.indexes.title!.chunks[0]!;
+    unlinkSync(path.join(outputDir, victim.file));
+
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+    await expectFailure(client.movies.findMany({ where: { title: { equals: "Inception" } } }), {
+      code: "DEPLOY_INTEGRITY",
+      url: path.join(outputDir, victim.file),
+      status: 404,
+      remediation: /redeploy/,
+    });
+  });
+
+  test("a 500 on any file → NETWORK with .status (the maybe-transient bucket), not a 404 code", async () => {
+    const { outputDir, clientOutDir, manifest } = build(config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const inner = diskFetch([]);
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes(`${path.sep}shards${path.sep}`)) {
+        return { ok: false, status: 500, json: async () => ({}), text: async () => "" } as Response;
+      }
+      return inner(input, init);
+    }) as typeof fetch;
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: fetchImpl,
+    });
+    // year:1999 is the earliest record — it lives in the first shard.
+    await expectFailure(client.movies.findMany({ where: { year: { equals: 1999 } } }), {
+      code: "NETWORK",
+      url: path.join(outputDir, "shards", `${manifest.shards[0]!.hash}.ndjson`),
+      status: 500,
+      remediation: /transient|retry/i,
+    });
+  });
+
+  test("a network-level rejection → NETWORK with NO .status and the original error chained as .cause", async () => {
+    const { outputDir, clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const inner = diskFetch([]);
+    const cause = new TypeError("socket hangup");
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes(`${path.sep}shards${path.sep}`)) throw cause;
+      return inner(input, init);
+    }) as typeof fetch;
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: fetchImpl,
+    });
+    const error = await client.movies.findMany({ where: { year: { equals: 1999 } } }).then(
+      () => {
+        throw new Error("expected NETWORK, but the query resolved");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("NETWORK");
+    expect("status" in (error as ShardError)).toBe(false);
+    expect((error as ShardError).cause).toBe(cause);
+    expect((error as ShardError).message).toMatch(/socket hangup/);
+  });
+
+  test("a 2xx shard body that won't parse → CORRUPT_DATA with the parse error chained", async () => {
+    const { outputDir, clientOutDir, manifest } = build(config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    // Sabotage: corrupt one shard's contents on disk (the file exists, the bytes are garbage).
+    const victim = manifest.shards[manifest.shards.length - 1]!;
+    writeFileSync(path.join(outputDir, "shards", `${victim.hash}.ndjson`), "<html>definitely not ndjson</html>\n");
+
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+    const error = await client.movies.findMany().then(
+      () => {
+        throw new Error("expected CORRUPT_DATA, but the query resolved");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("CORRUPT_DATA");
+    expect((error as ShardError).url).toBe(path.join(outputDir, "shards", `${victim.hash}.ndjson`));
+    expect((error as ShardError).cause).toBeInstanceOf(SyntaxError);
+    expect((error as ShardError).message).toMatch(/redeploy/);
+  });
+
+  test("the first failure aborts the outstanding fetches through the injected fetch's signal", async () => {
+    const { outputDir, clientOutDir, manifest } = build(config, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const inner = diskFetch([]);
+    const abortUrl = path.join(outputDir, "shards", `${manifest.shards[0]!.hash}.ndjson`);
+    const shardSignals: (AbortSignal | undefined)[] = [];
+    // One shard 404s immediately; every OTHER shard hangs until its signal
+    // fires — the only way the query settles is if the first failure's abort
+    // reaches them (proving cancellation, not settle-all).
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.includes(`${path.sep}shards${path.sep}`)) return inner(input, init);
+      shardSignals.push(init?.signal);
+      if (url === abortUrl) {
+        return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as Response;
+      }
+      return new Promise<Response>((resolve) => {
+        init?.signal?.addEventListener("abort", () =>
+          resolve({ ok: true, status: 200, json: async () => [], text: async () => "" } as Response),
+        );
+      });
+    }) as typeof fetch;
+
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: fetchImpl,
+    });
+    await expectFailure(client.movies.findMany(), { code: "DEPLOY_INTEGRITY", status: 404, remediation: /redeploy/ });
+    expect(shardSignals.length).toBeGreaterThan(1); // a real fan-out was in flight
+    for (const signal of shardSignals) expect(signal?.aborted).toBe(true);
+  });
+
+  test("maxResults over the seam: unbounded query exceeding the ceiling throws LIMIT_EXCEEDED rather than truncating", async () => {
+    const { outputDir, clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+      maxResults: 3,
+    });
+    // MOVIES holds 10 records > 3 — an unbounded findMany must fail loud…
+    await expectFailure(client.movies.findMany(), { code: "LIMIT_EXCEEDED", remediation: /maxResults/ });
+    // …and an explicit limit above the ceiling fails before fetching anything…
+    requests.length = 0;
+    await expectFailure(client.movies.findMany({ limit: 4 }), { code: "LIMIT_EXCEEDED", remediation: /maxResults/ });
+    expect(requests).toEqual([]); // pure client-side validation — not even the manifest was fetched
+    // …while paging within the ceiling works fine.
+    const page = await client.movies.findMany({ limit: 3 });
+    expect(page.records).toHaveLength(3);
+    expect(page.hasMore).toBe(true);
   });
 });

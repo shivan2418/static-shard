@@ -1,3 +1,7 @@
+import { ShardError } from "./errors.js";
+import { fetchJson } from "./fetch-file.js";
+import { FORMAT_VERSION } from "./version.js";
+
 export interface ShardDescriptor {
   hash: string;
   bytes: number;
@@ -58,9 +62,25 @@ export interface Manifest {
 }
 
 export async function fetchManifest(basePath: string, fetchImpl: typeof fetch): Promise<Manifest> {
-  const response = await fetchImpl(`${basePath}/manifest.json`);
-  if (!response.ok) {
-    throw new Error(`static-shard: failed to fetch manifest.json at "${basePath}" (status ${response.status})`);
+  const url = `${basePath}/manifest.json`;
+  const parsed = (await fetchJson(url, "manifest", fetchImpl)) as Manifest;
+  // JSON-valid but not a manifest — the body "won't parse" into one (ADR-0007 §5).
+  if (typeof parsed.formatVersion !== "number") {
+    throw new ShardError({
+      code: "CORRUPT_DATA",
+      url,
+      message: `static-shard: the manifest at "${url}" parsed as JSON but has no numeric formatVersion — the deploy is corrupt. Re-run \`static-shard build\` and redeploy.`,
+    });
   }
-  return (await response.json()) as Manifest;
+  // ADR-0005: same major → always compatible (SemVer); major mismatch → fail loud.
+  if (parsed.formatVersion !== FORMAT_VERSION) {
+    throw new ShardError({
+      code: "FORMAT_VERSION",
+      url,
+      message:
+        `static-shard: the dataset at "${url}" was built with static-shard major ${String(parsed.formatVersion)} ` +
+        `but this runtime is major ${FORMAT_VERSION} — align versions and re-run \`static-shard build\`.`,
+    });
+  }
+  return parsed;
 }

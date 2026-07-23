@@ -1,9 +1,11 @@
+import { fetchJson } from "./fetch-file.js";
 import type { IndexChunkFile } from "./secondary-index.js";
 
-export async function fetchIndexChunk(basePath: string, file: string, fetchImpl: typeof fetch): Promise<IndexChunkFile> {
-  const response = await fetchImpl(`${basePath}/${file}`);
-  if (!response.ok) {
-    throw new Error(`static-shard: failed to fetch index chunk "${file}" (status ${response.status})`);
-  }
-  return (await response.json()) as IndexChunkFile;
+export async function fetchIndexChunk(
+  basePath: string,
+  file: string,
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal,
+): Promise<IndexChunkFile> {
+  return (await fetchJson(`${basePath}/${file}`, "referenced", fetchImpl, signal)) as IndexChunkFile;
 }

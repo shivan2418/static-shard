@@ -183,6 +183,13 @@ export interface ClientOptions {
   basePath: string;
   /** Injectable for non-browser / testing; defaults to global `fetch`. */
   fetch?: typeof fetch;
+  /**
+   * Client-level result ceiling (default 10_000), a guardrail distinct from
+   * per-query `limit` — fail-loud (ADR-0004/0007): an explicit `limit` above
+   * it throws `LIMIT_EXCEEDED`, and an unbounded query that would match more
+   * than it throws rather than silently truncating.
+   */
+  maxResults?: number;
 }
 
 export type GenericClient<S extends SchemaMeta, Records> = {

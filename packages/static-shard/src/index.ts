@@ -1,4 +1,5 @@
 export { createClient } from "./client.js";
+export { ShardError, type ShardErrorCode } from "./errors.js";
 export type { Manifest, ShardDescriptor, SchemaDescriptor, FieldSchemaEntry } from "./manifest.js";
 export {
   assertWhereHasPruning,

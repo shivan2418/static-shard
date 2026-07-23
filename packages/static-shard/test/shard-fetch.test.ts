@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { ShardError } from "../src/errors.js";
 import { fetchShardRecords } from "../src/shard-fetch.js";
 
 function fakeFetch(responses: Record<string, { status: number; body: string }>): typeof fetch {
@@ -26,8 +27,44 @@ describe("fetchShardRecords", () => {
     ]);
   });
 
-  test("throws when the shard fetch is not ok", async () => {
+  test("a manifest-referenced shard 404 → DEPLOY_INTEGRITY with a rebuild-and-redeploy remediation (ADR-0007 §6)", async () => {
     const fetchImpl = fakeFetch({ "/data/shards/missing.ndjson": { status: 404, body: "" } });
-    await expect(fetchShardRecords("/data", "missing", fetchImpl)).rejects.toThrow(/404/);
+    const error = await fetchShardRecords("/data", "missing", fetchImpl).then(
+      () => {
+        throw new Error("expected rejection");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("DEPLOY_INTEGRITY");
+    expect((error as ShardError).url).toBe("/data/shards/missing.ndjson");
+    expect((error as ShardError).status).toBe(404);
+    expect((error as ShardError).message).toMatch(/redeploy/);
+  });
+
+  test("a 2xx shard body with an unparseable NDJSON line → CORRUPT_DATA with the parse error as cause", async () => {
+    const body = '{"year":2000,"title":"A"}\nnot-json\n';
+    const fetchImpl = fakeFetch({ "/data/shards/bad.ndjson": { status: 200, body } });
+    const error = await fetchShardRecords("/data", "bad", fetchImpl).then(
+      () => {
+        throw new Error("expected rejection");
+      },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ShardError);
+    expect((error as ShardError).code).toBe("CORRUPT_DATA");
+    expect((error as ShardError).url).toBe("/data/shards/bad.ndjson");
+    expect((error as ShardError).cause).toBeInstanceOf(SyntaxError);
+  });
+
+  test("passes the query's abort signal through to the injected fetch (ADR-0007 §7)", async () => {
+    let seenSignal: AbortSignal | null | undefined;
+    const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seenSignal = init?.signal;
+      return { ok: true, status: 200, text: async () => '{"a":1}\n' } as Response;
+    }) as typeof fetch;
+    const controller = new AbortController();
+    await fetchShardRecords("/data", "abc", fetchImpl, controller.signal);
+    expect(seenSignal).toBe(controller.signal);
   });
 });
