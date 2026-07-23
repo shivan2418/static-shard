@@ -300,4 +300,48 @@ describe("buildManifest", () => {
     });
     expect(manifest.schema.fields.year!.absent).toBeUndefined();
   });
+
+  test("T8: a declared pk on the sort field carries schema.pk + the field's pk: true, no indexed requirement", () => {
+    const pkConfig: ResolvedConfig = { ...config, pk: "year" };
+    const manifest = buildManifest({
+      config: pkConfig,
+      shardFiles,
+      splitPoints,
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.schema.pk).toBe("year");
+    expect(manifest.schema.fields.year!.pk).toBe(true);
+    expect(manifest.schema.fields.title!.pk).toBeUndefined();
+  });
+
+  test("T8: a declared pk on an indexed non-sort field carries schema.pk + the field's pk: true", () => {
+    const pkConfig: ResolvedConfig = {
+      ...config,
+      pk: "title",
+      fields: { ...config.fields, title: { kind: "string", indexed: true } },
+    };
+    const manifest = buildManifest({
+      config: pkConfig,
+      shardFiles,
+      splitPoints,
+      indexChunkDirs: { title: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }] },
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.schema.pk).toBe("title");
+    expect(manifest.schema.fields.title!.pk).toBe(true);
+    expect(manifest.schema.fields.year!.pk).toBeUndefined();
+  });
+
+  test("T8: no pk configured omits schema.pk entirely", () => {
+    const manifest = buildManifest({
+      config,
+      shardFiles,
+      splitPoints,
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.schema.pk).toBeUndefined();
+  });
 });

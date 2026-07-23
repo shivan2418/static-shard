@@ -17,11 +17,15 @@ export interface FieldSchemaEntry {
   absent?: true;
   /** Scalar leaf under an object-array — value is an array, matched existentially via `some` (T7). */
   multi?: true;
+  /** Present (`true`) only for the user PK field (T8). */
+  pk?: true;
 }
 
 export interface SchemaDescriptor {
   collection: string;
   sortField: string;
+  /** Names the user PK field, if declared (T8). */
+  pk?: string;
   fields: Record<string, FieldSchemaEntry>;
 }
 

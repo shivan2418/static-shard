@@ -569,4 +569,53 @@ void invalid;
 `;
     assertConsumerCompiles(clientOutDir, consumerSource);
   });
+
+  test("T8: tsc exits 0 for a consumer exercising get(id) when a pk is declared, and rejecting get on a pk-less collection", () => {
+    const pkConfig: StaticShardConfig = {
+      ...config,
+      schema: { sortField: "year", pk: "title", fields: { year: { kind: "number" }, title: { kind: "string", indexed: true } } },
+    };
+    const { clientOutDir: pkClientOutDir } = build(pkConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const pkConsumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function valid() {
+  const hit: { title: string; year: number } | null = await db.movies.get("Gladiator");
+  void hit;
+}
+
+async function invalid() {
+  // get(id) takes the pk's value type — title is a string.
+  // @ts-expect-error
+  await db.movies.get(5);
+}
+
+void valid;
+void invalid;
+`;
+    assertConsumerCompiles(pkClientOutDir, pkConsumerSource);
+
+    const noPkTmpDir = mkdtempSync(path.join(tmpdir(), "static-shard-seam1-nopk-"));
+    writeFileSync(path.join(noPkTmpDir, "movies.ndjson"), MOVIES.map((m) => JSON.stringify(m)).join("\n") + "\n");
+    const { clientOutDir: noPkClientOutDir } = build(config, { baseDir: noPkTmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const noPkConsumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function invalid() {
+  // no pk declared — the collection has no \`get\` member at all.
+  // @ts-expect-error
+  await db.movies.get("anything");
+}
+
+void invalid;
+`;
+    assertConsumerCompiles(noPkClientOutDir, noPkConsumerSource);
+    rmSync(noPkTmpDir, { recursive: true, force: true });
+  });
 });

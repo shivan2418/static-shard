@@ -79,6 +79,25 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
     }
   }
 
+  const pk = config.schema.pk;
+  if (pk !== undefined) {
+    const pkFieldConfig = config.schema.fields[pk];
+    if (!pkFieldConfig) {
+      throw new Error(`static-shard: config.schema.pk "${pk}" is not declared in config.schema.fields`);
+    }
+    if (pkFieldConfig.multi) {
+      throw new Error(`static-shard: config.schema.pk "${pk}" opts into "multi" — a multi-valued field cannot be a primary key`);
+    }
+    if (pkFieldConfig.absent) {
+      throw new Error(`static-shard: config.schema.pk "${pk}" opts into "absent" — a primary key must always be present`);
+    }
+    if (pk !== sortField && pkFieldConfig.indexed !== true) {
+      throw new Error(
+        `static-shard: config.schema.pk "${pk}" is not the sort field and is not indexed — set indexed: true so get(id) has an index to look it up by (ADR-0003 §10)`,
+      );
+    }
+  }
+
   const output = config.output ?? DEFAULT_OUTPUT;
 
   return {
@@ -90,6 +109,7 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
     shardBytes: config.shardBytes ?? DEFAULT_SHARD_BYTES,
     indexChunkBytes: config.indexChunkBytes ?? DEFAULT_INDEX_CHUNK_BYTES,
     sortField,
+    ...(pk !== undefined ? { pk } : {}),
     fields: config.schema.fields,
   };
 }

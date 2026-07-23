@@ -59,9 +59,15 @@ function buildSchemaDescriptor(config: ResolvedConfig): SchemaDescriptor {
       operators: operatorsForField(field, isSortField, indexed),
       ...(field.absent === true ? { absent: true as const } : {}),
       ...(field.multi === true ? { multi: true as const } : {}),
+      ...(name === config.pk ? { pk: true as const } : {}),
     };
   }
-  return { collection: config.collection, sortField: config.sortField, fields };
+  return {
+    collection: config.collection,
+    sortField: config.sortField,
+    ...(config.pk !== undefined ? { pk: config.pk } : {}),
+    fields,
+  };
 }
 
 export function buildManifest(opts: {

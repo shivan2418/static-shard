@@ -35,6 +35,8 @@ export interface StaticShardConfig {
   schema: {
     /** Must name a `number` or `date` field (T2: the sole indexed field). */
     sortField: string;
+    /** Names a field as the user PK — unlocks the generated client's `get(id)` (T8). */
+    pk?: string;
     fields: Record<string, FieldConfig>;
   };
 }
@@ -48,6 +50,7 @@ export interface ResolvedConfig {
   shardBytes: number;
   indexChunkBytes: number;
   sortField: string;
+  pk?: string;
   fields: Record<string, FieldConfig>;
 }
 
@@ -66,11 +69,15 @@ export interface FieldSchemaEntry {
   absent?: true;
   /** Present (`true`) only for multi-valued (object-array scalar-leaf) fields (T7) — omitted otherwise, mirroring the runtime's optional `FieldMeta.multi`. */
   multi?: true;
+  /** Present (`true`) only for the user PK field (T8) — omitted otherwise, mirroring the runtime's optional `FieldMeta.pk`. */
+  pk?: true;
 }
 
 export interface SchemaDescriptor {
   collection: string;
   sortField: string;
+  /** Names the user PK field, if declared (T8) — unlocks the generated client's `get(id)`. */
+  pk?: string;
   fields: Record<string, FieldSchemaEntry>;
 }
 

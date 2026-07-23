@@ -140,8 +140,26 @@ export function assertWhereHasPruning(where: Record<string, Record<string, unkno
 }
 
 // ---------------------------------------------------------------------------
-// The collection surface: `findMany` (T2) + `count` (T4) + `getSchema`.
-// `get(id)` (user PK) lands in a later ticket that extends this contract.
+// `get(id)` (T8): emitted only when the collection declares a user PK.
+// `PkField<C>` reads the collection-level `pk` name (never for a collection
+// literal that omits the key — the point being it's a compile error, not a
+// runtime undefined, for a PK-less collection to expose `get`).
+// ---------------------------------------------------------------------------
+type PkField<C extends CollectionMeta> = C extends { pk: infer P extends string } ? P : never;
+
+type KindValueType<K extends FieldKind> = K extends "number" ? number : K extends "boolean" ? boolean : string;
+
+type PkIdOf<C extends CollectionMeta> = PkField<C> extends keyof C["fields"]
+  ? KindValueType<C["fields"][PkField<C>]["kind"]>
+  : never;
+
+type GetMember<C extends CollectionMeta, Rec> = PkField<C> extends never
+  ? {}
+  : { get(id: PkIdOf<C>): Promise<Rec | null> };
+
+// ---------------------------------------------------------------------------
+// The collection surface: `findMany` (T2) + `count` (T4) + `getSchema` +
+// `get(id)` (T8, conditional on a declared PK).
 // ---------------------------------------------------------------------------
 export interface FindManyArgs<C extends CollectionMeta, W extends WhereOf<C>> {
   where?: W & ValidateWhere<W, C> & RiderGuard<W>;
@@ -173,7 +191,7 @@ export interface CountOptions {
   exact?: false;
 }
 
-export interface Collection<C extends CollectionMeta, Rec> {
+interface CollectionBase<C extends CollectionMeta, Rec> {
   findMany<W extends WhereOf<C>>(args?: FindManyArgs<C, W>): Promise<FindManyResult<Rec>>;
   // No RiderGuard here, deliberately: a `not`-only where cannot refine an
   // un-fetched count, so it just widens the upper bound (ADR-0008 §3) — count
@@ -181,6 +199,8 @@ export interface Collection<C extends CollectionMeta, Rec> {
   count<W extends WhereOf<C>>(where?: W & ValidateWhere<W, C>, opts?: CountOptions): Promise<CountResult>;
   getSchema(): C;
 }
+
+export type Collection<C extends CollectionMeta, Rec> = CollectionBase<C, Rec> & GetMember<C, Rec>;
 
 export interface ClientOptions {
   basePath: string;

@@ -424,6 +424,107 @@ describe("seam #2 — endsWith (reversed index) & contains (trigram index), over
   });
 });
 
+/** T8 fixture: pk declared on the sort field itself — the free zonemap path. */
+const sortPkConfig: StaticShardConfig = {
+  ...config,
+  schema: { sortField: "year", pk: "year", fields: { year: { kind: "number" }, title: { kind: "string" }, rating: { kind: "number" } } },
+};
+
+/** T8 fixture: pk declared on an indexed non-sort field — one chunk + one shard. */
+const secondaryPkConfig: StaticShardConfig = {
+  ...config,
+  schema: {
+    sortField: "year",
+    pk: "title",
+    fields: { year: { kind: "number" }, title: { kind: "string", indexed: true }, rating: { kind: "number" } },
+  },
+};
+
+describe("seam #2 — get(id) / PK lookup (T8), over a seam #1-built fixture tree", () => {
+  test("a PK-less collection exposes no get member at runtime", async () => {
+    const { outputDir, clientOutDir } = build(config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+    expect((client.movies as unknown as Record<string, unknown>).get).toBeUndefined();
+  });
+
+  test("pk on the sort field: a hit returns the record, fetching at most one shard and no index chunks", async () => {
+    const { outputDir, clientOutDir } = build(sortPkConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const hit = await (client.movies as unknown as { get(id: number): Promise<Record<string, unknown> | null> }).get(2008);
+    expect(hit).toEqual(MOVIES.find((m) => m.year === 2008));
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`)).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.includes(`${path.sep}index${path.sep}`))).toEqual([]);
+  });
+
+  test("pk on the sort field: a miss returns null", async () => {
+    const { outputDir, clientOutDir } = build(sortPkConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    const miss = await (client.movies as unknown as { get(id: number): Promise<Record<string, unknown> | null> }).get(1975);
+    expect(miss).toBeNull();
+  });
+
+  test("pk on a non-sort indexed field: a hit returns the record, fetching at most one chunk and one shard", async () => {
+    const { outputDir, clientOutDir } = build(secondaryPkConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const hit = await (client.movies as unknown as { get(id: string): Promise<Record<string, unknown> | null> }).get("Parasite");
+    expect(hit).toEqual(MOVIES.find((m) => m.title === "Parasite"));
+
+    const indexRequests = requests.filter((r) => r.includes(`${path.sep}index${path.sep}`));
+    const shardRequests = requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`));
+    // The acceptance criterion is ≤1 chunk specifically (not merely "≤ however
+    // many chunks exist") — an equals lookup can overlap at most one chunk
+    // directory entry, since entries are non-overlapping value ranges.
+    expect(indexRequests.length).toBeGreaterThan(0);
+    expect(indexRequests.length).toBeLessThanOrEqual(1);
+    expect(shardRequests).toHaveLength(1);
+  });
+
+  test("pk on a non-sort indexed field: a miss returns null, fetching no shard", async () => {
+    const { outputDir, clientOutDir } = build(secondaryPkConfig, {
+      baseDir: tmpDir,
+      generatorVersion: "0.1.0",
+      formatVersion: 0,
+    });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const miss = await (client.movies as unknown as { get(id: string): Promise<Record<string, unknown> | null> }).get(
+      "No Such Movie",
+    );
+    expect(miss).toBeNull();
+    expect(requests.filter((r) => r.includes(`${path.sep}shards${path.sep}`))).toEqual([]);
+  });
+});
+
 describe("seam #2 — runtime failure contract & maxResults guardrail (T5), over a seam #1-built fixture tree", () => {
   /** Rejects with a ShardError; asserts the exact code + payload, then returns it for message checks. */
   async function expectFailure(

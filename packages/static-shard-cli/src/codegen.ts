@@ -41,9 +41,12 @@ export function generateSchemaTs(manifest: Manifest, generatorVersion: string): 
       const operators = field.operators.map((op) => `"${op}"`).join(", ");
       const multi = field.multi ? ", multi: true" : "";
       const absent = field.absent ? ", absent: true" : "";
-      return `      ${name}: { kind: "${field.kind}", operators: [${operators}]${multi}${absent} },`;
+      const pk = field.pk ? ", pk: true" : "";
+      return `      ${name}: { kind: "${field.kind}", operators: [${operators}]${multi}${absent}${pk} },`;
     })
     .join("\n");
+
+  const pkLine = manifest.schema.pk !== undefined ? `    pk: ${JSON.stringify(manifest.schema.pk)},\n` : "";
 
   return `${generatedHeader(generatorVersion)}
 export interface ${typeName} {
@@ -56,7 +59,7 @@ export interface Records {
 
 export const schema = {
   ${collection}: {
-    fields: {
+${pkLine}    fields: {
 ${indexedFieldLines}
     },
   },

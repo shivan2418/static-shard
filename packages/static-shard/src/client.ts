@@ -299,21 +299,39 @@ export function createClient<S extends SchemaMeta, Records>(
   let manifestPromise: Promise<Manifest> | undefined;
   const getManifest = (): Promise<Manifest> => (manifestPromise ??= fetchManifest(basePath, fetchImpl));
 
-  const makeCollection = (meta: CollectionMeta) => ({
-    findMany: async (args?: RawFindManyArgs) => {
-      assertWhereHasPruning(args?.where);
-      assertLimitWithinCeiling(args?.limit, maxResults);
-      const manifest = await getManifest();
-      const ctx = makeFetchContext(basePath, fetchImpl);
-      return executeFindMany(manifest, ctx, args, maxResults);
-    },
-    count: async (where?: Record<string, Record<string, unknown>>) => {
-      const manifest = await getManifest();
-      const ctx = makeFetchContext(basePath, fetchImpl);
-      return executeCount(manifest, ctx, where);
-    },
-    getSchema: () => meta,
-  });
+  const makeCollection = (meta: CollectionMeta) => {
+    const collection: Record<string, unknown> = {
+      findMany: async (args?: RawFindManyArgs) => {
+        assertWhereHasPruning(args?.where);
+        assertLimitWithinCeiling(args?.limit, maxResults);
+        const manifest = await getManifest();
+        const ctx = makeFetchContext(basePath, fetchImpl);
+        return executeFindMany(manifest, ctx, args, maxResults);
+      },
+      count: async (where?: Record<string, Record<string, unknown>>) => {
+        const manifest = await getManifest();
+        const ctx = makeFetchContext(basePath, fetchImpl);
+        return executeCount(manifest, ctx, where);
+      },
+      getSchema: () => meta,
+    };
+
+    // `get(id)` is equality-on-PK through the same candidate-shard machinery as
+    // `findMany` (ADR-0003 §10) — free (≤1 shard) when the PK is the sort field
+    // (zonemap alone pinpoints it), else ≤1 index chunk + ≤1 shard. Omitted
+    // entirely (not even a stubbed throw) when no PK was declared (T1/ADR-0004).
+    if (meta.pk !== undefined) {
+      const pkField = meta.pk;
+      collection.get = async (id: unknown) => {
+        const manifest = await getManifest();
+        const ctx = makeFetchContext(basePath, fetchImpl);
+        const { records } = await executeFindMany(manifest, ctx, { where: { [pkField]: { equals: id } }, limit: 1 }, maxResults);
+        return records[0] ?? null;
+      };
+    }
+
+    return collection;
+  };
 
   const out: Record<string, unknown> = {};
   for (const name of Object.keys(schema)) out[name] = makeCollection(schema[name]!);

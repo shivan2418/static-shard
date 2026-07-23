@@ -73,6 +73,34 @@ describe("generateSchemaTs — multi/absent (T7)", () => {
   });
 });
 
+describe("generateSchemaTs — pk (T8)", () => {
+  const pkManifest: Manifest = {
+    ...manifest,
+    schema: {
+      ...manifest.schema,
+      pk: "year",
+      fields: { ...manifest.schema.fields, year: { ...manifest.schema.fields.year!, pk: true } },
+    },
+  };
+  const output = generateSchemaTs(pkManifest, "0.1.0");
+
+  test("the schema const carries a collection-level pk naming the field", () => {
+    const schemaBlock = output.slice(output.indexOf("export const schema"));
+    expect(schemaBlock).toMatch(/pk:\s*"year"/);
+  });
+
+  test("the pk field's own entry carries pk: true; other fields omit it", () => {
+    const schemaBlock = output.slice(output.indexOf("export const schema"));
+    expect(schemaBlock).toMatch(/year:\s*\{[^}]*pk:\s*true/);
+  });
+
+  test("no pk configured omits the collection-level pk key entirely", () => {
+    const noPkOutput = generateSchemaTs(manifest, "0.1.0");
+    const schemaBlock = noPkOutput.slice(noPkOutput.indexOf("export const schema"));
+    expect(schemaBlock).not.toMatch(/\bpk:/);
+  });
+});
+
 describe("generateClientTs", () => {
   const output = generateClientTs(manifest, { basePath: "/shard-data", generatorVersion: "0.1.0" });
 

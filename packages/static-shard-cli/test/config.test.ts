@@ -186,3 +186,57 @@ describe("resolveConfig — multi/absent opt-ins (T7)", () => {
     expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*multi.*absent|absent.*multi/i);
   });
 });
+
+describe("resolveConfig — pk opt-in (T8)", () => {
+  test("accepts pk on the sort field itself (the free zonemap path)", () => {
+    const resolved = resolveConfig({ ...base, schema: { sortField: "year", pk: "year", fields: base.schema.fields } }, "/repo");
+    expect(resolved.pk).toBe("year");
+  });
+
+  test("accepts pk on a non-sort field that is indexed", () => {
+    const resolved = resolveConfig(
+      { ...base, schema: { sortField: "year", pk: "title", fields: { ...base.schema.fields, title: { kind: "string", indexed: true } } } },
+      "/repo",
+    );
+    expect(resolved.pk).toBe("title");
+  });
+
+  test("omits pk entirely when not configured", () => {
+    const resolved = resolveConfig(base, "/repo");
+    expect(resolved.pk).toBeUndefined();
+  });
+
+  test("rejects a pk not declared in schema.fields", () => {
+    const bad: StaticShardConfig = { ...base, schema: { sortField: "year", pk: "missing", fields: base.schema.fields } };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/pk.*missing|missing.*pk/i);
+  });
+
+  test("rejects pk on a non-sort field that is NOT indexed (no index to look it up by)", () => {
+    const bad: StaticShardConfig = { ...base, schema: { sortField: "year", pk: "title", fields: base.schema.fields } };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*indexed|indexed.*title/i);
+  });
+
+  test("rejects pk on a multi-valued field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: {
+        sortField: "year",
+        pk: "title",
+        fields: { ...base.schema.fields, title: { kind: "string", indexed: true, multi: true } },
+      },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*multi|multi.*title/i);
+  });
+
+  test("rejects pk on an absentable field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: {
+        sortField: "year",
+        pk: "title",
+        fields: { ...base.schema.fields, title: { kind: "string", indexed: true, absent: true } },
+      },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*present|present.*title/i);
+  });
+});
