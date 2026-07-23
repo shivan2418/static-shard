@@ -1,25 +1,23 @@
 {
-  "name": "static-shard",
-  "version": "0.0.0",
-  "description": "Query large static datasets from any static host — sharded into many small files, typed client, no WASM, no HTTP Range.",
+  "name": "static-shard-monorepo",
+  "private": true,
   "type": "module",
-  "license": "MIT",
-  "author": "Emil Elgaard",
-  "keywords": [
-    "static",
-    "database",
-    "sharding",
-    "query",
-    "large-data",
-    "browser",
-    "static-site",
-    "typescript",
-    "typed",
-    "codegen",
-    "cdn",
-    "no-backend"
-  ],
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "pack:check": "node scripts/check-pack.mjs",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "latest",
+    "@types/node": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
   }
 }
