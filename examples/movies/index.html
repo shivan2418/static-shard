@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>static-shard example — movies</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Movie catalog</h1>
+      <p id="total-count">loading…</p>
+
+      <section>
+        <h2>Title search (<code>contains</code>)</h2>
+        <form id="search-form">
+          <input id="search-input" type="text" value="Silent Horizon" />
+          <button type="submit">Search</button>
+        </form>
+        <ul id="search-results" data-testid="search-results"></ul>
+      </section>
+
+      <section>
+        <h2>Top-rated, 2015–2020 (range + orderBy)</h2>
+        <ul id="filtered-results" data-testid="filtered-results"></ul>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,2001 @@
+sku,name,category,price,inStock,discountPct
+SKU-00001,Rustic Kettle,Kitchen,42.5,true,15
+SKU-00002,Classic Notebook,Garden,31.22,true,11
+SKU-00003,Rapid Desk Lamp,Electronics,17.34,false,
+SKU-00004,Portable Speaker,Fitness,193.24,true,
+SKU-00005,Ergonomic Notebook,Electronics,146.42,false,
+SKU-00006,Classic Desk Lamp,Outdoors,171.15,true,14
+SKU-00007,Classic Puzzle,Electronics,154.94,true,35
+SKU-00008,Portable Yoga Mat,Fitness,75.84,true,
+SKU-00009,Everyday Notebook,Stationery,200.99,true,
+SKU-00010,Everyday Speaker,Office,44.97,true,25
+SKU-00011,Classic Speaker,Garden,69.72,true,16
+SKU-00012,Modular Yoga Mat,Stationery,214.34,false,12
+SKU-00013,Rustic Speaker,Kitchen,67.72,false,
+SKU-00014,Everyday Grinder,Electronics,195.74,false,
+SKU-00015,Portable Desk Lamp,Stationery,235.96,true,
+SKU-00016,Ergonomic Kettle,Stationery,26.54,true,18
+SKU-00017,Portable Grinder,Outdoors,67.09,true,
+SKU-00018,Ultra Kettle,Toys,9.11,true,
+SKU-00019,Compact Puzzle,Fitness,223.21,true,25
+SKU-00020,Everyday Kettle,Office,152.41,false,14
+SKU-00021,Portable Notebook,Kitchen,234.27,true,20
+SKU-00022,Compact Trowel,Fitness,43.71,true,
+SKU-00023,Rapid Backpack,Electronics,198.28,true,
+SKU-00024,Deluxe Kettle,Garden,84.35,true,
+SKU-00025,Deluxe Desk Lamp,Office,106.03,true,
+SKU-00026,Rapid Tent,Stationery,148.3,true,
+SKU-00027,Rapid Grinder,Stationery,41.4,true,
+SKU-00028,Compact Kettle,Stationery,78.62,true,
+SKU-00029,Ultra Notebook,Toys,224.45,true,39
+SKU-00030,Ergonomic Puzzle,Kitchen,80.39,true,
+SKU-00031,Modular Trowel,Office,42.46,true,
+SKU-00032,Portable Trowel,Garden,192.28,true,
+SKU-00033,Modular Grinder,Electronics,95.37,true,7
+SKU-00034,Rustic Notebook,Stationery,75.88,true,
+SKU-00035,Ultra Grinder,Office,60.24,true,
+SKU-00036,Ergonomic Trowel,Kitchen,206.93,true,
+SKU-00037,Rustic Speaker,Electronics,186.31,false,
+SKU-00038,Ultra Backpack,Kitchen,191.5,true,
+SKU-00039,Portable Puzzle,Garden,144.62,true,
+SKU-00040,Rustic Yoga Mat,Fitness,201.8,true,
+SKU-00041,Ultra Kettle,Stationery,16.62,true,
+SKU-00042,Rustic Kettle,Kitchen,17.44,false,46
+SKU-00043,Modular Trowel,Garden,128.29,true,37
+SKU-00044,Rapid Tent,Stationery,209.47,false,
+SKU-00045,Rapid Grinder,Electronics,119.39,true,
+SKU-00046,Portable Desk Lamp,Garden,103.99,true,
+SKU-00047,Classic Kettle,Fitness,99.18,false,16
+SKU-00048,Rustic Tent,Electronics,221.27,true,
+SKU-00049,Everyday Desk Lamp,Kitchen,122.58,true,9
+SKU-00050,Rustic Kettle,Toys,218.17,true,
+SKU-00051,Classic Yoga Mat,Garden,55.77,false,35
+SKU-00052,Ultra Speaker,Fitness,217.36,true,
+SKU-00053,Portable Desk Lamp,Office,59.97,true,13
+SKU-00054,Deluxe Yoga Mat,Stationery,222.42,false,38
+SKU-00055,Ultra Puzzle,Outdoors,138.42,true,
+SKU-00056,Rustic Puzzle,Toys,139.67,true,46
+SKU-00057,Portable Trowel,Outdoors,133.98,true,18
+SKU-00058,Rustic Tent,Toys,56.87,true,
+SKU-00059,Everyday Yoga Mat,Garden,76.13,true,33
+SKU-00060,Portable Speaker,Office,222.93,true,
+SKU-00061,Rapid Tent,Fitness,148.73,false,
+SKU-00062,Deluxe Speaker,Kitchen,101.75,true,
+SKU-00063,Ultra Yoga Mat,Fitness,63.92,true,
+SKU-00064,Everyday Yoga Mat,Garden,224.63,false,
+SKU-00065,Compact Speaker,Office,99.15,false,
+SKU-00066,Rustic Trowel,Stationery,223.08,true,
+SKU-00067,Rustic Desk Lamp,Toys,176.03,true,6
+SKU-00068,Compact Backpack,Kitchen,96.51,true,
+SKU-00069,Ultra Backpack,Garden,134.24,true,
+SKU-00070,Ergonomic Yoga Mat,Garden,28.16,true,
+SKU-00071,Ultra Speaker,Fitness,53.31,true,19
+SKU-00072,Everyday Notebook,Garden,109.8,true,
+SKU-00073,Rustic Backpack,Electronics,118.18,true,
+SKU-00074,Rapid Yoga Mat,Outdoors,176.09,false,45
+SKU-00075,Deluxe Yoga Mat,Office,109.71,false,
+SKU-00076,Modular Puzzle,Stationery,202.63,true,
+SKU-00077,Everyday Yoga Mat,Garden,186.9,true,
+SKU-00078,Compact Speaker,Electronics,100.5,true,
+SKU-00079,Compact Yoga Mat,Garden,67.66,false,48
+SKU-00080,Rustic Puzzle,Toys,24.02,true,41
+SKU-00081,Rustic Trowel,Stationery,139.97,true,
+SKU-00082,Rapid Desk Lamp,Fitness,48.08,true,
+SKU-00083,Portable Desk Lamp,Fitness,35.34,true,32
+SKU-00084,Portable Kettle,Garden,25.22,true,11
+SKU-00085,Deluxe Backpack,Electronics,151.73,true,
+SKU-00086,Ergonomic Kettle,Electronics,242.42,true,
+SKU-00087,Everyday Grinder,Office,156.13,true,17
+SKU-00088,Modular Kettle,Kitchen,45.63,false,
+SKU-00089,Ergonomic Grinder,Outdoors,99.85,true,
+SKU-00090,Portable Notebook,Stationery,29.7,true,
+SKU-00091,Compact Desk Lamp,Outdoors,134.89,true,
+SKU-00092,Rapid Speaker,Electronics,169.42,true,
+SKU-00093,Rapid Trowel,Toys,211.76,true,
+SKU-00094,Modular Kettle,Fitness,53,true,19
+SKU-00095,Ergonomic Speaker,Office,147.42,true,
+SKU-00096,Rustic Kettle,Stationery,230.63,true,45
+SKU-00097,Portable Grinder,Fitness,84.35,true,
+SKU-00098,Classic Notebook,Outdoors,122.56,false,22
+SKU-00099,Rustic Backpack,Garden,95.13,true,
+SKU-00100,Ultra Speaker,Office,108.47,true,
+SKU-00101,Ergonomic Puzzle,Toys,17.66,true,
+SKU-00102,Rapid Grinder,Stationery,94.28,true,48
+SKU-00103,Rustic Trowel,Toys,160.59,false,
+SKU-00104,Modular Backpack,Toys,219.95,true,13
+SKU-00105,Compact Yoga Mat,Toys,188.86,true,
+SKU-00106,Deluxe Backpack,Fitness,113.43,true,
+SKU-00107,Rustic Tent,Fitness,189.46,true,
+SKU-00108,Modular Backpack,Outdoors,228.74,true,50
+SKU-00109,Compact Backpack,Office,25.98,true,36
+SKU-00110,Everyday Tent,Fitness,129.78,true,37
+SKU-00111,Rapid Desk Lamp,Garden,236.09,false,
+SKU-00112,Ultra Backpack,Fitness,86.05,true,
+SKU-00113,Compact Puzzle,Electronics,183.23,true,
+SKU-00114,Modular Backpack,Fitness,156.63,true,
+SKU-00115,Portable Kettle,Kitchen,242.71,true,
+SKU-00116,Classic Backpack,Garden,110.63,true,
+SKU-00117,Classic Tent,Outdoors,113.08,true,
+SKU-00118,Deluxe Backpack,Office,78.12,true,
+SKU-00119,Portable Kettle,Outdoors,220.37,true,
+SKU-00120,Deluxe Puzzle,Stationery,14,true,
+SKU-00121,Deluxe Yoga Mat,Office,20.32,true,
+SKU-00122,Deluxe Trowel,Toys,136.42,false,34
+SKU-00123,Deluxe Notebook,Garden,27.62,true,
+SKU-00124,Ergonomic Notebook,Stationery,174.11,false,
+SKU-00125,Rapid Backpack,Office,135.92,true,
+SKU-00126,Rapid Tent,Kitchen,120.58,true,
+SKU-00127,Deluxe Puzzle,Fitness,31.21,true,
+SKU-00128,Everyday Trowel,Electronics,91.11,true,
+SKU-00129,Modular Desk Lamp,Fitness,221.69,true,25
+SKU-00130,Everyday Kettle,Garden,46.41,true,
+SKU-00131,Everyday Tent,Electronics,93.2,true,28
+SKU-00132,Rapid Kettle,Kitchen,16.1,true,19
+SKU-00133,Modular Desk Lamp,Outdoors,227.81,false,
+SKU-00134,Deluxe Puzzle,Toys,223.95,true,
+SKU-00135,Ergonomic Desk Lamp,Stationery,178.3,true,
+SKU-00136,Everyday Trowel,Fitness,150.7,false,
+SKU-00137,Classic Grinder,Stationery,216.51,false,
+SKU-00138,Deluxe Desk Lamp,Electronics,164.02,true,
+SKU-00139,Everyday Desk Lamp,Stationery,17.66,true,
+SKU-00140,Classic Kettle,Garden,25.5,true,
+SKU-00141,Rapid Trowel,Office,29.84,true,
+SKU-00142,Classic Puzzle,Garden,237.23,true,36
+SKU-00143,Ultra Grinder,Electronics,88.55,true,
+SKU-00144,Modular Puzzle,Stationery,199.86,true,
+SKU-00145,Portable Backpack,Kitchen,49.2,true,
+SKU-00146,Classic Backpack,Toys,23.54,false,
+SKU-00147,Rustic Speaker,Electronics,16.93,false,8
+SKU-00148,Everyday Speaker,Office,75.42,false,42
+SKU-00149,Ultra Yoga Mat,Fitness,128.98,true,50
+SKU-00150,Compact Backpack,Electronics,45.05,true,
+SKU-00151,Portable Notebook,Outdoors,26.63,true,
+SKU-00152,Everyday Trowel,Outdoors,34.3,true,
+SKU-00153,Portable Yoga Mat,Outdoors,200.18,true,
+SKU-00154,Modular Desk Lamp,Outdoors,81.45,true,36
+SKU-00155,Rapid Kettle,Kitchen,114.15,true,
+SKU-00156,Ergonomic Puzzle,Office,111.03,true,
+SKU-00157,Deluxe Notebook,Kitchen,195.36,true,
+SKU-00158,Compact Tent,Garden,178.44,true,
+SKU-00159,Compact Yoga Mat,Garden,185.39,true,
+SKU-00160,Portable Speaker,Kitchen,45.17,true,38
+SKU-00161,Modular Puzzle,Kitchen,219.26,true,
+SKU-00162,Ultra Tent,Fitness,69.96,true,
+SKU-00163,Everyday Backpack,Fitness,41.9,true,
+SKU-00164,Modular Trowel,Toys,198.36,true,
+SKU-00165,Modular Tent,Fitness,241.59,true,
+SKU-00166,Compact Notebook,Kitchen,214.59,false,
+SKU-00167,Ultra Kettle,Office,138.88,true,10
+SKU-00168,Portable Speaker,Stationery,191.53,false,
+SKU-00169,Deluxe Trowel,Toys,21.31,true,15
+SKU-00170,Portable Grinder,Toys,152.01,true,
+SKU-00171,Ergonomic Puzzle,Electronics,209.69,true,30
+SKU-00172,Deluxe Backpack,Fitness,144.93,true,
+SKU-00173,Classic Yoga Mat,Outdoors,217.07,true,
+SKU-00174,Rustic Kettle,Stationery,89.24,true,
+SKU-00175,Compact Puzzle,Stationery,149.09,true,
+SKU-00176,Rustic Trowel,Kitchen,184.35,false,
+SKU-00177,Classic Notebook,Outdoors,202.66,true,
+SKU-00178,Ergonomic Speaker,Office,190.39,true,
+SKU-00179,Compact Trowel,Garden,130.08,true,
+SKU-00180,Ergonomic Desk Lamp,Fitness,152.37,true,
+SKU-00181,Compact Yoga Mat,Garden,86,false,
+SKU-00182,Ultra Notebook,Outdoors,34.65,true,
+SKU-00183,Rapid Notebook,Electronics,199.82,true,
+SKU-00184,Compact Notebook,Toys,100.1,true,
+SKU-00185,Classic Tent,Electronics,233.15,true,
+SKU-00186,Modular Tent,Toys,73.9,true,32
+SKU-00187,Portable Kettle,Fitness,121.16,true,
+SKU-00188,Portable Tent,Garden,71.04,false,26
+SKU-00189,Modular Desk Lamp,Fitness,18.74,true,29
+SKU-00190,Portable Speaker,Kitchen,72.28,true,34
+SKU-00191,Ultra Kettle,Outdoors,18.38,true,25
+SKU-00192,Ultra Kettle,Kitchen,222.54,true,17
+SKU-00193,Ergonomic Puzzle,Office,154.75,true,
+SKU-00194,Modular Yoga Mat,Fitness,30.72,true,
+SKU-00195,Ultra Kettle,Garden,194.32,true,
+SKU-00196,Everyday Notebook,Electronics,167.8,false,23
+SKU-00197,Rustic Trowel,Office,111.09,true,
+SKU-00198,Ultra Kettle,Office,190.74,true,
+SKU-00199,Rustic Grinder,Toys,41.38,true,
+SKU-00200,Everyday Kettle,Electronics,161.24,true,
+SKU-00201,Rustic Kettle,Toys,50.28,true,
+SKU-00202,Everyday Speaker,Stationery,176.62,false,7
+SKU-00203,Rapid Puzzle,Stationery,193.9,true,
+SKU-00204,Portable Notebook,Outdoors,7.21,true,33
+SKU-00205,Everyday Notebook,Stationery,75.31,true,
+SKU-00206,Compact Notebook,Fitness,168.62,true,
+SKU-00207,Rapid Grinder,Toys,36.41,true,
+SKU-00208,Rapid Tent,Garden,129.24,true,26
+SKU-00209,Compact Tent,Electronics,43.56,false,34
+SKU-00210,Rustic Yoga Mat,Electronics,196.2,true,
+SKU-00211,Ultra Notebook,Stationery,62.82,true,
+SKU-00212,Deluxe Desk Lamp,Fitness,29.21,true,5
+SKU-00213,Classic Desk Lamp,Kitchen,71.22,true,7
+SKU-00214,Rapid Tent,Fitness,246.71,true,
+SKU-00215,Everyday Trowel,Fitness,145.71,false,
+SKU-00216,Rustic Puzzle,Fitness,48.05,true,
+SKU-00217,Ultra Kettle,Office,197.84,false,26
+SKU-00218,Modular Kettle,Toys,147.17,true,38
+SKU-00219,Compact Speaker,Stationery,68.46,true,
+SKU-00220,Modular Trowel,Stationery,155.05,true,
+SKU-00221,Everyday Grinder,Toys,13.13,false,
+SKU-00222,Ultra Tent,Kitchen,186.02,true,
+SKU-00223,Rustic Grinder,Toys,108.47,true,
+SKU-00224,Everyday Desk Lamp,Kitchen,123.94,true,
+SKU-00225,Ergonomic Backpack,Electronics,88.24,false,
+SKU-00226,Ultra Trowel,Toys,19.18,false,
+SKU-00227,Modular Notebook,Kitchen,144.67,true,
+SKU-00228,Ultra Kettle,Kitchen,40.97,true,
+SKU-00229,Portable Trowel,Kitchen,218.31,true,25
+SKU-00230,Deluxe Tent,Garden,100.12,true,
+SKU-00231,Everyday Puzzle,Fitness,94.76,true,
+SKU-00232,Classic Tent,Outdoors,162.6,true,
+SKU-00233,Everyday Puzzle,Electronics,204.58,true,41
+SKU-00234,Rapid Desk Lamp,Stationery,205.38,true,
+SKU-00235,Deluxe Tent,Fitness,127.58,true,
+SKU-00236,Portable Puzzle,Office,160.34,true,13
+SKU-00237,Ergonomic Puzzle,Fitness,108.68,true,20
+SKU-00238,Classic Speaker,Toys,217.76,true,23
+SKU-00239,Rapid Trowel,Fitness,88.85,true,33
+SKU-00240,Classic Desk Lamp,Electronics,199.63,true,
+SKU-00241,Everyday Notebook,Office,247.01,true,5
+SKU-00242,Classic Speaker,Office,108.36,true,
+SKU-00243,Ultra Speaker,Office,76.5,true,32
+SKU-00244,Everyday Tent,Electronics,111.7,true,41
+SKU-00245,Everyday Backpack,Stationery,213.39,true,
+SKU-00246,Portable Puzzle,Office,99.32,true,30
+SKU-00247,Portable Tent,Outdoors,150.64,true,38
+SKU-00248,Deluxe Desk Lamp,Stationery,25.27,true,25
+SKU-00249,Everyday Kettle,Electronics,165.2,true,
+SKU-00250,Classic Puzzle,Electronics,88.66,true,
+SKU-00251,Everyday Desk Lamp,Fitness,111.98,true,
+SKU-00252,Rustic Tent,Stationery,169.88,true,
+SKU-00253,Compact Tent,Garden,174.41,false,47
+SKU-00254,Modular Speaker,Fitness,211.31,true,
+SKU-00255,Modular Backpack,Garden,34.96,true,
+SKU-00256,Ergonomic Trowel,Fitness,130.26,true,
+SKU-00257,Deluxe Puzzle,Garden,207.08,false,
+SKU-00258,Ultra Kettle,Stationery,244.15,true,
+SKU-00259,Ultra Kettle,Fitness,200.68,true,
+SKU-00260,Classic Tent,Outdoors,174.17,true,
+SKU-00261,Deluxe Speaker,Stationery,208.33,true,
+SKU-00262,Modular Notebook,Electronics,159.08,true,
+SKU-00263,Rustic Yoga Mat,Electronics,245.43,true,
+SKU-00264,Compact Yoga Mat,Outdoors,70.44,true,31
+SKU-00265,Portable Puzzle,Electronics,156.51,true,
+SKU-00266,Classic Backpack,Garden,14.52,true,
+SKU-00267,Deluxe Tent,Kitchen,93.76,false,
+SKU-00268,Portable Yoga Mat,Toys,86.39,true,
+SKU-00269,Portable Backpack,Electronics,127.8,true,
+SKU-00270,Deluxe Notebook,Garden,34,true,
+SKU-00271,Ergonomic Tent,Toys,6.41,true,
+SKU-00272,Portable Desk Lamp,Kitchen,132.72,true,14
+SKU-00273,Compact Trowel,Toys,226.01,true,
+SKU-00274,Rapid Yoga Mat,Fitness,202.1,true,46
+SKU-00275,Modular Grinder,Kitchen,25.25,true,35
+SKU-00276,Everyday Backpack,Office,71.1,true,
+SKU-00277,Compact Desk Lamp,Toys,136.23,true,
+SKU-00278,Rapid Notebook,Office,151.79,true,23
+SKU-00279,Rapid Puzzle,Fitness,188.82,true,
+SKU-00280,Portable Puzzle,Kitchen,84.01,false,
+SKU-00281,Rapid Speaker,Toys,121.27,true,
+SKU-00282,Rustic Speaker,Toys,226.03,true,
+SKU-00283,Modular Kettle,Stationery,37.03,true,
+SKU-00284,Modular Notebook,Stationery,141.56,true,26
+SKU-00285,Rustic Notebook,Garden,242.28,true,14
+SKU-00286,Compact Kettle,Garden,249.13,true,
+SKU-00287,Deluxe Trowel,Fitness,42.99,true,31
+SKU-00288,Modular Notebook,Kitchen,231.06,true,33
+SKU-00289,Ergonomic Desk Lamp,Toys,66.04,true,
+SKU-00290,Modular Yoga Mat,Office,146.82,true,5
+SKU-00291,Ergonomic Desk Lamp,Stationery,121.58,false,42
+SKU-00292,Rustic Puzzle,Garden,72.24,true,
+SKU-00293,Deluxe Trowel,Fitness,134.54,true,
+SKU-00294,Modular Kettle,Office,61.79,true,
+SKU-00295,Everyday Backpack,Fitness,192.49,true,
+SKU-00296,Ergonomic Tent,Office,229.45,true,
+SKU-00297,Compact Backpack,Office,217.66,true,
+SKU-00298,Deluxe Notebook,Electronics,115.25,true,
+SKU-00299,Classic Speaker,Electronics,7.1,true,
+SKU-00300,Everyday Backpack,Garden,165.02,true,
+SKU-00301,Ergonomic Backpack,Kitchen,35.75,true,
+SKU-00302,Ultra Grinder,Fitness,88.15,true,
+SKU-00303,Compact Tent,Office,248.81,true,
+SKU-00304,Ultra Yoga Mat,Fitness,196.49,true,
+SKU-00305,Ultra Kettle,Outdoors,37.11,true,
+SKU-00306,Deluxe Grinder,Stationery,224.3,true,
+SKU-00307,Ultra Kettle,Kitchen,219.44,true,31
+SKU-00308,Deluxe Desk Lamp,Outdoors,119.88,true,
+SKU-00309,Rustic Backpack,Electronics,210.11,true,
+SKU-00310,Rapid Notebook,Kitchen,160.89,true,
+SKU-00311,Modular Tent,Garden,66.59,true,
+SKU-00312,Rapid Tent,Kitchen,55.76,true,24
+SKU-00313,Classic Notebook,Fitness,28.98,true,42
+SKU-00314,Portable Notebook,Fitness,191.37,true,18
+SKU-00315,Rapid Desk Lamp,Outdoors,247.17,true,
+SKU-00316,Classic Speaker,Outdoors,59.28,true,28
+SKU-00317,Portable Speaker,Office,146.04,false,
+SKU-00318,Rapid Notebook,Electronics,211.14,true,5
+SKU-00319,Compact Kettle,Office,121.77,true,
+SKU-00320,Modular Grinder,Fitness,90.82,true,
+SKU-00321,Rustic Speaker,Office,148.12,true,
+SKU-00322,Ergonomic Speaker,Electronics,195.14,false,
+SKU-00323,Modular Puzzle,Garden,168.58,false,
+SKU-00324,Compact Yoga Mat,Kitchen,56.16,true,
+SKU-00325,Deluxe Grinder,Outdoors,120.86,true,12
+SKU-00326,Modular Notebook,Kitchen,121.13,false,
+SKU-00327,Compact Notebook,Electronics,101.99,true,
+SKU-00328,Ultra Puzzle,Stationery,143.08,false,
+SKU-00329,Rustic Backpack,Toys,51.01,true,12
+SKU-00330,Compact Grinder,Stationery,237.64,false,
+SKU-00331,Compact Trowel,Outdoors,9.46,true,13
+SKU-00332,Portable Puzzle,Outdoors,179.49,true,22
+SKU-00333,Ergonomic Backpack,Office,93.33,true,
+SKU-00334,Rapid Trowel,Garden,102.77,true,
+SKU-00335,Deluxe Desk Lamp,Stationery,200.82,true,27
+SKU-00336,Portable Trowel,Garden,189.06,true,43
+SKU-00337,Classic Desk Lamp,Stationery,103.1,true,
+SKU-00338,Rapid Kettle,Electronics,13.07,true,
+SKU-00339,Compact Speaker,Electronics,151.63,true,
+SKU-00340,Rapid Grinder,Outdoors,120.69,true,
+SKU-00341,Rustic Trowel,Fitness,132.63,true,
+SKU-00342,Classic Tent,Office,141.52,true,
+SKU-00343,Ultra Speaker,Kitchen,25.1,true,
+SKU-00344,Deluxe Trowel,Toys,86.38,false,45
+SKU-00345,Modular Trowel,Garden,107.65,false,
+SKU-00346,Rustic Backpack,Stationery,223.9,false,18
+SKU-00347,Everyday Speaker,Fitness,153.23,true,
+SKU-00348,Classic Grinder,Outdoors,75.26,true,
+SKU-00349,Rapid Speaker,Kitchen,78.83,true,
+SKU-00350,Ergonomic Puzzle,Kitchen,185.61,true,
+SKU-00351,Rustic Puzzle,Office,137.39,true,6
+SKU-00352,Classic Yoga Mat,Outdoors,102.75,true,7
+SKU-00353,Rapid Tent,Office,50.44,true,39
+SKU-00354,Rustic Tent,Garden,208.8,true,
+SKU-00355,Ergonomic Yoga Mat,Office,176.66,true,
+SKU-00356,Rustic Desk Lamp,Outdoors,129.67,false,
+SKU-00357,Everyday Puzzle,Toys,151.36,true,
+SKU-00358,Portable Desk Lamp,Garden,183.64,true,48
+SKU-00359,Everyday Backpack,Kitchen,79.45,true,29
+SKU-00360,Rustic Notebook,Office,151.17,true,
+SKU-00361,Rapid Kettle,Toys,201.94,true,
+SKU-00362,Modular Yoga Mat,Toys,49.61,true,9
+SKU-00363,Portable Notebook,Stationery,169.44,true,
+SKU-00364,Rapid Grinder,Electronics,153.89,true,
+SKU-00365,Deluxe Backpack,Fitness,199.92,true,
+SKU-00366,Everyday Speaker,Stationery,100.39,true,
+SKU-00367,Ultra Backpack,Toys,166.12,true,
+SKU-00368,Modular Grinder,Toys,164.98,true,33
+SKU-00369,Classic Tent,Outdoors,227.75,true,
+SKU-00370,Modular Yoga Mat,Toys,42.89,true,22
+SKU-00371,Rustic Notebook,Fitness,7.54,true,10
+SKU-00372,Ultra Yoga Mat,Office,226.27,true,
+SKU-00373,Modular Desk Lamp,Outdoors,84.47,true,
+SKU-00374,Ergonomic Puzzle,Kitchen,38.15,false,
+SKU-00375,Compact Kettle,Garden,11.09,true,
+SKU-00376,Classic Puzzle,Kitchen,22.06,true,30
+SKU-00377,Ultra Puzzle,Stationery,126.19,true,
+SKU-00378,Ergonomic Notebook,Stationery,137.86,true,
+SKU-00379,Ergonomic Notebook,Toys,228.56,true,
+SKU-00380,Ultra Backpack,Outdoors,108.08,true,
+SKU-00381,Classic Trowel,Kitchen,106.46,true,44
+SKU-00382,Everyday Desk Lamp,Garden,112.64,true,
+SKU-00383,Classic Kettle,Outdoors,244.69,true,
+SKU-00384,Ultra Tent,Fitness,42.94,true,33
+SKU-00385,Rapid Notebook,Electronics,58.24,false,
+SKU-00386,Ultra Yoga Mat,Toys,226.67,true,
+SKU-00387,Rapid Tent,Electronics,164.35,false,
+SKU-00388,Compact Notebook,Toys,19.54,true,
+SKU-00389,Ultra Tent,Toys,117.41,true,
+SKU-00390,Rapid Backpack,Stationery,206.64,true,
+SKU-00391,Compact Kettle,Stationery,89.67,true,
+SKU-00392,Rapid Tent,Electronics,111.49,true,50
+SKU-00393,Ultra Tent,Electronics,88.01,false,17
+SKU-00394,Compact Desk Lamp,Electronics,231.66,true,49
+SKU-00395,Classic Desk Lamp,Office,141.77,true,
+SKU-00396,Rapid Yoga Mat,Toys,117.74,true,
+SKU-00397,Rustic Backpack,Office,111.71,false,22
+SKU-00398,Classic Kettle,Fitness,145.95,true,20
+SKU-00399,Deluxe Puzzle,Electronics,235.18,true,
+SKU-00400,Classic Trowel,Toys,138.04,true,
+SKU-00401,Everyday Notebook,Kitchen,15.21,false,
+SKU-00402,Rustic Backpack,Kitchen,141.2,true,
+SKU-00403,Compact Trowel,Kitchen,188.11,true,
+SKU-00404,Ultra Desk Lamp,Toys,67.28,true,47
+SKU-00405,Everyday Puzzle,Electronics,231.93,false,
+SKU-00406,Deluxe Speaker,Stationery,66.85,true,
+SKU-00407,Rapid Trowel,Electronics,11.52,true,34
+SKU-00408,Modular Desk Lamp,Toys,175.71,false,
+SKU-00409,Modular Backpack,Electronics,90.73,true,
+SKU-00410,Rapid Kettle,Kitchen,8.24,true,48
+SKU-00411,Classic Yoga Mat,Stationery,144.84,true,
+SKU-00412,Deluxe Tent,Kitchen,218.59,false,
+SKU-00413,Ultra Desk Lamp,Electronics,214.36,true,
+SKU-00414,Rapid Grinder,Garden,173.37,true,34
+SKU-00415,Rustic Grinder,Stationery,190.06,true,
+SKU-00416,Classic Notebook,Electronics,49.13,true,
+SKU-00417,Compact Trowel,Kitchen,211.92,true,40
+SKU-00418,Classic Desk Lamp,Office,122.43,true,
+SKU-00419,Ergonomic Grinder,Toys,151.35,true,14
+SKU-00420,Compact Notebook,Office,219.03,true,12
+SKU-00421,Compact Notebook,Kitchen,81.79,true,10
+SKU-00422,Ergonomic Trowel,Outdoors,89.69,false,
+SKU-00423,Everyday Kettle,Electronics,155.26,true,
+SKU-00424,Ergonomic Notebook,Office,54.93,true,
+SKU-00425,Portable Trowel,Outdoors,48.02,true,14
+SKU-00426,Everyday Kettle,Electronics,79.16,false,
+SKU-00427,Everyday Speaker,Fitness,148.73,true,9
+SKU-00428,Everyday Backpack,Kitchen,132.97,true,
+SKU-00429,Classic Puzzle,Outdoors,94.75,false,
+SKU-00430,Portable Yoga Mat,Outdoors,129.19,true,31
+SKU-00431,Classic Notebook,Fitness,249.88,true,
+SKU-00432,Modular Backpack,Outdoors,244.55,true,
+SKU-00433,Deluxe Tent,Toys,100.1,true,23
+SKU-00434,Modular Puzzle,Fitness,103.88,true,
+SKU-00435,Ergonomic Speaker,Office,24.56,true,
+SKU-00436,Ultra Tent,Kitchen,150.31,true,40
+SKU-00437,Deluxe Backpack,Electronics,110.68,true,13
+SKU-00438,Rustic Speaker,Garden,77.87,true,34
+SKU-00439,Classic Tent,Fitness,79.18,true,
+SKU-00440,Deluxe Yoga Mat,Electronics,213.41,true,
+SKU-00441,Classic Trowel,Office,34.9,true,
+SKU-00442,Rapid Notebook,Kitchen,221.84,true,
+SKU-00443,Classic Puzzle,Electronics,31.79,true,
+SKU-00444,Rustic Notebook,Office,226.46,true,46
+SKU-00445,Deluxe Kettle,Garden,10.47,true,31
+SKU-00446,Modular Backpack,Kitchen,156.35,false,
+SKU-00447,Classic Kettle,Fitness,50.74,true,
+SKU-00448,Portable Yoga Mat,Office,207.65,true,41
+SKU-00449,Rapid Kettle,Electronics,104,true,24
+SKU-00450,Modular Kettle,Fitness,15.45,true,15
+SKU-00451,Modular Backpack,Kitchen,157.22,true,29
+SKU-00452,Classic Yoga Mat,Electronics,168.43,false,
+SKU-00453,Classic Speaker,Office,135.68,true,
+SKU-00454,Portable Grinder,Stationery,96.85,true,
+SKU-00455,Classic Puzzle,Kitchen,39.74,false,
+SKU-00456,Portable Backpack,Office,139.67,true,5
+SKU-00457,Deluxe Kettle,Toys,162.18,true,
+SKU-00458,Portable Puzzle,Kitchen,62.05,false,
+SKU-00459,Classic Kettle,Office,120.68,true,
+SKU-00460,Rustic Tent,Outdoors,83.58,true,
+SKU-00461,Ultra Speaker,Outdoors,64.7,true,
+SKU-00462,Ultra Notebook,Stationery,219.4,false,
+SKU-00463,Compact Grinder,Electronics,149.49,true,
+SKU-00464,Rustic Desk Lamp,Electronics,219.54,true,23
+SKU-00465,Compact Puzzle,Toys,90.05,true,
+SKU-00466,Portable Notebook,Kitchen,127.26,true,
+SKU-00467,Classic Puzzle,Garden,54.46,true,
+SKU-00468,Everyday Grinder,Kitchen,187.02,true,
+SKU-00469,Rustic Desk Lamp,Kitchen,112.04,true,
+SKU-00470,Ergonomic Grinder,Fitness,115.6,true,
+SKU-00471,Ultra Speaker,Stationery,216.84,false,
+SKU-00472,Ultra Trowel,Toys,110.98,true,16
+SKU-00473,Portable Notebook,Garden,152.24,true,
+SKU-00474,Deluxe Grinder,Outdoors,126.76,true,
+SKU-00475,Ergonomic Grinder,Office,155.88,true,
+SKU-00476,Compact Grinder,Electronics,115.68,true,29
+SKU-00477,Ultra Grinder,Electronics,83.56,true,
+SKU-00478,Ultra Yoga Mat,Toys,198.89,true,
+SKU-00479,Ultra Trowel,Garden,159.65,false,
+SKU-00480,Ultra Backpack,Electronics,190,true,
+SKU-00481,Classic Speaker,Office,203.31,true,
+SKU-00482,Compact Grinder,Electronics,125.01,false,18
+SKU-00483,Portable Trowel,Garden,40.78,true,
+SKU-00484,Compact Notebook,Garden,96.88,true,
+SKU-00485,Everyday Puzzle,Stationery,157.2,true,45
+SKU-00486,Deluxe Tent,Electronics,41.03,true,
+SKU-00487,Classic Yoga Mat,Garden,65.55,false,
+SKU-00488,Modular Kettle,Stationery,212.22,true,
+SKU-00489,Everyday Puzzle,Kitchen,181.78,true,
+SKU-00490,Rapid Desk Lamp,Fitness,137.81,true,
+SKU-00491,Everyday Speaker,Electronics,219.8,true,
+SKU-00492,Deluxe Tent,Kitchen,96.6,true,
+SKU-00493,Rustic Puzzle,Electronics,149.49,true,
+SKU-00494,Ergonomic Speaker,Fitness,61.98,true,
+SKU-00495,Everyday Speaker,Outdoors,91,true,
+SKU-00496,Everyday Kettle,Office,43.1,true,
+SKU-00497,Rustic Puzzle,Office,217.27,true,
+SKU-00498,Compact Grinder,Outdoors,47.07,true,36
+SKU-00499,Ergonomic Puzzle,Fitness,178.65,true,
+SKU-00500,Rustic Grinder,Fitness,149.9,true,9
+SKU-00501,Deluxe Desk Lamp,Outdoors,231.47,true,17
+SKU-00502,Portable Grinder,Toys,39.46,true,
+SKU-00503,Ergonomic Grinder,Kitchen,92.05,true,15
+SKU-00504,Everyday Kettle,Fitness,105.42,true,
+SKU-00505,Compact Backpack,Stationery,160.05,false,
+SKU-00506,Compact Notebook,Toys,197.74,false,
+SKU-00507,Portable Speaker,Electronics,40.47,true,
+SKU-00508,Rapid Notebook,Electronics,82.65,true,42
+SKU-00509,Everyday Desk Lamp,Office,127.23,true,
+SKU-00510,Ultra Notebook,Fitness,44.15,true,47
+SKU-00511,Rapid Trowel,Outdoors,55.52,true,
+SKU-00512,Everyday Yoga Mat,Toys,245.4,false,
+SKU-00513,Ergonomic Notebook,Office,180.84,true,37
+SKU-00514,Rapid Puzzle,Toys,77.75,true,42
+SKU-00515,Ultra Desk Lamp,Toys,9.82,true,21
+SKU-00516,Rapid Yoga Mat,Kitchen,195.8,true,
+SKU-00517,Deluxe Backpack,Kitchen,175.54,true,
+SKU-00518,Ergonomic Desk Lamp,Fitness,53.79,false,
+SKU-00519,Classic Tent,Office,208.4,false,
+SKU-00520,Modular Kettle,Garden,32.2,false,
+SKU-00521,Everyday Notebook,Office,197.4,false,21
+SKU-00522,Modular Grinder,Outdoors,63.8,true,21
+SKU-00523,Classic Kettle,Outdoors,144.62,true,
+SKU-00524,Portable Yoga Mat,Stationery,88.24,true,30
+SKU-00525,Everyday Grinder,Fitness,127.87,true,10
+SKU-00526,Deluxe Trowel,Fitness,135.1,false,
+SKU-00527,Rapid Notebook,Kitchen,67.46,false,22
+SKU-00528,Ultra Tent,Outdoors,73.99,true,
+SKU-00529,Rustic Kettle,Outdoors,90.55,true,30
+SKU-00530,Compact Backpack,Toys,28.32,true,
+SKU-00531,Modular Kettle,Electronics,218.64,true,13
+SKU-00532,Compact Notebook,Electronics,148.09,true,
+SKU-00533,Deluxe Tent,Fitness,233.84,true,
+SKU-00534,Ergonomic Desk Lamp,Electronics,111.4,true,
+SKU-00535,Rapid Yoga Mat,Kitchen,187.3,true,
+SKU-00536,Classic Tent,Fitness,244.84,true,
+SKU-00537,Modular Grinder,Stationery,29.77,false,
+SKU-00538,Portable Desk Lamp,Kitchen,27.44,false,
+SKU-00539,Rapid Kettle,Stationery,119.87,true,
+SKU-00540,Rapid Notebook,Office,142.93,true,
+SKU-00541,Classic Kettle,Garden,143.55,true,11
+SKU-00542,Modular Grinder,Stationery,151.75,true,
+SKU-00543,Rustic Speaker,Electronics,223.62,true,43
+SKU-00544,Modular Backpack,Electronics,142.31,true,
+SKU-00545,Deluxe Notebook,Outdoors,195.3,true,
+SKU-00546,Deluxe Grinder,Electronics,191.45,false,
+SKU-00547,Portable Kettle,Garden,60.38,true,
+SKU-00548,Ultra Grinder,Outdoors,10.99,true,
+SKU-00549,Portable Desk Lamp,Outdoors,98.38,true,
+SKU-00550,Classic Kettle,Toys,201.23,true,
+SKU-00551,Rapid Desk Lamp,Electronics,9.21,true,
+SKU-00552,Rapid Tent,Toys,128.16,true,26
+SKU-00553,Ultra Backpack,Kitchen,44.92,false,
+SKU-00554,Everyday Grinder,Outdoors,80.01,true,24
+SKU-00555,Rustic Grinder,Fitness,235.26,true,
+SKU-00556,Ergonomic Tent,Toys,181.15,true,47
+SKU-00557,Portable Puzzle,Garden,119.61,true,
+SKU-00558,Rustic Backpack,Electronics,123.71,false,
+SKU-00559,Ultra Notebook,Office,7.66,true,50
+SKU-00560,Ergonomic Tent,Fitness,198.68,false,
+SKU-00561,Everyday Puzzle,Toys,113.34,true,50
+SKU-00562,Classic Speaker,Kitchen,72.4,true,18
+SKU-00563,Ergonomic Kettle,Office,190.83,true,
+SKU-00564,Ergonomic Desk Lamp,Toys,159.4,true,49
+SKU-00565,Rustic Puzzle,Electronics,165.04,true,26
+SKU-00566,Ergonomic Notebook,Electronics,173.22,true,
+SKU-00567,Classic Puzzle,Kitchen,175.51,true,39
+SKU-00568,Ergonomic Tent,Office,244.42,true,24
+SKU-00569,Deluxe Tent,Fitness,139.81,true,
+SKU-00570,Rustic Backpack,Garden,98.02,false,48
+SKU-00571,Ergonomic Speaker,Office,174.19,true,
+SKU-00572,Modular Notebook,Electronics,234.06,false,
+SKU-00573,Deluxe Grinder,Outdoors,17.46,true,31
+SKU-00574,Rapid Tent,Fitness,29.53,true,
+SKU-00575,Ultra Tent,Outdoors,106.15,true,
+SKU-00576,Modular Notebook,Fitness,182.41,true,
+SKU-00577,Compact Trowel,Garden,23.61,true,
+SKU-00578,Rapid Notebook,Outdoors,150.73,true,
+SKU-00579,Ultra Trowel,Electronics,31.7,true,
+SKU-00580,Rapid Backpack,Garden,227.54,true,
+SKU-00581,Everyday Speaker,Stationery,161.56,true,36
+SKU-00582,Ultra Puzzle,Toys,136.05,true,
+SKU-00583,Classic Grinder,Electronics,175.21,true,
+SKU-00584,Deluxe Yoga Mat,Fitness,40.48,true,
+SKU-00585,Rustic Grinder,Office,221.51,true,
+SKU-00586,Ergonomic Tent,Outdoors,231.61,true,
+SKU-00587,Ultra Speaker,Fitness,41.13,true,27
+SKU-00588,Rapid Desk Lamp,Kitchen,81.68,true,
+SKU-00589,Compact Backpack,Outdoors,183.96,true,
+SKU-00590,Classic Notebook,Outdoors,21.53,true,
+SKU-00591,Ergonomic Desk Lamp,Office,9.28,true,
+SKU-00592,Everyday Speaker,Outdoors,59.41,true,
+SKU-00593,Portable Grinder,Office,16.88,true,
+SKU-00594,Everyday Speaker,Garden,158.87,false,14
+SKU-00595,Ergonomic Speaker,Electronics,219.04,true,
+SKU-00596,Deluxe Backpack,Office,73.16,true,
+SKU-00597,Portable Trowel,Electronics,152.9,true,20
+SKU-00598,Compact Grinder,Fitness,171.8,true,
+SKU-00599,Classic Notebook,Kitchen,128.74,true,
+SKU-00600,Compact Notebook,Outdoors,162.94,true,
+SKU-00601,Ergonomic Desk Lamp,Outdoors,57,true,
+SKU-00602,Classic Tent,Garden,239.11,false,35
+SKU-00603,Compact Tent,Electronics,153.61,false,33
+SKU-00604,Ergonomic Tent,Office,35.27,true,
+SKU-00605,Modular Speaker,Toys,207.04,true,23
+SKU-00606,Ergonomic Desk Lamp,Outdoors,38.77,true,
+SKU-00607,Rustic Kettle,Stationery,215.77,true,
+SKU-00608,Portable Desk Lamp,Garden,211.15,true,13
+SKU-00609,Rustic Trowel,Stationery,241.62,true,
+SKU-00610,Compact Puzzle,Outdoors,153.74,true,
+SKU-00611,Rustic Tent,Fitness,116.25,false,
+SKU-00612,Ergonomic Backpack,Stationery,185.58,true,27
+SKU-00613,Classic Desk Lamp,Stationery,151.49,true,
+SKU-00614,Deluxe Tent,Toys,79.67,false,
+SKU-00615,Everyday Desk Lamp,Garden,20.79,true,
+SKU-00616,Ergonomic Notebook,Stationery,25.35,true,28
+SKU-00617,Portable Backpack,Office,112.09,true,
+SKU-00618,Deluxe Kettle,Outdoors,129.98,true,
+SKU-00619,Compact Kettle,Fitness,215.71,true,
+SKU-00620,Deluxe Tent,Garden,148.91,true,37
+SKU-00621,Everyday Puzzle,Office,214.98,true,
+SKU-00622,Rapid Yoga Mat,Stationery,38.14,true,
+SKU-00623,Ultra Trowel,Office,164.94,true,
+SKU-00624,Deluxe Kettle,Office,128.35,false,
+SKU-00625,Classic Speaker,Electronics,77.56,true,
+SKU-00626,Classic Kettle,Garden,173.21,true,
+SKU-00627,Ergonomic Grinder,Fitness,97.7,true,18
+SKU-00628,Rustic Yoga Mat,Toys,86.01,true,
+SKU-00629,Everyday Grinder,Kitchen,14.85,true,26
+SKU-00630,Rustic Notebook,Electronics,19.1,true,
+SKU-00631,Rapid Yoga Mat,Electronics,206.79,true,
+SKU-00632,Classic Yoga Mat,Stationery,74.8,true,
+SKU-00633,Portable Notebook,Garden,25.08,true,
+SKU-00634,Compact Yoga Mat,Office,98.42,true,24
+SKU-00635,Deluxe Kettle,Toys,112.46,false,
+SKU-00636,Everyday Yoga Mat,Outdoors,151.52,true,
+SKU-00637,Everyday Tent,Stationery,247.5,false,43
+SKU-00638,Ergonomic Notebook,Kitchen,10.62,true,35
+SKU-00639,Ultra Speaker,Outdoors,185.65,true,35
+SKU-00640,Portable Notebook,Office,162.78,true,
+SKU-00641,Ergonomic Desk Lamp,Garden,195.06,true,
+SKU-00642,Everyday Tent,Fitness,60.4,true,
+SKU-00643,Rustic Trowel,Outdoors,82.35,true,
+SKU-00644,Modular Kettle,Toys,240.69,true,
+SKU-00645,Classic Kettle,Outdoors,106.61,true,20
+SKU-00646,Rapid Notebook,Kitchen,234.66,true,18
+SKU-00647,Ergonomic Yoga Mat,Fitness,212.13,true,
+SKU-00648,Rapid Backpack,Stationery,36.31,true,25
+SKU-00649,Compact Puzzle,Kitchen,102.06,true,34
+SKU-00650,Portable Speaker,Toys,157.35,false,7
+SKU-00651,Rapid Grinder,Toys,146.47,false,
+SKU-00652,Deluxe Puzzle,Electronics,11.4,true,
+SKU-00653,Rapid Yoga Mat,Kitchen,246.5,true,26
+SKU-00654,Compact Desk Lamp,Outdoors,171.93,true,
+SKU-00655,Modular Desk Lamp,Outdoors,71.5,true,
+SKU-00656,Ultra Backpack,Toys,56.9,true,
+SKU-00657,Rapid Trowel,Electronics,71.11,false,
+SKU-00658,Everyday Grinder,Toys,168.06,true,
+SKU-00659,Deluxe Backpack,Kitchen,85.34,false,40
+SKU-00660,Classic Desk Lamp,Toys,156.79,true,
+SKU-00661,Everyday Desk Lamp,Outdoors,215.62,true,10
+SKU-00662,Ergonomic Yoga Mat,Office,165.44,true,11
+SKU-00663,Modular Desk Lamp,Toys,14.52,true,
+SKU-00664,Modular Backpack,Kitchen,39.51,true,
+SKU-00665,Portable Speaker,Outdoors,180.46,true,36
+SKU-00666,Deluxe Backpack,Toys,210.44,true,
+SKU-00667,Ultra Backpack,Fitness,224.69,true,
+SKU-00668,Everyday Tent,Fitness,151.83,true,49
+SKU-00669,Portable Backpack,Office,41.31,false,
+SKU-00670,Deluxe Trowel,Garden,215.2,false,
+SKU-00671,Ergonomic Kettle,Office,239.16,true,
+SKU-00672,Rustic Notebook,Garden,56.37,true,
+SKU-00673,Modular Desk Lamp,Fitness,67.15,false,47
+SKU-00674,Rapid Notebook,Garden,228,true,
+SKU-00675,Ultra Puzzle,Garden,168.75,true,
+SKU-00676,Portable Grinder,Kitchen,101.46,false,
+SKU-00677,Classic Tent,Outdoors,141.56,true,40
+SKU-00678,Ergonomic Notebook,Garden,102.94,true,
+SKU-00679,Rapid Grinder,Outdoors,85.25,true,
+SKU-00680,Everyday Desk Lamp,Office,107.92,true,
+SKU-00681,Rustic Kettle,Electronics,139.29,true,19
+SKU-00682,Rustic Desk Lamp,Stationery,155.6,true,
+SKU-00683,Deluxe Backpack,Office,106.51,true,
+SKU-00684,Ergonomic Backpack,Toys,130.54,true,
+SKU-00685,Deluxe Notebook,Stationery,6.53,true,
+SKU-00686,Classic Desk Lamp,Stationery,98.9,true,
+SKU-00687,Portable Backpack,Stationery,15.28,true,9
+SKU-00688,Deluxe Desk Lamp,Electronics,217.49,true,21
+SKU-00689,Everyday Speaker,Office,119.04,true,
+SKU-00690,Deluxe Speaker,Kitchen,136.74,true,
+SKU-00691,Deluxe Notebook,Stationery,61.87,true,
+SKU-00692,Everyday Backpack,Garden,163.58,true,
+SKU-00693,Ultra Trowel,Stationery,7.19,true,21
+SKU-00694,Compact Trowel,Kitchen,235.05,true,
+SKU-00695,Ultra Kettle,Office,223.09,true,
+SKU-00696,Everyday Yoga Mat,Electronics,96.45,true,
+SKU-00697,Everyday Trowel,Fitness,124.58,false,14
+SKU-00698,Everyday Notebook,Garden,132.36,true,
+SKU-00699,Classic Kettle,Toys,177.51,false,
+SKU-00700,Modular Tent,Kitchen,250,false,
+SKU-00701,Rapid Trowel,Fitness,92.18,true,
+SKU-00702,Modular Grinder,Garden,128.04,true,
+SKU-00703,Ergonomic Puzzle,Garden,79.37,true,
+SKU-00704,Everyday Tent,Garden,157.62,true,
+SKU-00705,Ergonomic Puzzle,Stationery,18.36,false,
+SKU-00706,Rapid Notebook,Outdoors,38.72,true,35
+SKU-00707,Deluxe Tent,Electronics,215.24,true,
+SKU-00708,Compact Puzzle,Stationery,58.73,true,48
+SKU-00709,Everyday Trowel,Outdoors,102.29,true,
+SKU-00710,Rustic Speaker,Office,110.8,true,
+SKU-00711,Compact Kettle,Garden,215.77,true,
+SKU-00712,Portable Puzzle,Toys,57.11,true,
+SKU-00713,Ultra Speaker,Garden,93.77,true,
+SKU-00714,Portable Yoga Mat,Toys,149.84,true,
+SKU-00715,Deluxe Trowel,Stationery,146.62,true,
+SKU-00716,Modular Kettle,Outdoors,31.08,true,
+SKU-00717,Ultra Tent,Toys,24.4,true,
+SKU-00718,Ultra Tent,Electronics,169.65,true,34
+SKU-00719,Modular Puzzle,Kitchen,157.24,true,
+SKU-00720,Portable Trowel,Electronics,116.17,true,46
+SKU-00721,Ergonomic Desk Lamp,Office,10.71,true,
+SKU-00722,Rustic Puzzle,Outdoors,101.71,true,33
+SKU-00723,Rapid Tent,Kitchen,113.6,true,
+SKU-00724,Ergonomic Speaker,Kitchen,178.22,true,
+SKU-00725,Portable Puzzle,Outdoors,165.02,true,13
+SKU-00726,Ergonomic Grinder,Toys,83.62,true,
+SKU-00727,Ergonomic Puzzle,Toys,94.37,true,25
+SKU-00728,Classic Yoga Mat,Kitchen,200.78,true,
+SKU-00729,Rapid Puzzle,Kitchen,89.37,true,
+SKU-00730,Everyday Notebook,Stationery,112.38,true,14
+SKU-00731,Modular Tent,Office,178.99,true,50
+SKU-00732,Modular Kettle,Outdoors,248.8,true,
+SKU-00733,Deluxe Desk Lamp,Kitchen,28.94,true,
+SKU-00734,Ultra Tent,Fitness,202.06,true,16
+SKU-00735,Classic Backpack,Stationery,123.41,true,
+SKU-00736,Ergonomic Puzzle,Toys,64.43,true,
+SKU-00737,Compact Yoga Mat,Stationery,55.57,true,
+SKU-00738,Portable Kettle,Stationery,202.57,true,
+SKU-00739,Modular Backpack,Fitness,230.25,true,
+SKU-00740,Modular Puzzle,Fitness,198.28,true,
+SKU-00741,Ultra Backpack,Office,189.44,true,
+SKU-00742,Classic Puzzle,Office,26.62,false,26
+SKU-00743,Ultra Grinder,Office,138.89,true,
+SKU-00744,Ergonomic Desk Lamp,Toys,190.84,true,
+SKU-00745,Modular Grinder,Toys,248.94,true,
+SKU-00746,Ergonomic Yoga Mat,Outdoors,170.34,false,42
+SKU-00747,Portable Tent,Electronics,222.28,true,
+SKU-00748,Ultra Grinder,Office,187.11,true,12
+SKU-00749,Ultra Backpack,Outdoors,215.31,true,
+SKU-00750,Ergonomic Desk Lamp,Office,100.68,true,
+SKU-00751,Modular Grinder,Fitness,90.67,false,
+SKU-00752,Rapid Grinder,Outdoors,28.97,true,
+SKU-00753,Ultra Speaker,Fitness,94.74,true,8
+SKU-00754,Everyday Puzzle,Garden,205.53,false,
+SKU-00755,Everyday Backpack,Stationery,187.57,true,
+SKU-00756,Rapid Desk Lamp,Toys,158.59,true,
+SKU-00757,Rapid Notebook,Fitness,12.72,false,
+SKU-00758,Modular Kettle,Electronics,234.89,true,5
+SKU-00759,Ergonomic Kettle,Toys,109.25,true,
+SKU-00760,Modular Tent,Stationery,198.13,true,
+SKU-00761,Everyday Desk Lamp,Fitness,190.7,true,
+SKU-00762,Ergonomic Kettle,Toys,5.81,true,
+SKU-00763,Deluxe Tent,Office,45.71,true,
+SKU-00764,Rapid Speaker,Toys,14.88,true,23
+SKU-00765,Deluxe Trowel,Garden,12.96,true,42
+SKU-00766,Classic Grinder,Outdoors,241.91,true,40
+SKU-00767,Classic Backpack,Electronics,220.56,true,
+SKU-00768,Classic Desk Lamp,Outdoors,159.57,true,
+SKU-00769,Everyday Speaker,Garden,207.12,true,45
+SKU-00770,Ergonomic Notebook,Outdoors,245.9,true,
+SKU-00771,Ergonomic Speaker,Kitchen,211.3,true,
+SKU-00772,Everyday Tent,Office,53.03,true,22
+SKU-00773,Modular Backpack,Office,97.35,false,
+SKU-00774,Ultra Yoga Mat,Fitness,199.37,true,
+SKU-00775,Compact Backpack,Electronics,151.59,false,
+SKU-00776,Compact Notebook,Garden,149.55,true,
+SKU-00777,Everyday Grinder,Garden,125.37,true,
+SKU-00778,Ergonomic Speaker,Office,158.04,true,
+SKU-00779,Classic Backpack,Electronics,180.7,true,
+SKU-00780,Modular Puzzle,Outdoors,58.17,true,
+SKU-00781,Deluxe Grinder,Fitness,41.48,false,10
+SKU-00782,Ultra Notebook,Outdoors,19.97,true,
+SKU-00783,Ergonomic Trowel,Stationery,73.91,true,32
+SKU-00784,Everyday Trowel,Garden,194.28,true,
+SKU-00785,Ultra Backpack,Electronics,26.27,false,15
+SKU-00786,Compact Backpack,Toys,92.35,true,49
+SKU-00787,Ultra Grinder,Fitness,87.88,true,
+SKU-00788,Ultra Puzzle,Kitchen,63.18,true,35
+SKU-00789,Rustic Notebook,Electronics,70.71,true,36
+SKU-00790,Classic Grinder,Kitchen,77.69,true,
+SKU-00791,Rustic Trowel,Toys,238.92,true,
+SKU-00792,Ergonomic Speaker,Fitness,239.25,true,29
+SKU-00793,Portable Speaker,Kitchen,36.41,true,
+SKU-00794,Compact Speaker,Stationery,55.29,true,
+SKU-00795,Everyday Trowel,Toys,35.85,true,
+SKU-00796,Modular Backpack,Electronics,196.01,true,31
+SKU-00797,Everyday Yoga Mat,Outdoors,185.5,true,22
+SKU-00798,Modular Speaker,Office,51.83,false,
+SKU-00799,Portable Yoga Mat,Kitchen,200.2,true,
+SKU-00800,Classic Speaker,Electronics,39.8,false,
+SKU-00801,Ergonomic Kettle,Stationery,24.53,true,
+SKU-00802,Rustic Notebook,Office,163.06,true,
+SKU-00803,Deluxe Speaker,Fitness,230.39,true,14
+SKU-00804,Modular Desk Lamp,Electronics,98.85,true,26
+SKU-00805,Deluxe Kettle,Stationery,35.59,true,
+SKU-00806,Modular Trowel,Stationery,13.28,true,
+SKU-00807,Deluxe Yoga Mat,Fitness,156.76,true,32
+SKU-00808,Modular Trowel,Office,150.52,true,
+SKU-00809,Rustic Desk Lamp,Kitchen,185.8,true,
+SKU-00810,Compact Puzzle,Fitness,184.34,false,42
+SKU-00811,Ultra Desk Lamp,Electronics,203.68,true,44
+SKU-00812,Modular Desk Lamp,Office,194.14,true,36
+SKU-00813,Compact Notebook,Electronics,101.85,false,
+SKU-00814,Rustic Grinder,Electronics,54.79,true,
+SKU-00815,Ergonomic Yoga Mat,Garden,228.89,false,
+SKU-00816,Classic Trowel,Toys,35.43,true,
+SKU-00817,Ultra Notebook,Stationery,126.68,true,
+SKU-00818,Deluxe Kettle,Kitchen,36.8,true,
+SKU-00819,Deluxe Tent,Kitchen,232.47,true,
+SKU-00820,Rapid Backpack,Toys,131.02,true,21
+SKU-00821,Rustic Trowel,Office,175.03,false,
+SKU-00822,Ergonomic Yoga Mat,Toys,55.5,true,50
+SKU-00823,Classic Desk Lamp,Toys,237.1,false,
+SKU-00824,Portable Speaker,Garden,222.73,true,39
+SKU-00825,Rapid Kettle,Office,240.43,true,18
+SKU-00826,Ultra Notebook,Office,97.7,true,
+SKU-00827,Compact Notebook,Office,25.39,true,
+SKU-00828,Modular Trowel,Office,23.76,true,
+SKU-00829,Ergonomic Grinder,Kitchen,139.29,true,36
+SKU-00830,Rapid Tent,Fitness,122.52,true,
+SKU-00831,Rapid Grinder,Toys,123.7,true,
+SKU-00832,Classic Backpack,Electronics,66.09,false,
+SKU-00833,Ultra Notebook,Garden,116.22,true,
+SKU-00834,Portable Grinder,Kitchen,16.49,true,
+SKU-00835,Modular Desk Lamp,Stationery,28.46,true,6
+SKU-00836,Rapid Puzzle,Kitchen,18.06,true,
+SKU-00837,Compact Yoga Mat,Office,105.46,true,
+SKU-00838,Everyday Tent,Outdoors,180.84,true,
+SKU-00839,Rustic Puzzle,Toys,14.5,false,
+SKU-00840,Everyday Yoga Mat,Stationery,52.26,true,
+SKU-00841,Compact Trowel,Electronics,93.67,true,
+SKU-00842,Portable Grinder,Garden,212.45,true,
+SKU-00843,Rustic Yoga Mat,Office,154.7,true,
+SKU-00844,Modular Yoga Mat,Stationery,247.97,false,
+SKU-00845,Everyday Notebook,Toys,115.38,true,5
+SKU-00846,Compact Trowel,Fitness,183.26,true,29
+SKU-00847,Compact Kettle,Kitchen,82.82,true,
+SKU-00848,Ergonomic Grinder,Stationery,191.54,true,
+SKU-00849,Everyday Puzzle,Outdoors,141.19,false,
+SKU-00850,Everyday Grinder,Outdoors,249.04,true,
+SKU-00851,Rustic Kettle,Kitchen,67.57,true,25
+SKU-00852,Classic Trowel,Stationery,106.1,true,
+SKU-00853,Portable Kettle,Toys,40.65,false,
+SKU-00854,Rapid Yoga Mat,Fitness,13.26,true,
+SKU-00855,Deluxe Backpack,Fitness,84.23,true,
+SKU-00856,Compact Speaker,Garden,153.75,true,
+SKU-00857,Rapid Grinder,Office,236.13,true,46
+SKU-00858,Rapid Kettle,Stationery,58.76,true,
+SKU-00859,Modular Tent,Toys,238.45,true,
+SKU-00860,Rapid Yoga Mat,Office,230.25,true,
+SKU-00861,Ergonomic Speaker,Garden,227.72,false,
+SKU-00862,Rustic Puzzle,Kitchen,113.99,true,27
+SKU-00863,Ergonomic Backpack,Outdoors,183.96,true,
+SKU-00864,Everyday Grinder,Outdoors,238.33,true,
+SKU-00865,Compact Puzzle,Fitness,147.5,true,39
+SKU-00866,Rapid Kettle,Fitness,37.22,true,
+SKU-00867,Ergonomic Puzzle,Stationery,15.57,true,
+SKU-00868,Deluxe Kettle,Office,240.06,false,
+SKU-00869,Classic Speaker,Office,118.42,true,8
+SKU-00870,Deluxe Desk Lamp,Kitchen,92.66,true,44
+SKU-00871,Portable Backpack,Stationery,105.5,true,
+SKU-00872,Modular Trowel,Fitness,18.33,true,
+SKU-00873,Ergonomic Kettle,Toys,132.8,false,
+SKU-00874,Modular Notebook,Electronics,246.91,true,24
+SKU-00875,Ergonomic Puzzle,Stationery,203.75,false,11
+SKU-00876,Rustic Speaker,Garden,186.26,true,14
+SKU-00877,Rapid Puzzle,Garden,129.03,true,5
+SKU-00878,Ultra Yoga Mat,Toys,185.55,false,17
+SKU-00879,Classic Notebook,Office,68.83,true,
+SKU-00880,Everyday Notebook,Toys,32.19,true,
+SKU-00881,Ultra Yoga Mat,Kitchen,247.11,true,
+SKU-00882,Modular Kettle,Stationery,21.39,true,
+SKU-00883,Modular Tent,Office,90.93,false,44
+SKU-00884,Compact Desk Lamp,Fitness,140.79,true,45
+SKU-00885,Ultra Trowel,Kitchen,190.15,true,37
+SKU-00886,Portable Desk Lamp,Office,122.87,true,
+SKU-00887,Ultra Tent,Stationery,143.71,true,
+SKU-00888,Everyday Grinder,Fitness,108.86,true,34
+SKU-00889,Compact Speaker,Electronics,42.69,true,
+SKU-00890,Ergonomic Backpack,Office,146.99,true,27
+SKU-00891,Modular Grinder,Electronics,85.57,true,7
+SKU-00892,Ergonomic Trowel,Office,99.59,false,
+SKU-00893,Classic Desk Lamp,Electronics,227.12,true,
+SKU-00894,Rustic Trowel,Electronics,137.22,true,
+SKU-00895,Deluxe Kettle,Office,25.07,true,
+SKU-00896,Compact Kettle,Stationery,65.66,true,
+SKU-00897,Modular Desk Lamp,Electronics,208.4,true,
+SKU-00898,Ergonomic Notebook,Kitchen,67.21,true,
+SKU-00899,Everyday Puzzle,Outdoors,211.19,true,
+SKU-00900,Compact Yoga Mat,Stationery,11.41,true,11
+SKU-00901,Deluxe Grinder,Kitchen,175.75,false,
+SKU-00902,Portable Trowel,Outdoors,238.97,false,
+SKU-00903,Deluxe Puzzle,Toys,239.26,true,
+SKU-00904,Ultra Backpack,Garden,140.38,true,
+SKU-00905,Modular Puzzle,Fitness,58.33,true,
+SKU-00906,Rustic Puzzle,Fitness,187.57,true,
+SKU-00907,Classic Tent,Toys,152.84,false,
+SKU-00908,Ergonomic Yoga Mat,Fitness,166.28,true,
+SKU-00909,Classic Kettle,Toys,110.75,true,
+SKU-00910,Rustic Notebook,Stationery,37.66,true,
+SKU-00911,Classic Kettle,Garden,160.14,true,
+SKU-00912,Modular Grinder,Fitness,217.43,true,
+SKU-00913,Rapid Backpack,Garden,116.82,true,
+SKU-00914,Ergonomic Grinder,Stationery,25.89,true,
+SKU-00915,Compact Speaker,Toys,181.86,true,
+SKU-00916,Modular Desk Lamp,Outdoors,24.98,true,
+SKU-00917,Deluxe Backpack,Toys,152.89,true,
+SKU-00918,Modular Speaker,Stationery,80.21,true,21
+SKU-00919,Deluxe Tent,Outdoors,82.51,true,
+SKU-00920,Rustic Grinder,Garden,187.1,true,16
+SKU-00921,Ultra Trowel,Electronics,206.12,true,48
+SKU-00922,Deluxe Speaker,Toys,178.97,true,
+SKU-00923,Portable Yoga Mat,Electronics,48.73,true,
+SKU-00924,Rapid Kettle,Outdoors,148.82,true,
+SKU-00925,Compact Backpack,Stationery,189.97,true,
+SKU-00926,Deluxe Backpack,Electronics,112.17,true,
+SKU-00927,Rustic Speaker,Office,48.59,true,
+SKU-00928,Classic Kettle,Office,149.39,true,
+SKU-00929,Ultra Trowel,Toys,180.3,false,45
+SKU-00930,Deluxe Desk Lamp,Electronics,21.4,false,
+SKU-00931,Ergonomic Grinder,Outdoors,29.58,true,41
+SKU-00932,Portable Kettle,Electronics,146.05,true,32
+SKU-00933,Deluxe Grinder,Office,136.85,true,
+SKU-00934,Classic Kettle,Outdoors,178.43,true,
+SKU-00935,Classic Desk Lamp,Fitness,184.3,true,33
+SKU-00936,Classic Tent,Stationery,240.18,true,20
+SKU-00937,Portable Grinder,Office,102.02,true,
+SKU-00938,Ergonomic Yoga Mat,Toys,136.76,true,
+SKU-00939,Rustic Backpack,Office,205.84,true,
+SKU-00940,Portable Speaker,Toys,9.22,true,22
+SKU-00941,Everyday Trowel,Garden,126.09,false,41
+SKU-00942,Ultra Desk Lamp,Electronics,24.91,true,38
+SKU-00943,Compact Yoga Mat,Toys,123.25,false,26
+SKU-00944,Everyday Trowel,Toys,177.71,true,23
+SKU-00945,Everyday Kettle,Stationery,144.49,false,
+SKU-00946,Modular Puzzle,Fitness,136.66,true,
+SKU-00947,Classic Kettle,Stationery,238.26,true,
+SKU-00948,Deluxe Puzzle,Toys,192.05,true,
+SKU-00949,Ultra Desk Lamp,Stationery,101.93,true,
+SKU-00950,Deluxe Notebook,Office,129.09,true,
+SKU-00951,Rapid Speaker,Office,148.32,true,
+SKU-00952,Deluxe Backpack,Stationery,21.2,true,
+SKU-00953,Compact Speaker,Office,156.53,false,21
+SKU-00954,Rapid Grinder,Outdoors,145.38,true,
+SKU-00955,Deluxe Desk Lamp,Electronics,108.61,true,
+SKU-00956,Classic Yoga Mat,Fitness,78.99,true,
+SKU-00957,Compact Grinder,Electronics,152.28,false,
+SKU-00958,Deluxe Backpack,Stationery,143.02,false,
+SKU-00959,Compact Puzzle,Outdoors,101.92,true,18
+SKU-00960,Rapid Trowel,Stationery,33.75,true,
+SKU-00961,Classic Backpack,Outdoors,80.55,true,21
+SKU-00962,Modular Yoga Mat,Garden,42.68,true,33
+SKU-00963,Ergonomic Grinder,Office,26.6,true,
+SKU-00964,Modular Speaker,Electronics,41.75,false,
+SKU-00965,Deluxe Grinder,Outdoors,18.15,true,14
+SKU-00966,Deluxe Desk Lamp,Garden,149.29,false,
+SKU-00967,Portable Puzzle,Electronics,208.35,true,
+SKU-00968,Ultra Yoga Mat,Garden,89.49,true,
+SKU-00969,Classic Speaker,Toys,106.46,true,
+SKU-00970,Ergonomic Desk Lamp,Office,212.98,true,13
+SKU-00971,Everyday Notebook,Outdoors,180.05,true,
+SKU-00972,Ultra Backpack,Toys,100.33,true,43
+SKU-00973,Portable Kettle,Fitness,79.18,true,7
+SKU-00974,Ultra Trowel,Kitchen,82.33,true,
+SKU-00975,Rustic Yoga Mat,Electronics,139.33,false,29
+SKU-00976,Ergonomic Puzzle,Office,39.06,true,
+SKU-00977,Ultra Yoga Mat,Stationery,210.81,true,33
+SKU-00978,Deluxe Speaker,Stationery,127.98,true,18
+SKU-00979,Deluxe Desk Lamp,Electronics,15.82,true,50
+SKU-00980,Rustic Notebook,Office,39.47,true,12
+SKU-00981,Deluxe Puzzle,Garden,249.98,true,12
+SKU-00982,Rapid Kettle,Outdoors,187.14,true,16
+SKU-00983,Rapid Speaker,Kitchen,48.91,true,
+SKU-00984,Portable Notebook,Outdoors,197.27,true,34
+SKU-00985,Ergonomic Kettle,Toys,170.02,true,
+SKU-00986,Rapid Trowel,Fitness,114.34,false,17
+SKU-00987,Modular Tent,Toys,144.73,true,
+SKU-00988,Classic Yoga Mat,Office,208.74,true,
+SKU-00989,Deluxe Trowel,Electronics,164.07,true,
+SKU-00990,Deluxe Yoga Mat,Toys,171.23,true,38
+SKU-00991,Everyday Yoga Mat,Office,178.69,true,
+SKU-00992,Modular Grinder,Outdoors,190.24,true,
+SKU-00993,Rustic Kettle,Office,64.36,false,5
+SKU-00994,Modular Kettle,Electronics,130.73,false,
+SKU-00995,Ultra Trowel,Electronics,245.57,true,
+SKU-00996,Ergonomic Kettle,Fitness,225.22,true,41
+SKU-00997,Everyday Puzzle,Office,83.58,true,
+SKU-00998,Ergonomic Desk Lamp,Kitchen,183.22,false,17
+SKU-00999,Portable Backpack,Outdoors,76.46,true,
+SKU-01000,Everyday Desk Lamp,Kitchen,108.84,false,
+SKU-01001,Rustic Desk Lamp,Office,62,false,
+SKU-01002,Rustic Backpack,Garden,78.62,true,
+SKU-01003,Rapid Speaker,Electronics,208.28,false,49
+SKU-01004,Classic Puzzle,Garden,175.08,true,
+SKU-01005,Rustic Tent,Outdoors,72.77,true,
+SKU-01006,Rustic Desk Lamp,Kitchen,203.22,true,15
+SKU-01007,Rustic Speaker,Toys,146.46,false,
+SKU-01008,Deluxe Tent,Fitness,72.57,true,
+SKU-01009,Ergonomic Puzzle,Toys,124.17,true,
+SKU-01010,Rapid Kettle,Electronics,43.36,true,
+SKU-01011,Classic Notebook,Toys,49.97,true,28
+SKU-01012,Classic Notebook,Electronics,75.96,false,
+SKU-01013,Ultra Kettle,Outdoors,177.57,true,
+SKU-01014,Everyday Tent,Office,23.16,false,
+SKU-01015,Everyday Tent,Stationery,10.5,true,44
+SKU-01016,Deluxe Trowel,Office,95.19,true,
+SKU-01017,Rustic Yoga Mat,Office,18.82,true,31
+SKU-01018,Ergonomic Yoga Mat,Toys,144.87,true,42
+SKU-01019,Ultra Backpack,Stationery,93.53,true,
+SKU-01020,Rustic Speaker,Stationery,80.59,true,
+SKU-01021,Rapid Notebook,Electronics,75.58,false,
+SKU-01022,Portable Tent,Kitchen,116.07,true,
+SKU-01023,Portable Speaker,Toys,83.25,true,
+SKU-01024,Modular Trowel,Garden,48.32,true,42
+SKU-01025,Deluxe Grinder,Electronics,169.52,true,
+SKU-01026,Deluxe Backpack,Electronics,106.22,true,
+SKU-01027,Deluxe Trowel,Stationery,177.72,true,
+SKU-01028,Portable Speaker,Outdoors,222.64,true,
+SKU-01029,Ultra Speaker,Stationery,169.06,true,5
+SKU-01030,Deluxe Speaker,Toys,51.71,true,10
+SKU-01031,Compact Speaker,Office,60.99,true,
+SKU-01032,Ergonomic Kettle,Electronics,176.25,true,
+SKU-01033,Classic Desk Lamp,Fitness,120.92,true,
+SKU-01034,Compact Backpack,Outdoors,165.87,true,
+SKU-01035,Compact Desk Lamp,Office,116.56,true,
+SKU-01036,Deluxe Trowel,Stationery,96.96,true,
+SKU-01037,Everyday Yoga Mat,Garden,138.22,true,
+SKU-01038,Rustic Notebook,Garden,21.85,true,
+SKU-01039,Compact Tent,Outdoors,231.59,true,15
+SKU-01040,Modular Yoga Mat,Office,144.02,true,
+SKU-01041,Ultra Trowel,Kitchen,137.66,true,
+SKU-01042,Ultra Yoga Mat,Electronics,56.17,true,
+SKU-01043,Rustic Desk Lamp,Fitness,55.4,true,
+SKU-01044,Compact Grinder,Garden,86.5,true,
+SKU-01045,Rustic Speaker,Stationery,92.79,true,
+SKU-01046,Rustic Puzzle,Toys,78.99,true,
+SKU-01047,Ultra Grinder,Kitchen,184.47,true,
+SKU-01048,Rustic Backpack,Electronics,58.67,false,
+SKU-01049,Classic Desk Lamp,Toys,28.54,true,22
+SKU-01050,Portable Puzzle,Office,125.53,true,23
+SKU-01051,Portable Backpack,Stationery,30.1,true,22
+SKU-01052,Everyday Desk Lamp,Toys,103.57,true,
+SKU-01053,Modular Desk Lamp,Fitness,179.07,true,26
+SKU-01054,Portable Puzzle,Electronics,207.71,true,44
+SKU-01055,Rustic Desk Lamp,Fitness,178.74,true,
+SKU-01056,Rapid Tent,Fitness,63.59,true,5
+SKU-01057,Rapid Puzzle,Office,242.89,true,
+SKU-01058,Classic Tent,Garden,90.5,true,
+SKU-01059,Classic Puzzle,Garden,196.39,true,
+SKU-01060,Rapid Tent,Outdoors,79.62,true,
+SKU-01061,Compact Kettle,Fitness,64.42,true,
+SKU-01062,Ergonomic Notebook,Outdoors,121.01,true,
+SKU-01063,Modular Yoga Mat,Office,234.69,true,
+SKU-01064,Classic Notebook,Garden,202.81,true,29
+SKU-01065,Compact Puzzle,Fitness,109.94,false,
+SKU-01066,Rustic Grinder,Toys,198.43,true,
+SKU-01067,Classic Yoga Mat,Fitness,221.29,true,
+SKU-01068,Compact Yoga Mat,Toys,89.42,true,
+SKU-01069,Portable Tent,Outdoors,64.09,true,36
+SKU-01070,Portable Yoga Mat,Electronics,6.4,true,
+SKU-01071,Portable Yoga Mat,Garden,19.61,true,
+SKU-01072,Ergonomic Backpack,Toys,148.51,true,
+SKU-01073,Rapid Backpack,Fitness,248.23,true,
+SKU-01074,Everyday Speaker,Toys,108.24,true,11
+SKU-01075,Rapid Kettle,Stationery,174.46,true,
+SKU-01076,Ergonomic Yoga Mat,Stationery,50,true,
+SKU-01077,Deluxe Yoga Mat,Toys,39.62,true,
+SKU-01078,Classic Notebook,Outdoors,206,true,
+SKU-01079,Rapid Notebook,Toys,237.7,true,
+SKU-01080,Classic Trowel,Stationery,168.8,true,
+SKU-01081,Ergonomic Kettle,Electronics,186.83,true,20
+SKU-01082,Rapid Kettle,Outdoors,62.46,true,
+SKU-01083,Ultra Tent,Garden,235.58,true,
+SKU-01084,Everyday Speaker,Kitchen,135.51,true,16
+SKU-01085,Modular Speaker,Garden,111.46,true,
+SKU-01086,Deluxe Kettle,Garden,238.62,true,22
+SKU-01087,Everyday Tent,Toys,19.32,true,5
+SKU-01088,Modular Speaker,Kitchen,137.89,true,
+SKU-01089,Rustic Yoga Mat,Kitchen,197.22,true,35
+SKU-01090,Portable Puzzle,Toys,247.48,true,50
+SKU-01091,Ergonomic Notebook,Toys,118.61,true,
+SKU-01092,Everyday Backpack,Electronics,28.83,false,15
+SKU-01093,Portable Trowel,Office,159.07,false,7
+SKU-01094,Rapid Yoga Mat,Fitness,123.9,true,
+SKU-01095,Rapid Trowel,Garden,202.2,true,
+SKU-01096,Everyday Speaker,Garden,222.04,true,33
+SKU-01097,Rapid Tent,Fitness,54.77,false,10
+SKU-01098,Rapid Speaker,Outdoors,16.5,true,
+SKU-01099,Everyday Tent,Outdoors,150.72,true,
+SKU-01100,Modular Trowel,Electronics,137.83,true,26
+SKU-01101,Modular Grinder,Toys,186.87,true,
+SKU-01102,Ultra Speaker,Outdoors,190.27,true,
+SKU-01103,Modular Kettle,Stationery,47.72,true,
+SKU-01104,Ergonomic Kettle,Electronics,70.58,true,23
+SKU-01105,Everyday Desk Lamp,Toys,11.85,true,
+SKU-01106,Everyday Yoga Mat,Garden,38.41,true,
+SKU-01107,Everyday Trowel,Fitness,67.73,true,
+SKU-01108,Everyday Desk Lamp,Outdoors,104.85,true,
+SKU-01109,Deluxe Kettle,Fitness,76.76,true,
+SKU-01110,Ergonomic Tent,Outdoors,212.07,true,
+SKU-01111,Modular Yoga Mat,Office,86.16,true,
+SKU-01112,Classic Kettle,Stationery,68.34,true,
+SKU-01113,Ergonomic Speaker,Office,8.4,true,
+SKU-01114,Classic Grinder,Electronics,92.56,true,
+SKU-01115,Classic Grinder,Electronics,167.13,true,
+SKU-01116,Classic Speaker,Toys,217.05,true,
+SKU-01117,Ergonomic Kettle,Outdoors,240.77,true,
+SKU-01118,Ultra Tent,Office,222.91,true,
+SKU-01119,Rapid Grinder,Electronics,127.73,true,
+SKU-01120,Compact Grinder,Toys,247.45,true,
+SKU-01121,Ergonomic Kettle,Fitness,229.24,true,
+SKU-01122,Ergonomic Backpack,Stationery,55.73,true,
+SKU-01123,Rustic Trowel,Outdoors,57.13,true,
+SKU-01124,Rapid Yoga Mat,Toys,57.7,true,
+SKU-01125,Rapid Yoga Mat,Fitness,38.52,true,
+SKU-01126,Portable Desk Lamp,Office,122.69,true,
+SKU-01127,Rustic Trowel,Fitness,190.79,true,
+SKU-01128,Ultra Notebook,Garden,80.72,true,
+SKU-01129,Portable Yoga Mat,Kitchen,130.66,true,
+SKU-01130,Ergonomic Backpack,Kitchen,63.38,true,
+SKU-01131,Deluxe Desk Lamp,Toys,188.44,true,
+SKU-01132,Ultra Notebook,Garden,219.12,true,37
+SKU-01133,Modular Backpack,Garden,131.01,true,
+SKU-01134,Rustic Tent,Kitchen,81.11,true,45
+SKU-01135,Rustic Puzzle,Fitness,88.55,true,
+SKU-01136,Deluxe Notebook,Garden,97.31,true,
+SKU-01137,Ultra Kettle,Stationery,95.2,false,
+SKU-01138,Deluxe Yoga Mat,Electronics,93.18,true,
+SKU-01139,Rapid Backpack,Garden,244,true,
+SKU-01140,Everyday Trowel,Electronics,156.02,true,
+SKU-01141,Deluxe Notebook,Electronics,119,false,
+SKU-01142,Modular Puzzle,Outdoors,35.69,false,5
+SKU-01143,Rustic Desk Lamp,Toys,45.47,false,
+SKU-01144,Modular Backpack,Electronics,165.91,true,
+SKU-01145,Ergonomic Puzzle,Fitness,108.06,true,
+SKU-01146,Portable Backpack,Kitchen,221.75,true,
+SKU-01147,Ergonomic Tent,Kitchen,215.53,true,37
+SKU-01148,Rustic Kettle,Stationery,133.68,true,
+SKU-01149,Ergonomic Tent,Kitchen,40.47,true,
+SKU-01150,Classic Puzzle,Garden,95.31,true,16
+SKU-01151,Portable Puzzle,Toys,167.91,true,40
+SKU-01152,Classic Notebook,Outdoors,51.08,true,
+SKU-01153,Everyday Trowel,Garden,89.55,true,
+SKU-01154,Everyday Grinder,Kitchen,134.05,true,
+SKU-01155,Classic Trowel,Stationery,135.59,true,
+SKU-01156,Classic Kettle,Kitchen,38.95,true,
+SKU-01157,Deluxe Notebook,Electronics,91.6,true,
+SKU-01158,Modular Trowel,Stationery,139.67,true,
+SKU-01159,Portable Speaker,Office,27.85,true,
+SKU-01160,Modular Puzzle,Stationery,96.17,true,
+SKU-01161,Ergonomic Desk Lamp,Outdoors,35.38,true,
+SKU-01162,Ergonomic Tent,Fitness,221.64,true,
+SKU-01163,Classic Grinder,Garden,136.67,true,7
+SKU-01164,Ergonomic Backpack,Office,149.84,true,
+SKU-01165,Ultra Trowel,Garden,229.24,true,
+SKU-01166,Classic Speaker,Stationery,30.5,false,
+SKU-01167,Ultra Notebook,Toys,79.48,true,44
+SKU-01168,Everyday Desk Lamp,Garden,49.36,true,
+SKU-01169,Classic Yoga Mat,Stationery,41.81,true,
+SKU-01170,Ultra Puzzle,Electronics,233.12,true,
+SKU-01171,Portable Kettle,Outdoors,138.16,true,
+SKU-01172,Everyday Notebook,Kitchen,139.71,true,
+SKU-01173,Portable Notebook,Stationery,48.44,true,38
+SKU-01174,Everyday Notebook,Garden,104.37,true,35
+SKU-01175,Deluxe Backpack,Stationery,183.94,true,45
+SKU-01176,Compact Yoga Mat,Fitness,176.75,true,
+SKU-01177,Compact Kettle,Outdoors,194.18,true,
+SKU-01178,Rustic Yoga Mat,Fitness,9.18,true,
+SKU-01179,Everyday Speaker,Kitchen,49.35,true,43
+SKU-01180,Portable Yoga Mat,Garden,211.1,true,
+SKU-01181,Rapid Kettle,Toys,51.42,true,
+SKU-01182,Portable Kettle,Stationery,217.5,false,
+SKU-01183,Compact Grinder,Stationery,36.48,false,
+SKU-01184,Rustic Backpack,Toys,165.52,true,
+SKU-01185,Compact Speaker,Fitness,38.24,false,
+SKU-01186,Rustic Backpack,Toys,130.56,true,10
+SKU-01187,Rapid Speaker,Office,200.25,false,
+SKU-01188,Everyday Trowel,Stationery,193.65,false,28
+SKU-01189,Compact Desk Lamp,Stationery,33.32,true,28
+SKU-01190,Classic Tent,Fitness,27.22,true,
+SKU-01191,Modular Tent,Garden,143.91,false,
+SKU-01192,Ergonomic Desk Lamp,Toys,236.53,true,
+SKU-01193,Rapid Desk Lamp,Garden,164.2,false,22
+SKU-01194,Modular Desk Lamp,Office,121.32,false,27
+SKU-01195,Ergonomic Yoga Mat,Outdoors,20.57,false,
+SKU-01196,Modular Tent,Electronics,116.31,true,
+SKU-01197,Everyday Kettle,Stationery,100.86,true,
+SKU-01198,Classic Grinder,Kitchen,217.36,true,8
+SKU-01199,Deluxe Trowel,Fitness,188.12,true,
+SKU-01200,Compact Backpack,Outdoors,20.4,true,
+SKU-01201,Rustic Desk Lamp,Garden,125.92,true,
+SKU-01202,Compact Trowel,Kitchen,36.96,true,
+SKU-01203,Modular Grinder,Office,87.8,true,
+SKU-01204,Compact Backpack,Stationery,93.43,true,
+SKU-01205,Everyday Backpack,Kitchen,103.44,true,21
+SKU-01206,Portable Yoga Mat,Kitchen,123.63,true,
+SKU-01207,Rapid Puzzle,Toys,20.31,true,7
+SKU-01208,Portable Trowel,Stationery,170.01,true,
+SKU-01209,Rapid Notebook,Office,194.65,true,
+SKU-01210,Ultra Grinder,Garden,108.33,true,
+SKU-01211,Everyday Puzzle,Garden,228.03,true,34
+SKU-01212,Ultra Kettle,Office,141.15,true,
+SKU-01213,Everyday Puzzle,Fitness,80.29,true,24
+SKU-01214,Classic Yoga Mat,Toys,136.37,false,
+SKU-01215,Classic Notebook,Fitness,155.43,true,
+SKU-01216,Ultra Notebook,Outdoors,225.45,true,
+SKU-01217,Ultra Puzzle,Kitchen,205.1,true,
+SKU-01218,Compact Speaker,Toys,106.99,false,
+SKU-01219,Compact Notebook,Kitchen,88.13,true,
+SKU-01220,Deluxe Trowel,Office,190.46,true,39
+SKU-01221,Portable Notebook,Stationery,151.84,true,
+SKU-01222,Ultra Kettle,Stationery,177.46,true,
+SKU-01223,Compact Tent,Stationery,86.44,true,43
+SKU-01224,Portable Desk Lamp,Garden,224.32,true,
+SKU-01225,Rustic Notebook,Garden,175.87,true,
+SKU-01226,Modular Desk Lamp,Stationery,157.34,false,
+SKU-01227,Classic Yoga Mat,Garden,161.49,true,
+SKU-01228,Classic Desk Lamp,Garden,16.53,true,
+SKU-01229,Compact Kettle,Office,77.44,true,
+SKU-01230,Rustic Backpack,Garden,153.05,true,
+SKU-01231,Compact Kettle,Electronics,218.76,false,
+SKU-01232,Ergonomic Grinder,Office,220.99,true,32
+SKU-01233,Deluxe Speaker,Office,196.11,true,
+SKU-01234,Ergonomic Notebook,Office,196.96,true,37
+SKU-01235,Ultra Desk Lamp,Electronics,138.54,true,
+SKU-01236,Everyday Desk Lamp,Electronics,94.32,true,
+SKU-01237,Rustic Kettle,Toys,194.17,false,
+SKU-01238,Rapid Grinder,Garden,52.85,false,
+SKU-01239,Portable Tent,Fitness,123.32,true,
+SKU-01240,Ultra Tent,Office,90.64,true,
+SKU-01241,Ultra Yoga Mat,Electronics,46.65,true,
+SKU-01242,Modular Yoga Mat,Outdoors,13.74,true,
+SKU-01243,Portable Puzzle,Outdoors,67.26,true,
+SKU-01244,Modular Kettle,Kitchen,152.72,true,38
+SKU-01245,Deluxe Speaker,Office,173.32,true,
+SKU-01246,Compact Tent,Stationery,192.29,true,
+SKU-01247,Ergonomic Kettle,Kitchen,46.75,true,11
+SKU-01248,Modular Grinder,Electronics,95.27,true,
+SKU-01249,Portable Speaker,Fitness,55.69,true,
+SKU-01250,Everyday Notebook,Toys,109.56,false,
+SKU-01251,Portable Kettle,Office,135.61,true,
+SKU-01252,Modular Trowel,Garden,180.12,true,
+SKU-01253,Compact Backpack,Fitness,11.15,true,
+SKU-01254,Deluxe Trowel,Kitchen,109.28,true,
+SKU-01255,Deluxe Tent,Toys,16.32,true,46
+SKU-01256,Everyday Backpack,Toys,11.83,false,21
+SKU-01257,Compact Backpack,Fitness,120.07,false,
+SKU-01258,Ultra Grinder,Garden,148.27,true,50
+SKU-01259,Deluxe Notebook,Kitchen,163.77,true,
+SKU-01260,Ultra Speaker,Garden,42.58,true,21
+SKU-01261,Classic Tent,Toys,128.13,false,
+SKU-01262,Compact Speaker,Electronics,98.47,true,12
+SKU-01263,Classic Trowel,Outdoors,208.48,false,50
+SKU-01264,Deluxe Backpack,Toys,68.43,false,38
+SKU-01265,Portable Notebook,Stationery,160.28,true,36
+SKU-01266,Modular Desk Lamp,Office,237.88,true,
+SKU-01267,Deluxe Trowel,Electronics,141.6,true,
+SKU-01268,Classic Backpack,Stationery,222.53,true,
+SKU-01269,Portable Speaker,Garden,50.8,false,
+SKU-01270,Deluxe Trowel,Electronics,107.65,true,
+SKU-01271,Ergonomic Speaker,Toys,218.03,true,20
+SKU-01272,Portable Puzzle,Garden,248.87,true,
+SKU-01273,Classic Speaker,Fitness,247.65,true,40
+SKU-01274,Everyday Tent,Outdoors,185.41,true,
+SKU-01275,Ergonomic Trowel,Office,42.38,true,
+SKU-01276,Compact Kettle,Toys,89.92,false,12
+SKU-01277,Rustic Notebook,Office,165.03,true,
+SKU-01278,Everyday Trowel,Toys,240.21,true,
+SKU-01279,Classic Kettle,Toys,26.94,false,
+SKU-01280,Rapid Tent,Electronics,218.83,true,
+SKU-01281,Ergonomic Backpack,Kitchen,189.64,true,
+SKU-01282,Modular Trowel,Stationery,168.16,true,31
+SKU-01283,Deluxe Kettle,Electronics,160.11,false,12
+SKU-01284,Portable Puzzle,Outdoors,223.9,true,27
+SKU-01285,Portable Tent,Office,103.38,true,
+SKU-01286,Rustic Notebook,Kitchen,187.21,true,21
+SKU-01287,Modular Backpack,Garden,78.83,true,12
+SKU-01288,Deluxe Puzzle,Kitchen,5.58,true,
+SKU-01289,Ergonomic Desk Lamp,Fitness,233.59,true,
+SKU-01290,Portable Desk Lamp,Electronics,45.41,true,
+SKU-01291,Ultra Desk Lamp,Toys,43.27,true,
+SKU-01292,Ergonomic Yoga Mat,Stationery,29.42,true,
+SKU-01293,Rapid Speaker,Stationery,16.5,false,
+SKU-01294,Deluxe Backpack,Office,106.24,true,
+SKU-01295,Deluxe Yoga Mat,Kitchen,187.12,true,
+SKU-01296,Classic Tent,Stationery,78.99,true,10
+SKU-01297,Deluxe Speaker,Office,100.6,false,
+SKU-01298,Ultra Backpack,Kitchen,7,true,
+SKU-01299,Everyday Grinder,Kitchen,180.72,true,
+SKU-01300,Ultra Grinder,Kitchen,16.9,true,35
+SKU-01301,Rapid Kettle,Kitchen,54.16,true,11
+SKU-01302,Modular Puzzle,Kitchen,226.71,true,
+SKU-01303,Ultra Notebook,Outdoors,62.79,true,33
+SKU-01304,Rapid Notebook,Fitness,84.67,true,
+SKU-01305,Ultra Speaker,Fitness,92.37,true,12
+SKU-01306,Everyday Puzzle,Electronics,12.48,true,22
+SKU-01307,Classic Puzzle,Electronics,163.12,true,11
+SKU-01308,Rapid Speaker,Outdoors,102.47,true,9
+SKU-01309,Modular Yoga Mat,Toys,50.71,true,
+SKU-01310,Ultra Speaker,Garden,156.97,true,30
+SKU-01311,Everyday Notebook,Toys,175.25,true,
+SKU-01312,Compact Speaker,Electronics,112.49,false,
+SKU-01313,Deluxe Speaker,Toys,245.82,true,16
+SKU-01314,Rustic Backpack,Toys,56.14,true,
+SKU-01315,Deluxe Kettle,Office,202.86,true,42
+SKU-01316,Compact Yoga Mat,Garden,130.93,true,
+SKU-01317,Modular Yoga Mat,Electronics,247.2,true,5
+SKU-01318,Ergonomic Notebook,Toys,151.32,true,
+SKU-01319,Modular Tent,Fitness,81.33,true,43
+SKU-01320,Rapid Grinder,Kitchen,219.21,true,
+SKU-01321,Everyday Desk Lamp,Fitness,28.61,true,
+SKU-01322,Classic Notebook,Office,230.54,false,
+SKU-01323,Portable Tent,Fitness,81.7,true,
+SKU-01324,Deluxe Kettle,Electronics,89.93,false,
+SKU-01325,Everyday Tent,Kitchen,160.33,true,
+SKU-01326,Rapid Notebook,Outdoors,10.86,true,
+SKU-01327,Ergonomic Tent,Office,131.46,true,
+SKU-01328,Everyday Kettle,Kitchen,57.11,true,
+SKU-01329,Rustic Desk Lamp,Garden,63.93,true,
+SKU-01330,Portable Grinder,Fitness,173.42,true,30
+SKU-01331,Deluxe Trowel,Office,65.89,true,30
+SKU-01332,Rustic Speaker,Electronics,194.47,true,26
+SKU-01333,Deluxe Tent,Garden,169.05,true,
+SKU-01334,Portable Grinder,Fitness,96.3,true,48
+SKU-01335,Portable Yoga Mat,Kitchen,227.97,true,
+SKU-01336,Rapid Tent,Garden,213.69,true,18
+SKU-01337,Rapid Tent,Garden,140.14,true,
+SKU-01338,Ergonomic Desk Lamp,Stationery,81.06,true,31
+SKU-01339,Portable Speaker,Toys,99.79,true,40
+SKU-01340,Ergonomic Desk Lamp,Kitchen,186.74,true,
+SKU-01341,Ergonomic Puzzle,Stationery,121.87,true,45
+SKU-01342,Rustic Backpack,Electronics,197.21,true,
+SKU-01343,Modular Kettle,Kitchen,241.87,true,
+SKU-01344,Ergonomic Grinder,Fitness,118.08,true,
+SKU-01345,Compact Tent,Stationery,155.53,true,7
+SKU-01346,Rustic Tent,Toys,159.87,true,14
+SKU-01347,Ultra Desk Lamp,Stationery,92.73,false,
+SKU-01348,Compact Backpack,Outdoors,51.77,true,
+SKU-01349,Rapid Desk Lamp,Garden,230.9,false,
+SKU-01350,Modular Trowel,Electronics,6.33,true,
+SKU-01351,Everyday Grinder,Electronics,113.77,true,
+SKU-01352,Portable Trowel,Electronics,138.78,true,
+SKU-01353,Compact Kettle,Kitchen,179.7,true,
+SKU-01354,Ergonomic Yoga Mat,Stationery,184.67,true,
+SKU-01355,Modular Backpack,Electronics,131.27,false,
+SKU-01356,Rustic Backpack,Toys,50.16,true,17
+SKU-01357,Modular Tent,Garden,174.45,true,17
+SKU-01358,Portable Tent,Office,171.8,true,24
+SKU-01359,Portable Backpack,Office,152,true,
+SKU-01360,Ergonomic Backpack,Toys,53.57,true,
+SKU-01361,Ergonomic Grinder,Outdoors,197.81,true,18
+SKU-01362,Portable Speaker,Fitness,13.32,true,
+SKU-01363,Classic Grinder,Toys,12.51,true,
+SKU-01364,Rustic Speaker,Outdoors,123.97,true,14
+SKU-01365,Portable Kettle,Outdoors,219.16,true,
+SKU-01366,Deluxe Desk Lamp,Garden,7.76,true,
+SKU-01367,Rapid Yoga Mat,Office,16.54,true,
+SKU-01368,Compact Trowel,Stationery,185.43,true,
+SKU-01369,Deluxe Puzzle,Kitchen,105.91,true,
+SKU-01370,Portable Notebook,Kitchen,122.05,true,
+SKU-01371,Rapid Puzzle,Kitchen,132.62,true,
+SKU-01372,Compact Backpack,Stationery,191.28,true,
+SKU-01373,Ergonomic Speaker,Electronics,187.9,true,42
+SKU-01374,Deluxe Desk Lamp,Garden,57.25,true,38
+SKU-01375,Classic Backpack,Garden,222.06,true,30
+SKU-01376,Modular Kettle,Outdoors,184.97,true,
+SKU-01377,Rapid Yoga Mat,Electronics,133.68,true,30
+SKU-01378,Ergonomic Puzzle,Fitness,110.82,true,
+SKU-01379,Classic Trowel,Garden,233.8,false,14
+SKU-01380,Everyday Desk Lamp,Electronics,176.22,false,
+SKU-01381,Ergonomic Grinder,Toys,58.86,true,
+SKU-01382,Modular Trowel,Office,191.62,true,
+SKU-01383,Classic Speaker,Garden,199.46,true,
+SKU-01384,Ultra Tent,Fitness,142.56,false,30
+SKU-01385,Portable Trowel,Garden,38.47,true,
+SKU-01386,Everyday Speaker,Electronics,131.17,true,
+SKU-01387,Rapid Trowel,Electronics,164.62,false,
+SKU-01388,Modular Puzzle,Electronics,124.03,true,
+SKU-01389,Rustic Trowel,Office,95.75,false,
+SKU-01390,Compact Trowel,Outdoors,210.2,true,49
+SKU-01391,Ergonomic Kettle,Kitchen,216.79,true,44
+SKU-01392,Everyday Trowel,Kitchen,89.76,false,
+SKU-01393,Everyday Puzzle,Office,123.29,true,
+SKU-01394,Rapid Tent,Garden,54.69,false,42
+SKU-01395,Everyday Yoga Mat,Office,223.94,true,48
+SKU-01396,Everyday Kettle,Kitchen,197.74,true,
+SKU-01397,Ultra Grinder,Garden,237.42,true,
+SKU-01398,Rustic Grinder,Electronics,221.4,false,
+SKU-01399,Portable Desk Lamp,Stationery,159.37,true,
+SKU-01400,Portable Speaker,Toys,190.37,true,
+SKU-01401,Rapid Yoga Mat,Outdoors,32.91,true,
+SKU-01402,Ultra Puzzle,Electronics,200.63,false,
+SKU-01403,Ergonomic Notebook,Outdoors,57.64,true,44
+SKU-01404,Compact Trowel,Office,16.91,true,
+SKU-01405,Ultra Desk Lamp,Kitchen,41.97,true,
+SKU-01406,Everyday Grinder,Kitchen,16.48,true,
+SKU-01407,Ultra Trowel,Toys,193.82,true,
+SKU-01408,Deluxe Grinder,Office,61.06,true,
+SKU-01409,Portable Backpack,Toys,21.31,true,27
+SKU-01410,Everyday Backpack,Kitchen,52.53,true,41
+SKU-01411,Everyday Backpack,Fitness,12.45,true,20
+SKU-01412,Deluxe Grinder,Garden,27.14,true,40
+SKU-01413,Modular Trowel,Office,170.71,false,
+SKU-01414,Everyday Tent,Kitchen,232.22,true,
+SKU-01415,Portable Notebook,Fitness,31.78,true,46
+SKU-01416,Modular Grinder,Garden,101.16,false,
+SKU-01417,Rustic Notebook,Office,129.67,true,39
+SKU-01418,Deluxe Backpack,Electronics,29.66,false,
+SKU-01419,Rustic Grinder,Electronics,205.99,false,
+SKU-01420,Rapid Puzzle,Outdoors,88.89,true,
+SKU-01421,Classic Notebook,Stationery,26.34,true,
+SKU-01422,Classic Yoga Mat,Fitness,249.65,true,
+SKU-01423,Deluxe Kettle,Fitness,164.89,true,
+SKU-01424,Everyday Desk Lamp,Outdoors,63.91,true,41
+SKU-01425,Compact Trowel,Fitness,62.22,true,30
+SKU-01426,Compact Yoga Mat,Kitchen,249.07,true,
+SKU-01427,Ultra Kettle,Kitchen,226.43,true,
+SKU-01428,Rustic Puzzle,Electronics,34,true,
+SKU-01429,Ergonomic Speaker,Electronics,228.54,true,18
+SKU-01430,Portable Trowel,Fitness,45.31,true,
+SKU-01431,Everyday Trowel,Garden,174.5,true,46
+SKU-01432,Everyday Speaker,Fitness,144.32,true,
+SKU-01433,Modular Notebook,Toys,69.02,true,
+SKU-01434,Modular Tent,Fitness,33.69,true,
+SKU-01435,Compact Speaker,Electronics,102.47,true,16
+SKU-01436,Compact Tent,Outdoors,133.21,false,
+SKU-01437,Portable Tent,Stationery,127.78,true,
+SKU-01438,Classic Notebook,Garden,160.68,true,7
+SKU-01439,Deluxe Backpack,Outdoors,198.75,true,
+SKU-01440,Rapid Puzzle,Garden,71.01,true,
+SKU-01441,Compact Desk Lamp,Toys,19.65,true,
+SKU-01442,Deluxe Backpack,Fitness,49.34,true,
+SKU-01443,Ergonomic Yoga Mat,Kitchen,92.03,true,
+SKU-01444,Classic Grinder,Outdoors,192.07,true,26
+SKU-01445,Ultra Desk Lamp,Fitness,87.34,true,
+SKU-01446,Ergonomic Tent,Electronics,106.03,false,
+SKU-01447,Rapid Grinder,Toys,26.57,true,
+SKU-01448,Ultra Speaker,Kitchen,167.32,false,49
+SKU-01449,Rustic Kettle,Garden,47.48,true,
+SKU-01450,Rapid Grinder,Office,119.93,true,
+SKU-01451,Ergonomic Notebook,Kitchen,185.39,true,
+SKU-01452,Ultra Trowel,Electronics,132.97,true,
+SKU-01453,Modular Backpack,Toys,66.48,true,20
+SKU-01454,Classic Kettle,Garden,196.08,true,27
+SKU-01455,Portable Notebook,Stationery,113.16,true,
+SKU-01456,Everyday Kettle,Garden,58.23,false,
+SKU-01457,Portable Speaker,Garden,109.43,true,
+SKU-01458,Compact Speaker,Toys,242.47,true,
+SKU-01459,Rapid Puzzle,Garden,237.21,false,
+SKU-01460,Rapid Kettle,Garden,91.86,true,
+SKU-01461,Portable Puzzle,Electronics,134.47,true,
+SKU-01462,Portable Notebook,Garden,88.81,true,
+SKU-01463,Deluxe Trowel,Garden,185.46,true,
+SKU-01464,Everyday Speaker,Electronics,92.8,true,13
+SKU-01465,Rustic Yoga Mat,Fitness,205.34,true,15
+SKU-01466,Ergonomic Yoga Mat,Toys,47.33,true,
+SKU-01467,Everyday Tent,Office,187.36,true,
+SKU-01468,Compact Speaker,Garden,225.2,true,18
+SKU-01469,Deluxe Puzzle,Office,130,true,
+SKU-01470,Ergonomic Grinder,Toys,231.15,false,36
+SKU-01471,Rustic Kettle,Kitchen,116.45,false,
+SKU-01472,Ultra Speaker,Toys,66.58,true,
+SKU-01473,Ultra Speaker,Kitchen,152.05,true,
+SKU-01474,Portable Tent,Stationery,151.08,true,15
+SKU-01475,Classic Tent,Electronics,42.44,true,
+SKU-01476,Everyday Notebook,Kitchen,125.28,false,8
+SKU-01477,Rapid Tent,Outdoors,186.66,true,26
+SKU-01478,Classic Desk Lamp,Fitness,86.96,true,
+SKU-01479,Portable Yoga Mat,Fitness,232.61,true,
+SKU-01480,Portable Backpack,Stationery,37.11,true,
+SKU-01481,Ultra Yoga Mat,Garden,83.6,true,
+SKU-01482,Ultra Tent,Stationery,69.27,true,
+SKU-01483,Everyday Trowel,Stationery,103.09,false,
+SKU-01484,Modular Speaker,Toys,231.49,true,27
+SKU-01485,Deluxe Grinder,Kitchen,18.41,true,38
+SKU-01486,Portable Kettle,Stationery,193.83,true,12
+SKU-01487,Compact Kettle,Outdoors,203.46,false,45
+SKU-01488,Portable Kettle,Kitchen,101.8,true,42
+SKU-01489,Ergonomic Desk Lamp,Office,12.13,true,
+SKU-01490,Rapid Grinder,Electronics,168.82,true,
+SKU-01491,Classic Yoga Mat,Toys,34.33,false,13
+SKU-01492,Rapid Notebook,Stationery,74.39,true,11
+SKU-01493,Everyday Kettle,Outdoors,33.79,true,
+SKU-01494,Everyday Grinder,Office,61.25,true,
+SKU-01495,Deluxe Yoga Mat,Stationery,80.08,true,
+SKU-01496,Portable Trowel,Outdoors,7.77,true,
+SKU-01497,Portable Kettle,Electronics,84.46,true,
+SKU-01498,Ergonomic Puzzle,Outdoors,77.06,true,
+SKU-01499,Portable Grinder,Office,49.34,true,
+SKU-01500,Portable Kettle,Toys,183.46,true,35
+SKU-01501,Rapid Notebook,Office,129.55,false,22
+SKU-01502,Portable Kettle,Toys,17.7,true,17
+SKU-01503,Rustic Trowel,Toys,16.14,true,34
+SKU-01504,Ultra Kettle,Toys,69.84,true,45
+SKU-01505,Portable Grinder,Outdoors,129.01,false,
+SKU-01506,Classic Desk Lamp,Electronics,212.45,true,
+SKU-01507,Compact Backpack,Electronics,220.38,true,
+SKU-01508,Compact Backpack,Outdoors,166.65,true,
+SKU-01509,Rapid Speaker,Stationery,130.44,true,
+SKU-01510,Ergonomic Yoga Mat,Toys,119.63,true,
+SKU-01511,Classic Speaker,Office,124.98,true,24
+SKU-01512,Ergonomic Speaker,Office,67.19,true,
+SKU-01513,Everyday Backpack,Kitchen,55.26,false,
+SKU-01514,Portable Trowel,Garden,219.05,true,
+SKU-01515,Classic Speaker,Toys,144.25,true,18
+SKU-01516,Ultra Tent,Office,166.39,true,
+SKU-01517,Classic Puzzle,Office,126.19,true,37
+SKU-01518,Compact Trowel,Kitchen,180.23,true,
+SKU-01519,Deluxe Speaker,Office,33.9,true,
+SKU-01520,Deluxe Yoga Mat,Office,142.69,false,
+SKU-01521,Portable Speaker,Garden,211.14,true,
+SKU-01522,Modular Puzzle,Office,244.9,false,
+SKU-01523,Portable Puzzle,Toys,132.49,false,33
+SKU-01524,Deluxe Yoga Mat,Fitness,25.14,true,27
+SKU-01525,Classic Grinder,Toys,207.73,true,
+SKU-01526,Portable Notebook,Fitness,111.53,false,
+SKU-01527,Deluxe Desk Lamp,Toys,224.62,true,22
+SKU-01528,Ergonomic Notebook,Outdoors,50.94,true,
+SKU-01529,Rapid Tent,Kitchen,10.21,false,
+SKU-01530,Classic Grinder,Kitchen,34.26,true,49
+SKU-01531,Compact Desk Lamp,Garden,38.59,true,
+SKU-01532,Modular Speaker,Toys,245.94,true,
+SKU-01533,Rustic Desk Lamp,Kitchen,159.78,true,
+SKU-01534,Rapid Notebook,Garden,16.12,true,
+SKU-01535,Deluxe Trowel,Garden,91.83,true,
+SKU-01536,Ergonomic Desk Lamp,Stationery,187.93,true,42
+SKU-01537,Compact Speaker,Kitchen,13.91,true,
+SKU-01538,Rustic Tent,Toys,198.09,true,
+SKU-01539,Portable Yoga Mat,Electronics,103.37,true,
+SKU-01540,Classic Yoga Mat,Stationery,53.87,true,17
+SKU-01541,Classic Backpack,Toys,167.31,false,
+SKU-01542,Modular Backpack,Toys,230.9,true,
+SKU-01543,Portable Tent,Fitness,158.84,true,7
+SKU-01544,Modular Grinder,Stationery,133.34,false,
+SKU-01545,Ergonomic Speaker,Electronics,108.38,true,
+SKU-01546,Rustic Backpack,Electronics,123.31,true,
+SKU-01547,Ultra Yoga Mat,Kitchen,156.21,true,
+SKU-01548,Rapid Desk Lamp,Toys,189.07,true,
+SKU-01549,Ultra Puzzle,Garden,183.95,true,44
+SKU-01550,Classic Kettle,Outdoors,139.6,true,
+SKU-01551,Rustic Trowel,Fitness,59.6,true,
+SKU-01552,Modular Puzzle,Outdoors,109.45,true,
+SKU-01553,Ultra Grinder,Toys,14.26,true,
+SKU-01554,Rapid Backpack,Outdoors,229.45,true,45
+SKU-01555,Everyday Tent,Stationery,90.44,true,
+SKU-01556,Modular Puzzle,Outdoors,221.16,true,14
+SKU-01557,Ergonomic Tent,Stationery,214.3,true,
+SKU-01558,Portable Puzzle,Toys,233.36,true,
+SKU-01559,Modular Backpack,Office,73.97,false,8
+SKU-01560,Modular Desk Lamp,Office,151.27,true,
+SKU-01561,Classic Yoga Mat,Outdoors,12.66,true,
+SKU-01562,Ultra Tent,Office,34.33,true,
+SKU-01563,Deluxe Yoga Mat,Fitness,178.89,false,
+SKU-01564,Modular Speaker,Garden,158.11,true,
+SKU-01565,Deluxe Kettle,Garden,218.43,true,11
+SKU-01566,Compact Trowel,Electronics,20.59,true,19
+SKU-01567,Portable Speaker,Fitness,55.61,false,
+SKU-01568,Rapid Grinder,Outdoors,94.26,true,12
+SKU-01569,Classic Puzzle,Garden,107.23,false,9
+SKU-01570,Everyday Tent,Stationery,214.29,false,42
+SKU-01571,Ultra Tent,Garden,70.8,true,43
+SKU-01572,Compact Yoga Mat,Stationery,138.19,true,
+SKU-01573,Compact Backpack,Kitchen,96.72,true,35
+SKU-01574,Everyday Puzzle,Kitchen,237.13,true,11
+SKU-01575,Modular Desk Lamp,Outdoors,37.87,false,
+SKU-01576,Rustic Grinder,Outdoors,100.88,false,47
+SKU-01577,Portable Notebook,Electronics,159.07,true,
+SKU-01578,Modular Grinder,Kitchen,81.31,true,
+SKU-01579,Modular Desk Lamp,Toys,59,true,
+SKU-01580,Ergonomic Yoga Mat,Electronics,158.82,true,
+SKU-01581,Deluxe Yoga Mat,Electronics,243.21,true,
+SKU-01582,Compact Desk Lamp,Outdoors,84.48,false,24
+SKU-01583,Compact Grinder,Office,7.26,true,38
+SKU-01584,Modular Desk Lamp,Electronics,181.27,true,
+SKU-01585,Compact Yoga Mat,Office,81.1,true,17
+SKU-01586,Ultra Speaker,Kitchen,173.4,true,
+SKU-01587,Portable Yoga Mat,Outdoors,97.06,true,
+SKU-01588,Deluxe Speaker,Outdoors,160.61,true,
+SKU-01589,Everyday Tent,Toys,228.76,true,
+SKU-01590,Classic Puzzle,Kitchen,201.56,true,
+SKU-01591,Ultra Notebook,Fitness,45.24,true,29
+SKU-01592,Ergonomic Tent,Outdoors,121.34,false,
+SKU-01593,Ultra Desk Lamp,Garden,235.97,true,9
+SKU-01594,Classic Grinder,Kitchen,16.75,true,
+SKU-01595,Portable Tent,Electronics,84.04,false,
+SKU-01596,Ergonomic Backpack,Stationery,36.38,true,
+SKU-01597,Ultra Notebook,Garden,124.97,true,9
+SKU-01598,Rapid Backpack,Garden,243.43,true,17
+SKU-01599,Ergonomic Kettle,Kitchen,98.07,true,
+SKU-01600,Rapid Grinder,Outdoors,99.46,true,21
+SKU-01601,Ultra Yoga Mat,Toys,81.96,true,50
+SKU-01602,Ergonomic Desk Lamp,Fitness,128.69,true,27
+SKU-01603,Ergonomic Puzzle,Outdoors,184.5,true,
+SKU-01604,Rustic Tent,Kitchen,184.45,true,23
+SKU-01605,Ultra Notebook,Fitness,72.56,true,12
+SKU-01606,Deluxe Kettle,Fitness,240.98,true,18
+SKU-01607,Everyday Tent,Kitchen,75.46,true,
+SKU-01608,Ergonomic Speaker,Fitness,170.95,true,
+SKU-01609,Classic Backpack,Fitness,183.35,true,28
+SKU-01610,Portable Backpack,Outdoors,19.48,true,
+SKU-01611,Rapid Notebook,Outdoors,18.95,true,17
+SKU-01612,Rapid Puzzle,Office,201.8,true,20
+SKU-01613,Ergonomic Tent,Kitchen,23.55,true,
+SKU-01614,Ultra Yoga Mat,Fitness,54.88,true,11
+SKU-01615,Ergonomic Backpack,Kitchen,20.19,true,38
+SKU-01616,Ultra Yoga Mat,Toys,103.47,true,
+SKU-01617,Everyday Notebook,Outdoors,229.93,true,
+SKU-01618,Portable Kettle,Toys,12.05,true,
+SKU-01619,Portable Puzzle,Electronics,32.83,true,
+SKU-01620,Rapid Kettle,Office,165.28,true,19
+SKU-01621,Deluxe Notebook,Fitness,95.69,true,
+SKU-01622,Rapid Notebook,Outdoors,21.46,false,
+SKU-01623,Portable Tent,Electronics,146.58,true,25
+SKU-01624,Ultra Puzzle,Stationery,183.34,true,
+SKU-01625,Ergonomic Yoga Mat,Outdoors,11.39,true,
+SKU-01626,Classic Trowel,Electronics,41.76,true,43
+SKU-01627,Deluxe Backpack,Fitness,86.2,true,47
+SKU-01628,Ultra Notebook,Fitness,119.22,true,
+SKU-01629,Compact Tent,Kitchen,142.08,true,
+SKU-01630,Portable Kettle,Garden,243.55,true,
+SKU-01631,Portable Yoga Mat,Kitchen,246.02,true,48
+SKU-01632,Modular Yoga Mat,Electronics,202.86,true,43
+SKU-01633,Deluxe Trowel,Toys,49.87,true,
+SKU-01634,Modular Kettle,Electronics,146.79,true,
+SKU-01635,Compact Grinder,Electronics,89.12,true,
+SKU-01636,Rustic Desk Lamp,Kitchen,59.68,false,
+SKU-01637,Modular Grinder,Fitness,225.85,false,19
+SKU-01638,Portable Tent,Stationery,14.88,true,
+SKU-01639,Ergonomic Speaker,Stationery,159.68,false,31
+SKU-01640,Rustic Tent,Kitchen,200.22,true,
+SKU-01641,Portable Notebook,Electronics,249.72,false,
+SKU-01642,Portable Trowel,Stationery,173.28,true,
+SKU-01643,Ultra Yoga Mat,Stationery,195.47,true,
+SKU-01644,Ergonomic Tent,Fitness,237.14,true,
+SKU-01645,Classic Backpack,Electronics,53.08,true,18
+SKU-01646,Deluxe Tent,Toys,113.86,true,
+SKU-01647,Everyday Backpack,Garden,131.4,true,35
+SKU-01648,Deluxe Yoga Mat,Garden,134.86,true,
+SKU-01649,Classic Tent,Electronics,168.18,true,
+SKU-01650,Modular Notebook,Kitchen,39.5,true,
+SKU-01651,Compact Kettle,Toys,199.01,true,
+SKU-01652,Everyday Kettle,Electronics,230.89,true,32
+SKU-01653,Portable Notebook,Kitchen,237.45,true,41
+SKU-01654,Modular Desk Lamp,Garden,184.4,true,8
+SKU-01655,Deluxe Tent,Office,139.76,true,
+SKU-01656,Ergonomic Grinder,Garden,7.64,true,
+SKU-01657,Rapid Notebook,Toys,151.13,true,8
+SKU-01658,Ergonomic Speaker,Electronics,215.54,true,
+SKU-01659,Deluxe Grinder,Fitness,180.31,true,34
+SKU-01660,Everyday Grinder,Fitness,74.47,true,
+SKU-01661,Ultra Kettle,Kitchen,114.59,false,34
+SKU-01662,Portable Kettle,Fitness,93.84,false,
+SKU-01663,Modular Tent,Fitness,37.39,true,
+SKU-01664,Rapid Grinder,Kitchen,58.64,true,
+SKU-01665,Ergonomic Speaker,Office,187.18,true,31
+SKU-01666,Rustic Notebook,Stationery,196.08,false,17
+SKU-01667,Rustic Tent,Toys,84.58,true,
+SKU-01668,Deluxe Yoga Mat,Garden,87.4,true,
+SKU-01669,Deluxe Kettle,Stationery,86.33,true,
+SKU-01670,Everyday Tent,Toys,86.62,true,41
+SKU-01671,Ultra Grinder,Toys,12.17,true,
+SKU-01672,Portable Notebook,Outdoors,77.07,true,
+SKU-01673,Ultra Puzzle,Kitchen,29.85,false,
+SKU-01674,Rustic Notebook,Garden,110.07,true,
+SKU-01675,Everyday Backpack,Garden,78.4,true,
+SKU-01676,Rapid Speaker,Fitness,20.69,true,
+SKU-01677,Rapid Tent,Garden,65.04,true,
+SKU-01678,Ultra Tent,Toys,34.49,true,
+SKU-01679,Classic Notebook,Electronics,65.1,true,
+SKU-01680,Deluxe Grinder,Garden,214.89,true,20
+SKU-01681,Portable Backpack,Outdoors,119.73,true,37
+SKU-01682,Everyday Grinder,Outdoors,102.18,true,36
+SKU-01683,Rapid Grinder,Garden,93.05,false,38
+SKU-01684,Rustic Tent,Kitchen,225.54,true,
+SKU-01685,Modular Notebook,Stationery,86.69,true,
+SKU-01686,Rapid Notebook,Toys,31.88,true,
+SKU-01687,Compact Yoga Mat,Electronics,42.38,true,
+SKU-01688,Ergonomic Desk Lamp,Electronics,80.39,true,22
+SKU-01689,Rustic Trowel,Kitchen,81.24,false,45
+SKU-01690,Ergonomic Backpack,Electronics,173.54,true,
+SKU-01691,Everyday Grinder,Kitchen,50.75,true,
+SKU-01692,Deluxe Puzzle,Fitness,169.27,true,13
+SKU-01693,Rustic Backpack,Garden,109.02,false,
+SKU-01694,Rapid Grinder,Garden,217.6,true,27
+SKU-01695,Rapid Desk Lamp,Fitness,169.48,true,35
+SKU-01696,Compact Backpack,Office,55.52,true,16
+SKU-01697,Everyday Trowel,Stationery,242.54,true,
+SKU-01698,Classic Backpack,Fitness,189.04,true,41
+SKU-01699,Compact Tent,Kitchen,198.67,false,
+SKU-01700,Ultra Yoga Mat,Garden,195.23,true,
+SKU-01701,Ultra Speaker,Garden,204.62,true,
+SKU-01702,Compact Trowel,Electronics,201.74,true,
+SKU-01703,Compact Speaker,Garden,243.13,true,
+SKU-01704,Classic Backpack,Garden,77.48,true,
+SKU-01705,Portable Notebook,Electronics,135.54,true,10
+SKU-01706,Portable Desk Lamp,Garden,116.07,true,46
+SKU-01707,Modular Speaker,Kitchen,141.94,false,49
+SKU-01708,Classic Backpack,Kitchen,233.97,true,28
+SKU-01709,Rapid Desk Lamp,Outdoors,86.52,true,46
+SKU-01710,Rapid Speaker,Kitchen,166.01,true,
+SKU-01711,Everyday Tent,Office,226.58,true,
+SKU-01712,Classic Grinder,Garden,23.94,true,
+SKU-01713,Deluxe Kettle,Kitchen,182.02,true,
+SKU-01714,Modular Trowel,Office,105.81,true,
+SKU-01715,Classic Desk Lamp,Garden,159.77,true,
+SKU-01716,Everyday Backpack,Fitness,12.46,true,
+SKU-01717,Ultra Speaker,Electronics,47.83,true,
+SKU-01718,Ultra Puzzle,Garden,165.82,false,
+SKU-01719,Rapid Backpack,Toys,128.09,true,12
+SKU-01720,Classic Yoga Mat,Fitness,173.19,true,
+SKU-01721,Portable Puzzle,Toys,67.28,true,29
+SKU-01722,Deluxe Yoga Mat,Toys,55.62,true,
+SKU-01723,Rapid Tent,Fitness,86.64,true,
+SKU-01724,Compact Grinder,Toys,17.04,true,
+SKU-01725,Portable Tent,Toys,77.52,true,
+SKU-01726,Portable Desk Lamp,Outdoors,228.07,true,
+SKU-01727,Ultra Puzzle,Toys,29.85,true,
+SKU-01728,Modular Kettle,Garden,243.55,true,
+SKU-01729,Everyday Puzzle,Toys,38.92,true,
+SKU-01730,Modular Desk Lamp,Outdoors,33.92,true,
+SKU-01731,Ultra Desk Lamp,Stationery,148.19,true,46
+SKU-01732,Classic Yoga Mat,Outdoors,244.1,true,26
+SKU-01733,Deluxe Trowel,Electronics,42.57,true,28
+SKU-01734,Compact Trowel,Fitness,149.4,true,
+SKU-01735,Classic Grinder,Stationery,243.67,true,
+SKU-01736,Portable Tent,Outdoors,217.3,true,
+SKU-01737,Modular Trowel,Stationery,176.12,true,6
+SKU-01738,Rustic Yoga Mat,Office,124.83,true,
+SKU-01739,Portable Backpack,Electronics,115.13,true,
+SKU-01740,Portable Tent,Toys,130.88,true,
+SKU-01741,Rustic Kettle,Office,181.66,true,
+SKU-01742,Modular Kettle,Office,247.82,true,
+SKU-01743,Compact Trowel,Fitness,88.03,true,13
+SKU-01744,Ergonomic Grinder,Fitness,195.07,true,48
+SKU-01745,Everyday Trowel,Electronics,78.53,true,29
+SKU-01746,Compact Backpack,Outdoors,240.05,false,
+SKU-01747,Modular Puzzle,Fitness,180.93,false,
+SKU-01748,Ultra Yoga Mat,Toys,171.34,true,
+SKU-01749,Ergonomic Puzzle,Toys,14.04,true,
+SKU-01750,Modular Trowel,Garden,181.95,false,43
+SKU-01751,Compact Desk Lamp,Kitchen,109.02,true,31
+SKU-01752,Rustic Backpack,Stationery,127.68,true,35
+SKU-01753,Rustic Trowel,Stationery,108.93,true,44
+SKU-01754,Ergonomic Tent,Stationery,101.42,true,
+SKU-01755,Everyday Grinder,Stationery,184.14,true,
+SKU-01756,Rapid Tent,Electronics,220.54,true,
+SKU-01757,Ultra Backpack,Fitness,154.1,true,
+SKU-01758,Classic Desk Lamp,Office,144.44,false,
+SKU-01759,Deluxe Puzzle,Garden,7.22,true,
+SKU-01760,Portable Notebook,Outdoors,64.86,true,26
+SKU-01761,Rapid Puzzle,Electronics,46.27,true,
+SKU-01762,Ultra Yoga Mat,Office,125.65,true,
+SKU-01763,Classic Notebook,Stationery,72.16,true,48
+SKU-01764,Modular Yoga Mat,Office,217.09,true,38
+SKU-01765,Ergonomic Kettle,Garden,200.57,false,
+SKU-01766,Classic Grinder,Kitchen,204.76,true,
+SKU-01767,Portable Backpack,Toys,241.22,true,
+SKU-01768,Deluxe Grinder,Stationery,110.7,true,
+SKU-01769,Rapid Notebook,Stationery,127.8,false,
+SKU-01770,Everyday Speaker,Electronics,110.66,true,
+SKU-01771,Modular Notebook,Toys,143.22,false,
+SKU-01772,Ergonomic Notebook,Electronics,243.71,true,23
+SKU-01773,Compact Grinder,Outdoors,48.78,true,35
+SKU-01774,Ultra Kettle,Stationery,238.28,false,
+SKU-01775,Portable Backpack,Office,35.49,true,
+SKU-01776,Everyday Speaker,Fitness,168.42,false,
+SKU-01777,Rapid Trowel,Fitness,122.89,true,48
+SKU-01778,Everyday Yoga Mat,Garden,5.83,true,
+SKU-01779,Modular Speaker,Outdoors,111.04,true,
+SKU-01780,Deluxe Trowel,Kitchen,109.62,false,6
+SKU-01781,Rapid Notebook,Fitness,177.21,false,36
+SKU-01782,Modular Backpack,Stationery,133.74,true,38
+SKU-01783,Ultra Desk Lamp,Outdoors,41.79,false,11
+SKU-01784,Rustic Grinder,Toys,207.48,true,6
+SKU-01785,Rustic Backpack,Toys,161.04,true,33
+SKU-01786,Classic Yoga Mat,Garden,51.19,true,
+SKU-01787,Ergonomic Yoga Mat,Stationery,206.35,false,38
+SKU-01788,Everyday Trowel,Fitness,34.29,false,
+SKU-01789,Compact Puzzle,Stationery,36.08,true,
+SKU-01790,Deluxe Notebook,Toys,5.31,true,
+SKU-01791,Ergonomic Backpack,Office,170.8,true,
+SKU-01792,Everyday Kettle,Kitchen,219.3,false,
+SKU-01793,Rapid Puzzle,Office,152.96,true,
+SKU-01794,Classic Kettle,Garden,143.03,true,
+SKU-01795,Ultra Notebook,Electronics,249.43,true,
+SKU-01796,Classic Speaker,Electronics,60.76,false,
+SKU-01797,Compact Yoga Mat,Stationery,220.76,false,
+SKU-01798,Rustic Puzzle,Office,60.57,true,
+SKU-01799,Ergonomic Yoga Mat,Garden,89.44,true,
+SKU-01800,Modular Backpack,Toys,9.57,true,
+SKU-01801,Deluxe Trowel,Toys,56.76,true,
+SKU-01802,Rapid Yoga Mat,Toys,45.54,true,
+SKU-01803,Classic Notebook,Fitness,179.48,true,26
+SKU-01804,Ultra Kettle,Toys,5.96,true,
+SKU-01805,Compact Desk Lamp,Stationery,70.15,true,31
+SKU-01806,Modular Trowel,Office,41.01,true,
+SKU-01807,Compact Yoga Mat,Garden,172.97,true,
+SKU-01808,Portable Backpack,Stationery,64.83,true,15
+SKU-01809,Portable Grinder,Office,38.6,true,
+SKU-01810,Modular Trowel,Toys,9.5,true,
+SKU-01811,Ergonomic Notebook,Toys,68.52,true,
+SKU-01812,Everyday Speaker,Fitness,149.54,false,
+SKU-01813,Everyday Kettle,Outdoors,173.77,true,46
+SKU-01814,Deluxe Notebook,Office,14.37,true,
+SKU-01815,Rustic Backpack,Office,94.8,true,
+SKU-01816,Portable Yoga Mat,Fitness,152.39,true,
+SKU-01817,Deluxe Desk Lamp,Office,82.03,false,
+SKU-01818,Rustic Kettle,Stationery,201.93,true,25
+SKU-01819,Ergonomic Puzzle,Garden,52.5,true,35
+SKU-01820,Rapid Notebook,Outdoors,30.2,true,
+SKU-01821,Portable Yoga Mat,Electronics,35.6,true,15
+SKU-01822,Everyday Kettle,Kitchen,55.86,false,39
+SKU-01823,Deluxe Tent,Toys,93.07,true,
+SKU-01824,Ergonomic Kettle,Toys,54.69,true,40
+SKU-01825,Ultra Tent,Office,168.78,true,
+SKU-01826,Portable Trowel,Kitchen,154.57,true,
+SKU-01827,Rustic Puzzle,Outdoors,134.7,false,
+SKU-01828,Portable Grinder,Fitness,58.6,true,
+SKU-01829,Classic Notebook,Kitchen,232.67,true,
+SKU-01830,Ultra Tent,Fitness,47.09,true,
+SKU-01831,Rapid Trowel,Fitness,90.53,true,
+SKU-01832,Everyday Speaker,Outdoors,132.08,false,10
+SKU-01833,Portable Grinder,Toys,166.68,true,
+SKU-01834,Classic Tent,Garden,170.85,true,
+SKU-01835,Deluxe Tent,Kitchen,174.82,false,46
+SKU-01836,Classic Tent,Electronics,194.47,true,
+SKU-01837,Everyday Tent,Electronics,96.85,true,
+SKU-01838,Ultra Desk Lamp,Electronics,198.46,true,
+SKU-01839,Rustic Desk Lamp,Toys,11.2,true,
+SKU-01840,Classic Desk Lamp,Stationery,140.17,true,
+SKU-01841,Classic Puzzle,Outdoors,49.62,true,
+SKU-01842,Portable Grinder,Fitness,133.16,true,33
+SKU-01843,Portable Speaker,Stationery,101.15,true,
+SKU-01844,Classic Kettle,Outdoors,102.13,true,
+SKU-01845,Compact Speaker,Garden,183.05,false,
+SKU-01846,Rustic Notebook,Toys,60.51,true,
+SKU-01847,Modular Notebook,Office,165.09,true,
+SKU-01848,Rapid Yoga Mat,Outdoors,112.48,false,
+SKU-01849,Modular Grinder,Toys,150.08,true,
+SKU-01850,Compact Trowel,Toys,14.95,false,
+SKU-01851,Deluxe Speaker,Fitness,216.88,true,28
+SKU-01852,Ergonomic Tent,Fitness,62.59,true,
+SKU-01853,Compact Desk Lamp,Electronics,60.68,true,
+SKU-01854,Ultra Desk Lamp,Toys,117.91,false,
+SKU-01855,Ergonomic Notebook,Toys,144.89,true,
+SKU-01856,Rapid Yoga Mat,Outdoors,73.03,true,
+SKU-01857,Ultra Kettle,Outdoors,29.4,true,7
+SKU-01858,Rapid Puzzle,Office,227.39,true,19
+SKU-01859,Ergonomic Notebook,Kitchen,121.96,true,
+SKU-01860,Ergonomic Tent,Fitness,165.51,true,
+SKU-01861,Portable Yoga Mat,Fitness,13.73,true,
+SKU-01862,Everyday Backpack,Garden,82.88,true,
+SKU-01863,Ultra Notebook,Kitchen,11.04,true,
+SKU-01864,Deluxe Speaker,Toys,200.39,true,43
+SKU-01865,Compact Tent,Toys,16.59,true,
+SKU-01866,Rapid Puzzle,Fitness,129.08,true,
+SKU-01867,Modular Yoga Mat,Kitchen,102.72,true,35
+SKU-01868,Rustic Speaker,Electronics,110.4,true,31
+SKU-01869,Ultra Tent,Toys,159.48,true,
+SKU-01870,Compact Notebook,Office,67.27,true,
+SKU-01871,Rapid Trowel,Office,57.84,true,
+SKU-01872,Ergonomic Backpack,Electronics,159.86,true,
+SKU-01873,Rapid Backpack,Kitchen,228.42,true,
+SKU-01874,Ergonomic Puzzle,Electronics,208.39,true,
+SKU-01875,Classic Puzzle,Stationery,166.43,true,
+SKU-01876,Everyday Yoga Mat,Garden,244.88,true,
+SKU-01877,Portable Desk Lamp,Electronics,226.35,true,
+SKU-01878,Ergonomic Yoga Mat,Electronics,131.48,true,
+SKU-01879,Classic Yoga Mat,Electronics,170.34,false,39
+SKU-01880,Rustic Desk Lamp,Toys,150.08,true,
+SKU-01881,Classic Speaker,Toys,132.99,true,
+SKU-01882,Ergonomic Desk Lamp,Stationery,63.72,false,21
+SKU-01883,Ergonomic Tent,Garden,187.58,true,
+SKU-01884,Rustic Puzzle,Toys,60.97,true,
+SKU-01885,Ultra Speaker,Garden,215.12,true,32
+SKU-01886,Deluxe Kettle,Office,180.34,true,40
+SKU-01887,Ergonomic Trowel,Kitchen,185.25,true,
+SKU-01888,Compact Tent,Garden,67.21,true,6
+SKU-01889,Classic Yoga Mat,Kitchen,181.31,true,
+SKU-01890,Rustic Notebook,Kitchen,67.2,true,50
+SKU-01891,Rapid Tent,Garden,86.76,true,27
+SKU-01892,Rapid Grinder,Outdoors,42.27,true,
+SKU-01893,Deluxe Desk Lamp,Fitness,131.45,true,
+SKU-01894,Rustic Grinder,Outdoors,134.51,false,
+SKU-01895,Classic Kettle,Electronics,213.1,true,
+SKU-01896,Everyday Backpack,Electronics,205.29,true,
+SKU-01897,Modular Backpack,Toys,225.95,true,
+SKU-01898,Rustic Notebook,Garden,222.05,true,
+SKU-01899,Portable Desk Lamp,Garden,37.46,true,11
+SKU-01900,Rapid Yoga Mat,Stationery,19.78,false,
+SKU-01901,Compact Desk Lamp,Garden,63.92,true,
+SKU-01902,Everyday Kettle,Office,93.4,true,
+SKU-01903,Ergonomic Kettle,Garden,78.93,true,
+SKU-01904,Classic Puzzle,Outdoors,209.79,true,
+SKU-01905,Ultra Puzzle,Fitness,71.17,true,
+SKU-01906,Portable Grinder,Office,121.55,true,
+SKU-01907,Ergonomic Backpack,Electronics,225.61,true,34
+SKU-01908,Ergonomic Desk Lamp,Office,16.08,true,37
+SKU-01909,Portable Desk Lamp,Outdoors,32.19,true,36
+SKU-01910,Compact Speaker,Toys,153.04,true,16
+SKU-01911,Deluxe Desk Lamp,Electronics,70.22,true,
+SKU-01912,Compact Speaker,Garden,54.3,true,17
+SKU-01913,Modular Notebook,Fitness,204.75,true,
+SKU-01914,Rustic Desk Lamp,Electronics,197.76,true,
+SKU-01915,Deluxe Puzzle,Fitness,155.36,true,
+SKU-01916,Deluxe Trowel,Kitchen,200.81,true,
+SKU-01917,Ultra Backpack,Office,228.74,true,49
+SKU-01918,Everyday Notebook,Kitchen,233.29,true,44
+SKU-01919,Deluxe Notebook,Kitchen,214.87,true,28
+SKU-01920,Deluxe Speaker,Outdoors,68.76,true,
+SKU-01921,Rustic Trowel,Kitchen,176.66,true,
+SKU-01922,Portable Kettle,Fitness,11.39,true,
+SKU-01923,Modular Desk Lamp,Kitchen,114.57,false,
+SKU-01924,Rustic Notebook,Garden,180.21,true,
+SKU-01925,Rustic Tent,Outdoors,208.07,true,
+SKU-01926,Everyday Desk Lamp,Fitness,44.16,true,
+SKU-01927,Rustic Tent,Fitness,177.45,true,18
+SKU-01928,Compact Kettle,Fitness,234.11,true,
+SKU-01929,Classic Speaker,Office,207.02,true,16
+SKU-01930,Rapid Speaker,Office,227.91,true,10
+SKU-01931,Portable Trowel,Office,208.72,true,
+SKU-01932,Classic Speaker,Garden,13.13,false,
+SKU-01933,Modular Grinder,Kitchen,157.83,true,22
+SKU-01934,Rustic Puzzle,Toys,95.86,true,
+SKU-01935,Rustic Backpack,Stationery,176.85,false,
+SKU-01936,Ultra Backpack,Kitchen,185.56,true,
+SKU-01937,Rapid Yoga Mat,Outdoors,186.92,true,
+SKU-01938,Modular Speaker,Toys,101.92,true,
+SKU-01939,Classic Trowel,Kitchen,12.82,true,
+SKU-01940,Rustic Kettle,Outdoors,146.31,true,
+SKU-01941,Compact Kettle,Stationery,218.68,true,
+SKU-01942,Modular Puzzle,Electronics,92.5,true,
+SKU-01943,Classic Grinder,Garden,240.93,true,
+SKU-01944,Portable Puzzle,Electronics,194.63,true,48
+SKU-01945,Rapid Grinder,Toys,60.53,false,
+SKU-01946,Ergonomic Speaker,Garden,119.81,true,17
+SKU-01947,Modular Backpack,Stationery,31.02,true,
+SKU-01948,Rapid Trowel,Toys,161.78,true,
+SKU-01949,Ergonomic Desk Lamp,Garden,21.28,true,
+SKU-01950,Everyday Backpack,Garden,247.69,true,
+SKU-01951,Rustic Trowel,Kitchen,170.47,true,5
+SKU-01952,Rustic Trowel,Stationery,74.02,true,
+SKU-01953,Classic Puzzle,Toys,220.63,true,29
+SKU-01954,Compact Speaker,Garden,12.7,true,
+SKU-01955,Modular Puzzle,Garden,81.75,true,
+SKU-01956,Ultra Grinder,Office,23.28,true,17
+SKU-01957,Rapid Kettle,Toys,226.56,true,38
+SKU-01958,Modular Notebook,Toys,194.37,true,27
+SKU-01959,Portable Trowel,Fitness,57.27,true,
+SKU-01960,Portable Desk Lamp,Fitness,123.83,true,
+SKU-01961,Classic Desk Lamp,Toys,242.18,true,
+SKU-01962,Ergonomic Yoga Mat,Fitness,165.72,true,
+SKU-01963,Everyday Grinder,Toys,91.89,true,
+SKU-01964,Classic Tent,Kitchen,181.13,true,
+SKU-01965,Modular Puzzle,Toys,88.23,true,
+SKU-01966,Everyday Kettle,Fitness,127.63,true,15
+SKU-01967,Portable Trowel,Outdoors,128.92,true,
+SKU-01968,Portable Kettle,Stationery,107.59,true,
+SKU-01969,Deluxe Tent,Toys,90.93,true,
+SKU-01970,Portable Speaker,Toys,117.23,true,
+SKU-01971,Rapid Puzzle,Stationery,204.33,true,44
+SKU-01972,Modular Kettle,Toys,24.09,true,
+SKU-01973,Deluxe Backpack,Garden,142.23,true,26
+SKU-01974,Rapid Trowel,Toys,109.28,true,
+SKU-01975,Ergonomic Puzzle,Electronics,216.93,true,24
+SKU-01976,Rapid Puzzle,Kitchen,242.55,true,48
+SKU-01977,Everyday Grinder,Toys,74.67,true,
+SKU-01978,Compact Desk Lamp,Toys,30.52,true,
+SKU-01979,Deluxe Tent,Office,136.98,true,
+SKU-01980,Rustic Yoga Mat,Electronics,248.26,false,
+SKU-01981,Classic Notebook,Toys,225.72,false,
+SKU-01982,Rapid Yoga Mat,Office,118.19,true,
+SKU-01983,Everyday Backpack,Fitness,125.74,true,12
+SKU-01984,Ultra Desk Lamp,Office,169.78,true,23
+SKU-01985,Modular Speaker,Garden,76.98,true,
+SKU-01986,Modular Yoga Mat,Outdoors,155.89,true,41
+SKU-01987,Portable Desk Lamp,Office,15.87,false,
+SKU-01988,Modular Yoga Mat,Fitness,191.95,true,
+SKU-01989,Ultra Speaker,Fitness,171.25,true,
+SKU-01990,Portable Speaker,Stationery,144.27,true,
+SKU-01991,Ergonomic Kettle,Electronics,127.49,true,
+SKU-01992,Modular Puzzle,Garden,179.34,true,
+SKU-01993,Ergonomic Trowel,Toys,57.74,false,28
+SKU-01994,Compact Backpack,Garden,108.29,true,
+SKU-01995,Classic Grinder,Toys,53.15,true,
+SKU-01996,Modular Kettle,Garden,113.93,true,
+SKU-01997,Modular Yoga Mat,Kitchen,95.49,true,31
+SKU-01998,Portable Speaker,Fitness,140.44,true,
+SKU-01999,Ultra Notebook,Stationery,125.42,true,20
+SKU-02000,Everyday Notebook,Office,73.99,true,21

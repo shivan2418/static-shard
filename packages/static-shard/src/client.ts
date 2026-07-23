@@ -278,6 +278,32 @@ function assertLimitWithinCeiling(limit: number | undefined, maxResults: number)
   }
 }
 
+/**
+ * `orderBy` may name any indexed field, not just the sort field (ADR-0001 item 42). Records are
+ * already fully materialized in memory by the time this runs, so a plain multi-key stable sort
+ * (iterating `orderBy`'s own key order for tiebreaks) is correct and doesn't disturb the exact
+ * `hasMore` accounting, which only depends on `matches.length`, not on ordering.
+ */
+function compareByOrderBy(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  orderBy: Record<string, "asc" | "desc">,
+): number {
+  for (const [field, direction] of Object.entries(orderBy)) {
+    const av = a[field];
+    const bv = b[field];
+    if (av === bv) continue;
+    let cmp: number;
+    if (av === undefined || av === null) cmp = -1;
+    else if (bv === undefined || bv === null) cmp = 1;
+    else if (av < bv) cmp = -1;
+    else if (av > bv) cmp = 1;
+    else cmp = 0;
+    if (cmp !== 0) return direction === "desc" ? -cmp : cmp;
+  }
+  return 0;
+}
+
 async function executeFindMany(
   manifest: Manifest,
   ctx: FetchContext,
@@ -324,8 +350,10 @@ async function executeFindMany(
     });
   }
 
-  const orderDirection = args?.orderBy?.[manifest.dataset.sortField];
-  if (orderDirection === "desc") matches = matches.reverse();
+  if (args?.orderBy && Object.keys(args.orderBy).length > 0) {
+    const orderBy = args.orderBy;
+    matches = [...matches].sort((a, b) => compareByOrderBy(a, b, orderBy));
+  }
 
   const offset = args?.offset ?? 0;
   const windowed = matches.slice(offset);

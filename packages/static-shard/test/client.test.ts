@@ -132,6 +132,42 @@ describe("createClient / findMany", () => {
     expect(records.map((r) => r.year)).toEqual([2008, 2003, 2000, 2000, 2000, 1999]);
   });
 
+  test("orderBy on a secondary indexed field sorts by that field, not the sort field", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]) });
+    const asc = await client.movies.findMany({ orderBy: { title: "asc" } });
+    expect(asc.records.map((r) => r.title)).toEqual([
+      "Dark Knight",
+      "Gladiator",
+      "Memento",
+      "Reloaded",
+      "Snatch",
+      "The Matrix",
+    ]);
+    const desc = await client.movies.findMany({ orderBy: { title: "desc" } });
+    expect(desc.records.map((r) => r.title)).toEqual([
+      "The Matrix",
+      "Snatch",
+      "Reloaded",
+      "Memento",
+      "Gladiator",
+      "Dark Knight",
+    ]);
+  });
+
+  test("multi-key orderBy sorts by the first key, breaking ties with the second", async () => {
+    const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]) });
+    // Primary: year asc (1999, 2000×3, 2003, 2008). Tiebreak: title desc among the three tied 2000s.
+    const { records } = await client.movies.findMany({ orderBy: { year: "asc", title: "desc" } });
+    expect(records.map((r) => [r.year, r.title])).toEqual([
+      [1999, "The Matrix"],
+      [2000, "Snatch"],
+      [2000, "Memento"],
+      [2000, "Gladiator"],
+      [2003, "Reloaded"],
+      [2008, "Dark Knight"],
+    ]);
+  });
+
   test("limit + offset paginate, and hasMore is exact at the limit+1 boundary", async () => {
     const client = createClient<typeof schema, Records>(schema, { basePath: "/data", fetch: fakeFetch([]) });
 

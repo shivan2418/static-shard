@@ -1,0 +1,27 @@
+{
+  "name": "example-products",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "static-shard example: a product lookup (CSV input, user PK + get(id), boolean equals, absent/isNull).",
+  "scripts": {
+    "generate-data": "node scripts/generate-data.mjs",
+    "build-data": "node scripts/build-data.mjs",
+    "dev": "pnpm run build-data && vite",
+    "build": "pnpm run build-data && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "static-shard": "workspace:*"
+  },
+  "devDependencies": {
+    "static-shard-cli": "workspace:*",
+    "@types/node": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest",
+    "playwright": "latest"
+  }
+}

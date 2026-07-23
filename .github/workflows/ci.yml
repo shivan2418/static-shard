@@ -11,7 +11,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm --filter example-shared exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm pack:check

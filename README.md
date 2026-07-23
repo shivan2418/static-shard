@@ -4,10 +4,29 @@ Query large static datasets from any static host — no database, no backend, no
 
 `static-shard` splits a large dataset into many small files at build time, builds indexes over them, and generates a **typed client** that fetches only the files a query needs. Because it fetches whole small files (not byte ranges of one big file), it works on any dumb static host and every shard is a plain, compressible, cacheable CDN object.
 
-> **Status: clean-slate rebuild (attempt #3), in design.**
-> This library is currently being (re)designed via a wayfinder map before any implementation. The design decisions are being locked first, then a clean v1.0 will be built against the resulting spec.
->
-> The previous working prototype (attempt #2) is preserved on the [`attempt-2-reference`](https://github.com/shivan2418/static-shard/tree/attempt-2-reference) branch for reference only — it is **not** the basis for the rebuild.
+> **Status: v1.0, built against the locked design spec.** The previous prototype (attempt #2) is preserved on the [`attempt-2-reference`](https://github.com/shivan2418/static-shard/tree/attempt-2-reference) branch for reference only — it is **not** the basis for this build.
+
+## Quickstart
+
+```bash
+pnpm add static-shard && pnpm add -D static-shard-cli
+npx static-shard-cli init      # a guided wizard reads a sample of your data, recommends
+                                #   what to index, and writes static-shard.config.json
+npx static-shard build         # → public/shard-data/  (deploy this)  +  src/shard-db/  (commit this)
+```
+
+```ts
+import { connect } from "./shard-db/client";
+
+const db = connect();
+const { records } = await db.movies.findMany({
+  where: { year: { gte: 2000 }, rating: { gt: 8 } },
+  orderBy: { rating: "desc" },
+  limit: 20,
+});
+```
+
+Two complete, working example apps — a movie catalog and a product lookup, each building → deploying → querying in a real browser — live in [`examples/`](https://github.com/shivan2418/static-shard/tree/master/examples).
 
 ## Why static-shard?
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/static-shard-cli/config.schema.json",
+  "collection": "products",
+  "input": {
+    "path": "data/products.csv",
+    "format": "csv"
+  },
+  "shardBytes": 16384,
+  "schema": {
+    "sortField": "price",
+    "pk": "sku",
+    "fields": {
+      "sku": { "kind": "string", "indexed": true },
+      "name": { "kind": "string", "indexed": true },
+      "category": { "kind": "string", "indexed": true },
+      "price": { "kind": "number" },
+      "inStock": { "kind": "boolean", "indexed": true },
+      "discountPct": { "kind": "number", "indexed": true, "absent": true }
+    }
+  }
+}

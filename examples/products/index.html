@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>static-shard example — products</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Product lookup</h1>
+      <p id="total-count">loading…</p>
+
+      <section>
+        <h2>Lookup by SKU (<code>get(id)</code>)</h2>
+        <form id="lookup-form">
+          <input id="lookup-input" type="text" value="SKU-00001" />
+          <button type="submit">Look up</button>
+        </form>
+        <p id="lookup-result" data-testid="lookup-result"></p>
+      </section>
+
+      <section>
+        <h2>In-stock, discounted (boolean + <code>exists</code>)</h2>
+        <ul id="discounted-results" data-testid="discounted-results"></ul>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
