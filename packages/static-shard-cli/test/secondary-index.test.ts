@@ -194,6 +194,46 @@ describe("buildTrigramIndex (T6 — contains)", () => {
   });
 });
 
+describe("multi-valued (object-array scalar-leaf) fields (T7)", () => {
+  test("computeSecondaryZonemap flattens each record's array into the shard's min/max", () => {
+    const groups = [[{ genres: ["Sci-Fi", "Action"] }, { genres: ["Drama"] }]];
+    const zonemap = computeSecondaryZonemap(groups, "genres", "string", true);
+    expect(zonemap.pairs).toEqual([[truncateStringLower("Action"), truncateStringUpper("Sci-Fi")]]);
+  });
+
+  test("buildInvertedIndex indexes every element, one shard-posting per record regardless of element count", () => {
+    const groups = [
+      [{ genres: ["Sci-Fi", "Action"] }], // shard 0 — two elements
+      [{ genres: ["Sci-Fi"] }], // shard 1 — repeats "Sci-Fi"
+    ];
+    const chunks = buildInvertedIndex(groups, "genres", "string", 1_000_000, true);
+    const decoded = decodeChunk(chunks[0]!.content);
+    expect(decoded.map((d) => d.value).sort()).toEqual(["Action", "Sci-Fi"]);
+    expect(decoded.find((d) => d.value === "Sci-Fi")?.shards).toEqual([0, 1]);
+    expect(decoded.find((d) => d.value === "Action")?.shards).toEqual([0]);
+  });
+
+  test("a record with an empty array or missing field contributes nothing", () => {
+    const groups = [[{ genres: [] }, { other: 1 }]];
+    expect(buildInvertedIndex(groups, "genres", "string", 1_000_000, true)).toEqual([]);
+  });
+
+  test("buildReversedIndex/buildTrigramIndex also index every element", () => {
+    const groups = [[{ genres: ["Sci-Fi", "Action"] }]];
+    const reversed = decodeChunk(buildReversedIndex(groups, "genres", 1_000_000, true)[0]!.content);
+    expect(reversed.map((d) => d.value).sort()).toEqual([reverseString("Action"), reverseString("Sci-Fi")].sort());
+
+    const trigrams = decodeChunk(buildTrigramIndex(groups, "genres", 1_000_000, true)[0]!.content);
+    expect(trigrams.map((d) => d.value)).toContain("Sci");
+    expect(trigrams.map((d) => d.value)).toContain("Act");
+  });
+
+  test("computeColumnBytes sums every element's bytes", () => {
+    const groups = [[{ genres: ["cat", "dog"] }]];
+    expect(computeColumnBytes(groups, "genres", true)).toBe(6);
+  });
+});
+
 describe("computeColumnBytes", () => {
   test("sums UTF-8 byte length of the field's non-null string values across all groups", () => {
     const groups = [[{ title: "cat" }, { title: null }], [{ title: "dog" }]];

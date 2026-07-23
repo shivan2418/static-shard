@@ -21,18 +21,21 @@ const SECONDARY_STRING_OPERATORS = ["equals", "in", "startsWith"] as const;
  */
 const SECONDARY_RANGE_KIND_OPERATORS = ["equals", "in"] as const;
 const SECONDARY_BOOLEAN_OPERATORS = ["equals"] as const;
+/** `not` needs no index structure of its own — it's a filter-only rider valid alongside any pruning op (T7/ADR-0004). */
+const RIDER_OPERATOR = "not";
 
 function operatorsForField(field: FieldConfig, isSortField: boolean, indexed: boolean): readonly string[] {
-  if (isSortField) return SORT_FIELD_OPERATORS;
+  if (isSortField) return [...SORT_FIELD_OPERATORS, RIDER_OPERATOR];
   if (!indexed) return [];
   if (field.kind === "string") {
     const ops: string[] = [...SECONDARY_STRING_OPERATORS];
     if (field.endsWith) ops.push("endsWith");
     if (field.contains) ops.push("contains");
+    ops.push(RIDER_OPERATOR);
     return ops;
   }
-  if (field.kind === "boolean") return SECONDARY_BOOLEAN_OPERATORS;
-  return SECONDARY_RANGE_KIND_OPERATORS;
+  if (field.kind === "boolean") return [...SECONDARY_BOOLEAN_OPERATORS, RIDER_OPERATOR];
+  return [...SECONDARY_RANGE_KIND_OPERATORS, RIDER_OPERATOR];
 }
 
 /** N+1 monotonic boundaries: splitPoints[i] = min value of shard i; the final entry is the last shard's max. */
@@ -54,6 +57,8 @@ function buildSchemaDescriptor(config: ResolvedConfig): SchemaDescriptor {
       isDate: field.kind === "date",
       indexed,
       operators: operatorsForField(field, isSortField, indexed),
+      ...(field.absent === true ? { absent: true as const } : {}),
+      ...(field.multi === true ? { multi: true as const } : {}),
     };
   }
   return { collection: config.collection, sortField: config.sortField, fields };

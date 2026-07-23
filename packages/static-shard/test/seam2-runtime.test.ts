@@ -665,3 +665,143 @@ describe("seam #2 — runtime failure contract & maxResults guardrail (T5), over
     expect(page.hasMore).toBe(true);
   });
 });
+
+/** T7 fixture: multi-valued `genres` and an absentable `tagline` (missing for Gladiator, explicit null for Snatch). */
+const t7Config: StaticShardConfig = {
+  ...config,
+  schema: {
+    sortField: "year",
+    fields: {
+      year: { kind: "number" },
+      title: { kind: "string", indexed: true },
+      tagline: { kind: "string", indexed: true, absent: true },
+      genres: { kind: "string", indexed: true, multi: true },
+    },
+  },
+};
+
+const T7_MOVIES = [
+  { year: 1999, title: "The Matrix", genres: ["Sci-Fi", "Action"], tagline: "Welcome to the Real World" },
+  { year: 2000, title: "Gladiator", genres: ["Action", "Drama"] },
+  { year: 2000, title: "Snatch", genres: ["Crime", "Comedy"], tagline: null },
+  { year: 2008, title: "The Dark Knight", genres: ["Action", "Crime"], tagline: "Why So Serious?" },
+  { year: 2010, title: "Inception", genres: ["Sci-Fi", "Thriller"], tagline: "Your mind is the scene of the crime" },
+];
+
+function writeT7Fixture(): void {
+  writeFileSync(path.join(tmpDir, "movies.ndjson"), T7_MOVIES.map((m) => JSON.stringify(m)).join("\n") + "\n");
+}
+
+describe("seam #2 — absentable ops, multi-valued some & not rider (T7), over a seam #1-built fixture tree", () => {
+  test("some existentially matches multi-valued elements, pruning via the shared inverted index", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    const result = await client.movies.findMany({ where: { genres: { some: "Sci-Fi" } } });
+    expect(result.records.map((r) => r.title).sort()).toEqual(["Inception", "The Matrix"].sort());
+    expect(requests.some((r) => r.includes(`${path.sep}index${path.sep}genres${path.sep}`))).toBe(true);
+  });
+
+  test("some with a nested operator matches existentially (object form, not the equals shorthand)", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    const result = await client.movies.findMany({ where: { genres: { some: { startsWith: "Sci" } } } });
+    expect(result.records.map((r) => r.title).sort()).toEqual(["Inception", "The Matrix"].sort());
+  });
+
+  test("a genre no movie has returns no records", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    const result = await client.movies.findMany({ where: { genres: { some: "Horror" } } });
+    expect(result.records).toEqual([]);
+  });
+
+  test("isNull/isAbsent/exists correctly distinguish a missing key from an explicit null from a real value", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // Snatch alone carries an explicit `tagline: null`.
+    const nullResult = await client.movies.findMany({ where: { tagline: { isNull: true } } });
+    expect(nullResult.records.map((r) => r.title)).toEqual(["Snatch"]);
+
+    // Gladiator alone omits `tagline` entirely.
+    const absentResult = await client.movies.findMany({ where: { tagline: { isAbsent: true } } });
+    expect(absentResult.records.map((r) => r.title)).toEqual(["Gladiator"]);
+
+    // Every other movie carries a real tagline.
+    const existsResult = await client.movies.findMany({ where: { tagline: { exists: true } } });
+    expect(existsResult.records.map((r) => r.title).sort()).toEqual(
+      ["The Matrix", "The Dark Knight", "Inception"].sort(),
+    );
+  });
+
+  test("not composes with a pruning companion on the same field to return the correct records", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // Titles starting with "T": "The Matrix" and "The Dark Knight" — `not` excludes the former.
+    const result = await client.movies.findMany({ where: { title: { startsWith: "T", not: "The Matrix" } } });
+    expect(result.records.map((r) => r.title)).toEqual(["The Dark Knight"]);
+  });
+
+  test("not composes across fields: a pruning constraint on field A licenses not on field B (ADR-0004)", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch([]),
+    });
+
+    // year:2000 -> {Gladiator, Snatch}; title `not` "Gladiator" (a DIFFERENT field, no pruning op of its own)
+    // is licensed by the year constraint, per ADR-0004: "a pruning op on field A licenses a `not` on field B".
+    const result = await client.movies.findMany({ where: { year: { equals: 2000 }, title: { not: "Gladiator" } } });
+    expect(result.records.map((r) => r.title)).toEqual(["Snatch"]);
+  });
+
+  test("assertWhereHasPruning rejects a dynamically-built not-only where at the client boundary, before any fetch", async () => {
+    writeT7Fixture();
+    const { outputDir, clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    const schema = await loadGeneratedSchema(clientOutDir);
+    const requests: string[] = [];
+    const client = createClient<typeof schema, { movies: (typeof T7_MOVIES)[number] }>(schema, {
+      basePath: outputDir,
+      fetch: diskFetch(requests),
+    });
+
+    // Bypasses the compile-time RiderGuard the way an untyped/dynamically-built where would.
+    const notOnlyWhere = { title: { not: "Gladiator" } };
+    await expect(client.movies.findMany({ where: notOnlyWhere as never })).rejects.toThrow(
+      /cannot be the only constraint/,
+    );
+    expect(requests).toEqual([]);
+  });
+});

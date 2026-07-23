@@ -199,7 +199,7 @@ describe("seam #1 — secondary inverted index & zonemap (T3)", () => {
     const { manifest, outputDir } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
 
     expect(manifest.schema.fields.title!.indexed).toBe(true);
-    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith"]);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "not"]);
     expect(manifest.indexes.title!.chunks.length).toBeGreaterThan(0);
 
     for (const chunk of manifest.indexes.title!.chunks) {
@@ -223,7 +223,7 @@ describe("seam #1 — secondary inverted index & zonemap (T3)", () => {
 
   test("secondary number field gets equals/in only, and its own chunk directory", () => {
     const { manifest } = build(indexedConfig, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
-    expect(manifest.schema.fields.rating!.operators).toEqual(["equals", "in"]);
+    expect(manifest.schema.fields.rating!.operators).toEqual(["equals", "in", "not"]);
     expect(manifest.indexes.rating!.chunks.length).toBeGreaterThan(0);
   });
 
@@ -268,7 +268,7 @@ describe("seam #1 — endsWith (reversed index) & contains (trigram index) opt-i
   test("operators/manifest.indexes gain reversed+trigram structures only for the opted-in field", () => {
     const { manifest } = build(t6Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
 
-    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith", "contains"]);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith", "contains", "not"]);
     expect(manifest.indexes.title!.reversed).toBeDefined();
     expect(manifest.indexes.title!.trigram).toBeDefined();
     // rating never opted into endsWith/contains — no reversed/trigram structures for it, even though it's indexed.
@@ -320,7 +320,7 @@ describe("seam #1 — endsWith (reversed index) & contains (trigram index) opt-i
       },
     };
     const { manifest, warnings } = build(endsWithOnly, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
-    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith"]);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith", "not"]);
     expect(manifest.indexes.title!.reversed).toBeDefined();
     expect(manifest.indexes.title!.trigram).toBeUndefined();
     expect(warnings).toEqual([]);
@@ -489,6 +489,79 @@ async function invalid() {
   await db.movies.findMany({ where: { title: { endsWith: 5 } } });
   // @ts-expect-error
   await db.movies.findMany({ where: { title: { contains: 5 } } });
+}
+
+void valid;
+void invalid;
+`;
+    assertConsumerCompiles(clientOutDir, consumerSource);
+  });
+
+  test("T7: tsc exits 0 for a consumer exercising some/presence ops/not-with-pruning and rejecting their misuse", () => {
+    const t7Config: StaticShardConfig = {
+      ...config,
+      schema: {
+        sortField: "year",
+        fields: {
+          year: { kind: "number" },
+          title: { kind: "string", indexed: true },
+          tagline: { kind: "string", indexed: true, absent: true },
+          genres: { kind: "string", indexed: true, multi: true },
+        },
+      },
+    };
+    writeFileSync(
+      path.join(tmpDir, "movies.ndjson"),
+      [
+        { year: 1999, title: "The Matrix", genres: ["Sci-Fi", "Action"], tagline: "Welcome to the Real World" },
+        { year: 2000, title: "Gladiator", genres: ["Action", "Drama"] },
+        { year: 2000, title: "Snatch", genres: ["Crime", "Comedy"], tagline: null },
+        { year: 2008, title: "The Dark Knight", genres: ["Action", "Crime"], tagline: "Why So Serious?" },
+      ]
+        .map((m) => JSON.stringify(m))
+        .join("\n") + "\n",
+    );
+    const { clientOutDir } = build(t7Config, { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+
+    const consumerSource = `
+import { connect } from "./client.js";
+
+const db = connect();
+
+async function valid() {
+  // Multi-valued field forces \`some\`, shorthand and object form both work.
+  await db.movies.findMany({ where: { genres: { some: "Sci-Fi" } } });
+  await db.movies.findMany({ where: { genres: { some: { startsWith: "Sci" } } } });
+
+  // Presence ops on the absentable field.
+  await db.movies.findMany({ where: { tagline: { isNull: true } } });
+  await db.movies.findMany({ where: { tagline: { isAbsent: true } } });
+  await db.movies.findMany({ where: { tagline: { exists: false } } });
+
+  // \`not\` alongside a real pruning constraint on the SAME field compiles and runs.
+  await db.movies.findMany({ where: { title: { not: "Gladiator", startsWith: "G" } } });
+}
+
+async function invalid() {
+  // some on a single-valued (non-multi) field.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { some: "Gladiator" } } });
+
+  // a non-some operator directly on a multi-valued field — must go through \`some\`.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { genres: { equals: "Action" } } });
+
+  // absent-ops on a field that never opted into absent: true.
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { isNull: true } } });
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { isAbsent: true } } });
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { exists: true } } });
+
+  // \`not\` as the SOLE constraint — RiderGuard rejects it (no pruning companion).
+  // @ts-expect-error
+  await db.movies.findMany({ where: { title: { not: "Gladiator" } } });
 }
 
 void valid;

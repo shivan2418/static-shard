@@ -82,23 +82,28 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
     });
 
   for (const [name, field] of indexedSecondaryFields) {
-    secondaryZonemaps[name] = computeSecondaryZonemap(groups, name, field.kind);
+    const multi = field.multi === true;
+    secondaryZonemaps[name] = computeSecondaryZonemap(groups, name, field.kind, multi);
     indexChunkDirs[name] = addIndexChunks(
       name,
       null,
-      buildInvertedIndex(groups, name, field.kind, resolved.indexChunkBytes),
+      buildInvertedIndex(groups, name, field.kind, resolved.indexChunkBytes, multi),
     );
 
     if (field.endsWith) {
-      reversedChunkDirs[name] = addIndexChunks(name, "reversed", buildReversedIndex(groups, name, resolved.indexChunkBytes));
+      reversedChunkDirs[name] = addIndexChunks(
+        name,
+        "reversed",
+        buildReversedIndex(groups, name, resolved.indexChunkBytes, multi),
+      );
     }
 
     if (field.contains) {
-      const trigramChunks = buildTrigramIndex(groups, name, resolved.indexChunkBytes);
+      const trigramChunks = buildTrigramIndex(groups, name, resolved.indexChunkBytes, multi);
       trigramChunkDirs[name] = addIndexChunks(name, "trigram", trigramChunks);
 
       const trigramBytes = trigramChunks.reduce((sum, c) => sum + Buffer.byteLength(c.content, "utf8"), 0);
-      const columnBytes = computeColumnBytes(groups, name);
+      const columnBytes = computeColumnBytes(groups, name, multi);
       if (trigramBytes > columnBytes) {
         warnings.push(
           `static-shard: contains(${name}): trigram index (${trigramBytes} bytes) is bigger than the data — ` +

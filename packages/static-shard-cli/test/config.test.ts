@@ -117,3 +117,72 @@ describe("resolveConfig — endsWith/contains opt-ins (T6)", () => {
     expect(() => resolveConfig(bad, "/repo")).toThrow(/year.*string|string.*year/i);
   });
 });
+
+describe("resolveConfig — multi/absent opt-ins (T7)", () => {
+  test("accepts multi on an indexed string field", () => {
+    const resolved = resolveConfig(
+      { ...base, schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", indexed: true, multi: true } } } },
+      "/repo",
+    );
+    expect(resolved.fields.title).toEqual({ kind: "string", indexed: true, multi: true });
+  });
+
+  test("accepts absent on an indexed field of any kind", () => {
+    const resolved = resolveConfig(
+      { ...base, schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", indexed: true, absent: true } } } },
+      "/repo",
+    );
+    expect(resolved.fields.title).toEqual({ kind: "string", indexed: true, absent: true });
+  });
+
+  test("rejects multi on a non-indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", multi: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*indexed|indexed.*title/i);
+  });
+
+  test("rejects multi on a non-string indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, rating: { kind: "number", indexed: true, multi: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/rating.*string|string.*rating/i);
+  });
+
+  test("rejects multi on the sort field itself", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, year: { kind: "number", multi: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/year.*sort field/i);
+  });
+
+  test("rejects absent on a non-indexed field", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, title: { kind: "string", absent: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*indexed|indexed.*title/i);
+  });
+
+  test("rejects absent on the sort field itself", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: { sortField: "year", fields: { ...base.schema.fields, year: { kind: "number", absent: true } } },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/year.*sort field/i);
+  });
+
+  test("rejects a field opting into both multi and absent (element-presence semantics are unsupported)", () => {
+    const bad: StaticShardConfig = {
+      ...base,
+      schema: {
+        sortField: "year",
+        fields: { ...base.schema.fields, title: { kind: "string", indexed: true, multi: true, absent: true } },
+      },
+    };
+    expect(() => resolveConfig(bad, "/repo")).toThrow(/title.*multi.*absent|absent.*multi/i);
+  });
+});

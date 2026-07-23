@@ -27,13 +27,21 @@ export function generateSchemaTs(manifest: Manifest, generatorVersion: string): 
   const typeName = pascalCase(collection);
   const fieldEntries = Object.entries(fields);
 
-  const interfaceLines = fieldEntries.map(([name, field]) => `  ${name}: ${tsTypeForKind(field.kind)};`).join("\n");
+  const interfaceLines = fieldEntries
+    .map(([name, field]) => {
+      const tsType = field.multi ? `${tsTypeForKind(field.kind)}[]` : tsTypeForKind(field.kind);
+      const optional = field.absent ? "?" : "";
+      return `  ${name}${optional}: ${tsType};`;
+    })
+    .join("\n");
 
   const indexedFieldLines = fieldEntries
     .filter(([, field]) => field.indexed)
     .map(([name, field]) => {
       const operators = field.operators.map((op) => `"${op}"`).join(", ");
-      return `      ${name}: { kind: "${field.kind}", operators: [${operators}] },`;
+      const multi = field.multi ? ", multi: true" : "";
+      const absent = field.absent ? ", absent: true" : "";
+      return `      ${name}: { kind: "${field.kind}", operators: [${operators}]${multi}${absent} },`;
     })
     .join("\n");
 

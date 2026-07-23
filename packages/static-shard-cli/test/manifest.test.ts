@@ -65,7 +65,7 @@ describe("buildManifest", () => {
       kind: "number",
       isDate: false,
       indexed: true,
-      operators: ["equals", "in", "gt", "gte", "lt", "lte"],
+      operators: ["equals", "in", "gt", "gte", "lt", "lte", "not"],
     });
     expect(manifest.schema.fields.title).toEqual({
       kind: "string",
@@ -104,7 +104,7 @@ describe("buildManifest", () => {
       kind: "date",
       isDate: true,
       indexed: true,
-      operators: ["equals", "in", "gt", "gte", "lt", "lte"],
+      operators: ["equals", "in", "gt", "gte", "lt", "lte", "not"],
     });
   });
 
@@ -139,11 +139,11 @@ describe("buildManifest", () => {
       kind: "string",
       isDate: false,
       indexed: true,
-      operators: ["equals", "in", "startsWith"],
+      operators: ["equals", "in", "startsWith", "not"],
     });
     expect(manifest.zonemap.title).toEqual({ pairs: [["Alpha", "Zeta"]], truncated: true });
     expect(manifest.indexes.title).toEqual({
-      operators: ["equals", "in", "startsWith"],
+      operators: ["equals", "in", "startsWith", "not"],
       chunks: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }],
     });
     // the sort field's own zonemap entry is untouched
@@ -166,7 +166,7 @@ describe("buildManifest", () => {
       kind: "number",
       isDate: false,
       indexed: true,
-      operators: ["equals", "in"],
+      operators: ["equals", "in", "not"],
     });
   });
 
@@ -185,9 +185,9 @@ describe("buildManifest", () => {
       generatorVersion: "0.0.0",
     });
 
-    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith"]);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "endsWith", "not"]);
     expect(manifest.indexes.title).toEqual({
-      operators: ["equals", "in", "startsWith", "endsWith"],
+      operators: ["equals", "in", "startsWith", "endsWith", "not"],
       chunks: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }],
       reversed: { chunks: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
     });
@@ -208,9 +208,9 @@ describe("buildManifest", () => {
       generatorVersion: "0.0.0",
     });
 
-    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "contains"]);
+    expect(manifest.schema.fields.title!.operators).toEqual(["equals", "in", "startsWith", "contains", "not"]);
     expect(manifest.indexes.title).toEqual({
-      operators: ["equals", "in", "startsWith", "contains"],
+      operators: ["equals", "in", "startsWith", "contains", "not"],
       chunks: [{ from: "Alpha", to: "Zeta", file: "index/title/abc123.json" }],
       trigram: { chunks: [{ from: "aaa", to: "zzz", file: "index/title/trigram/ghi789.json" }] },
     });
@@ -231,7 +231,7 @@ describe("buildManifest", () => {
       generatorVersion: "0.0.0",
     });
     expect(manifest.indexes.title).toEqual({
-      operators: ["equals", "in", "startsWith", "endsWith"],
+      operators: ["equals", "in", "startsWith", "endsWith", "not"],
       chunks: [],
       reversed: { chunks: [{ from: "a", to: "z", file: "index/title/reversed/def456.json" }] },
     });
@@ -253,7 +253,51 @@ describe("buildManifest", () => {
       kind: "boolean",
       isDate: false,
       indexed: true,
-      operators: ["equals"],
+      operators: ["equals", "not"],
     });
+  });
+
+  test("T7: a multi-valued field carries multi: true; a non-multi field omits the key entirely", () => {
+    const indexedConfig: ResolvedConfig = {
+      ...config,
+      fields: { ...config.fields, genres: { kind: "string", indexed: true, multi: true } },
+    };
+    const manifest = buildManifest({
+      config: indexedConfig,
+      shardFiles,
+      splitPoints,
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.schema.fields.genres).toEqual({
+      kind: "string",
+      isDate: false,
+      indexed: true,
+      operators: ["equals", "in", "startsWith", "not"],
+      multi: true,
+    });
+    expect(manifest.schema.fields.title!.multi).toBeUndefined();
+  });
+
+  test("T7: an absent-opted-in field carries absent: true; a non-opted-in field omits the key entirely", () => {
+    const indexedConfig: ResolvedConfig = {
+      ...config,
+      fields: { ...config.fields, title: { kind: "string", indexed: true, absent: true } },
+    };
+    const manifest = buildManifest({
+      config: indexedConfig,
+      shardFiles,
+      splitPoints,
+      formatVersion: 0,
+      generatorVersion: "0.0.0",
+    });
+    expect(manifest.schema.fields.title).toEqual({
+      kind: "string",
+      isDate: false,
+      indexed: true,
+      operators: ["equals", "in", "startsWith", "not"],
+      absent: true,
+    });
+    expect(manifest.schema.fields.year!.absent).toBeUndefined();
   });
 });

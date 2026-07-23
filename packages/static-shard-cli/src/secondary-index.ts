@@ -30,6 +30,18 @@ export function truncateStringUpper(value: string, maxLen = DEFAULT_TRUNCATE_LEN
   return value.length <= maxLen ? value : incrementString(value.slice(0, maxLen));
 }
 
+/**
+ * The values one record contributes for `field`: a multi-valued field's record
+ * holds an array (each element indexed individually, existentially matched via
+ * `some` — T7); a single-valued field holds one scalar. Null/undefined entries
+ * are skipped either way — same "no index entry for absent data" rule as before.
+ */
+function valuesOf(record: Record<string, unknown>, field: string, multi: boolean): unknown[] {
+  if (!multi) return [record[field]];
+  const value = record[field];
+  return Array.isArray(value) ? value : [];
+}
+
 function canonicalKey(value: unknown, kind: FieldKind): string {
   if (kind === "number") return String(value as number);
   if (kind === "boolean") return String(value as boolean);
@@ -47,16 +59,20 @@ export function computeSecondaryZonemap(
   groups: Record<string, unknown>[][],
   field: string,
   kind: FieldKind,
+  multi = false,
 ): PairZonemapEntry {
   const pairs: [unknown, unknown][] = groups.map((group) => {
     let min: unknown;
     let max: unknown;
     for (const record of group) {
-      const value = record[field];
-      if (value === null || value === undefined) continue;
-      if (min === undefined || compareByKind(value, min, kind) < 0) min = value;
-      if (max === undefined || compareByKind(value, max, kind) > 0) max = value;
+      for (const value of valuesOf(record, field, multi)) {
+        if (value === null || value === undefined) continue;
+        if (min === undefined || compareByKind(value, min, kind) < 0) min = value;
+        if (max === undefined || compareByKind(value, max, kind) > 0) max = value;
+      }
     }
+    // A shard can hold zero non-null values for an absentable field (T7) — no bound to compute or truncate.
+    if (min === undefined) return [undefined, undefined];
     if (kind === "string") {
       return [truncateStringLower(min as string), truncateStringUpper(max as string)];
     }
@@ -90,19 +106,25 @@ interface DictEntry {
   shardIndices: number[];
 }
 
-function collectDistinctValues(groups: Record<string, unknown>[][], field: string, kind: FieldKind): DictEntry[] {
+function collectDistinctValues(
+  groups: Record<string, unknown>[][],
+  field: string,
+  kind: FieldKind,
+  multi = false,
+): DictEntry[] {
   const byKey = new Map<string, DictEntry>();
   groups.forEach((group, shardIndex) => {
     for (const record of group) {
-      const value = record[field];
-      if (value === null || value === undefined) continue;
-      const key = canonicalKey(value, kind);
-      let entry = byKey.get(key);
-      if (!entry) {
-        entry = { value, key, shardIndices: [] };
-        byKey.set(key, entry);
+      for (const value of valuesOf(record, field, multi)) {
+        if (value === null || value === undefined) continue;
+        const key = canonicalKey(value, kind);
+        let entry = byKey.get(key);
+        if (!entry) {
+          entry = { value, key, shardIndices: [] };
+          byKey.set(key, entry);
+        }
+        if (entry.shardIndices[entry.shardIndices.length - 1] !== shardIndex) entry.shardIndices.push(shardIndex);
       }
-      if (entry.shardIndices[entry.shardIndices.length - 1] !== shardIndex) entry.shardIndices.push(shardIndex);
     }
   });
   return [...byKey.values()].sort((a, b) => compareByKind(a.value, b.value, kind));
@@ -178,8 +200,9 @@ export function buildInvertedIndex(
   field: string,
   kind: FieldKind,
   chunkBytes: number,
+  multi = false,
 ): BuiltIndexChunk[] {
-  return buildChunksFromDictionary(collectDistinctValues(groups, field, kind), chunkBytes);
+  return buildChunksFromDictionary(collectDistinctValues(groups, field, kind, multi), chunkBytes);
 }
 
 /**
@@ -192,12 +215,14 @@ export function buildReversedIndex(
   groups: Record<string, unknown>[][],
   field: string,
   chunkBytes: number,
+  multi = false,
 ): BuiltIndexChunk[] {
   const reversedGroups = groups.map((group) =>
-    group.map((record) => {
-      const value = record[field];
-      return { [field]: value === null || value === undefined ? value : reverseString(value as string) };
-    }),
+    group.flatMap((record) =>
+      valuesOf(record, field, multi)
+        .filter((value): value is string => value !== null && value !== undefined)
+        .map((value) => ({ [field]: reverseString(value) })),
+    ),
   );
   return buildInvertedIndex(reversedGroups, field, "string", chunkBytes);
 }
@@ -209,19 +234,20 @@ function trigramsOf(value: string): string[] {
   return grams;
 }
 
-function collectDistinctTrigrams(groups: Record<string, unknown>[][], field: string): DictEntry[] {
+function collectDistinctTrigrams(groups: Record<string, unknown>[][], field: string, multi = false): DictEntry[] {
   const byKey = new Map<string, DictEntry>();
   groups.forEach((group, shardIndex) => {
     for (const record of group) {
-      const value = record[field];
-      if (value === null || value === undefined) continue;
-      for (const gram of trigramsOf(value as string)) {
-        let entry = byKey.get(gram);
-        if (!entry) {
-          entry = { value: gram, key: gram, shardIndices: [] };
-          byKey.set(gram, entry);
+      for (const value of valuesOf(record, field, multi)) {
+        if (value === null || value === undefined) continue;
+        for (const gram of trigramsOf(value as string)) {
+          let entry = byKey.get(gram);
+          if (!entry) {
+            entry = { value: gram, key: gram, shardIndices: [] };
+            byKey.set(gram, entry);
+          }
+          if (entry.shardIndices[entry.shardIndices.length - 1] !== shardIndex) entry.shardIndices.push(shardIndex);
         }
-        if (entry.shardIndices[entry.shardIndices.length - 1] !== shardIndex) entry.shardIndices.push(shardIndex);
       }
     }
   });
@@ -238,17 +264,19 @@ export function buildTrigramIndex(
   groups: Record<string, unknown>[][],
   field: string,
   chunkBytes: number,
+  multi = false,
 ): BuiltIndexChunk[] {
-  return buildChunksFromDictionary(collectDistinctTrigrams(groups, field), chunkBytes);
+  return buildChunksFromDictionary(collectDistinctTrigrams(groups, field, multi), chunkBytes);
 }
 
 /** Total UTF-8 bytes of the field's raw (non-null) string values — the "size of the column" ADR-0003 §7 warns against exceeding. */
-export function computeColumnBytes(groups: Record<string, unknown>[][], field: string): number {
+export function computeColumnBytes(groups: Record<string, unknown>[][], field: string, multi = false): number {
   let bytes = 0;
   for (const group of groups) {
     for (const record of group) {
-      const value = record[field];
-      if (typeof value === "string") bytes += Buffer.byteLength(value, "utf8");
+      for (const value of valuesOf(record, field, multi)) {
+        if (typeof value === "string") bytes += Buffer.byteLength(value, "utf8");
+      }
     }
   }
   return bytes;

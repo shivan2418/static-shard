@@ -38,6 +38,19 @@ function secondaryFilterOf(rawFilter: Record<string, unknown>): SecondaryFieldFi
   return { equals, in: inValues as unknown[] | undefined, startsWith: startsWith as string | undefined };
 }
 
+/**
+ * A multi-valued field's index is built over its elements, so pruning has to
+ * read through `some` first (T7): `{ some: "x" }` unwraps to `{ equals: "x" }`;
+ * `{ some: { startsWith: "x" } }` unwraps to its nested filter as-is. Absent
+ * `some` (an untyped caller's malformed where) unwraps to `{}` — no pruning.
+ */
+function unwrapMultiFilter(rawFilter: Record<string, unknown>): Record<string, unknown> {
+  const someFilter = rawFilter.some;
+  if (someFilter === undefined) return {};
+  if (typeof someFilter === "object" && someFilter !== null) return someFilter as Record<string, unknown>;
+  return { equals: someFilter };
+}
+
 /** The plumbing every chunk/shard fetch in one query shares — travels as a unit rather than three loose params. */
 interface FetchContext {
   basePath: string;
@@ -139,12 +152,14 @@ async function secondaryFieldCandidates(
 ): Promise<Set<number> | undefined> {
   const indexDescriptor = manifest.indexes[field];
   if (!indexDescriptor) return undefined;
-  const kind = manifest.schema.fields[field]!.kind as FieldKind;
+  const fieldMeta = manifest.schema.fields[field]!;
+  const kind = fieldMeta.kind as FieldKind;
+  const effectiveFilter = fieldMeta.multi ? unwrapMultiFilter(rawFilter) : rawFilter;
 
-  const { endsWith, contains } = rawFilter as { endsWith?: string; contains?: string };
+  const { endsWith, contains } = effectiveFilter as { endsWith?: string; contains?: string };
   const sets: Set<number>[] = [];
 
-  const baseFilter = secondaryFilterOf(rawFilter);
+  const baseFilter = secondaryFilterOf(effectiveFilter);
   if (baseFilter) sets.push(await candidatesFromChunkedIndex(ctx, indexDescriptor.chunks, kind, baseFilter));
 
   if (endsWith !== undefined && indexDescriptor.reversed) {

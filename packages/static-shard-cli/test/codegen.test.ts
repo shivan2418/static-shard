@@ -42,6 +42,37 @@ describe("generateSchemaTs", () => {
   });
 });
 
+describe("generateSchemaTs — multi/absent (T7)", () => {
+  const t7Manifest: Manifest = {
+    ...manifest,
+    schema: {
+      ...manifest.schema,
+      fields: {
+        ...manifest.schema.fields,
+        genres: { kind: "string", isDate: false, indexed: true, operators: ["equals", "in", "startsWith", "not"], multi: true },
+        tagline: { kind: "string", isDate: false, indexed: true, operators: ["equals", "in", "startsWith", "not"], absent: true },
+      },
+    },
+  };
+  const output = generateSchemaTs(t7Manifest, "0.1.0");
+
+  test("a multi field's record property is an array", () => {
+    expect(output).toMatch(/genres:\s*string\[\];/);
+  });
+
+  test("an absent field's record property is optional", () => {
+    expect(output).toMatch(/tagline\?:\s*string;/);
+  });
+
+  test("the schema const carries multi: true / absent: true only for the opted-in fields", () => {
+    const schemaBlock = output.slice(output.indexOf("export const schema"));
+    expect(schemaBlock).toContain("multi: true");
+    expect(schemaBlock).toContain("absent: true");
+    expect(schemaBlock).not.toMatch(/year:.*multi/);
+    expect(schemaBlock).not.toMatch(/year:.*absent/);
+  });
+});
+
 describe("generateClientTs", () => {
   const output = generateClientTs(manifest, { basePath: "/shard-data", generatorVersion: "0.1.0" });
 

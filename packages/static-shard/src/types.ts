@@ -70,8 +70,11 @@ type PickOps<All, Ops extends string> = {
 
 type AbsentOps<F> = F extends { absent: true } ? { isNull?: true; isAbsent?: true; exists?: boolean } : {};
 
+/** `{ some: value }` ≡ `{ some: { equals: value } }` (ADR-0001) — only offered where `equals` is itself enabled. */
+type SomeShorthand<F extends FieldMeta> = "equals" extends F["operators"][number] ? string : never;
+
 type FilterFor<F extends FieldMeta> = F extends { kind: "string"; multi: true }
-  ? { some?: PickOps<AllStringOps, F["operators"][number]> | string }
+  ? { some?: PickOps<AllStringOps, F["operators"][number]> | SomeShorthand<F> }
   : F extends { kind: "string" }
     ? PickOps<AllStringOps, F["operators"][number]> & AbsentOps<F>
     : F extends { kind: "number" }

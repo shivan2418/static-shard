@@ -8,6 +8,10 @@ export interface FieldConfig {
   endsWith?: boolean;
   /** Opt-in trigram index — unlocks `contains` (ADR-0003 §7). Requires `kind: "string"` and `indexed: true`. */
   contains?: boolean;
+  /** Value may be missing from a record (absent ≠ null) — unlocks `isNull`/`isAbsent`/`exists` (T7). Requires `indexed: true`. */
+  absent?: boolean;
+  /** Scalar leaf under an object-array — record value is `string[]`, matched existentially via `some` (T7). Requires `kind: "string"` and `indexed: true`. */
+  multi?: boolean;
 }
 
 export interface StaticShardConfig {
@@ -58,6 +62,10 @@ export interface FieldSchemaEntry {
   isDate: boolean;
   indexed: boolean;
   operators: readonly string[];
+  /** Present (`true`) only for fields opted into presence semantics (T7) — omitted otherwise, mirroring the runtime's optional `FieldMeta.absent`. */
+  absent?: true;
+  /** Present (`true`) only for multi-valued (object-array scalar-leaf) fields (T7) — omitted otherwise, mirroring the runtime's optional `FieldMeta.multi`. */
+  multi?: true;
 }
 
 export interface SchemaDescriptor {

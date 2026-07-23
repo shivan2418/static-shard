@@ -13,6 +13,10 @@ export interface FieldSchemaEntry {
   isDate: boolean;
   indexed: boolean;
   operators: readonly string[];
+  /** Value may be missing from a record (absent ≠ null) — unlocks isNull/isAbsent/exists (T7). */
+  absent?: true;
+  /** Scalar leaf under an object-array — value is an array, matched existentially via `some` (T7). */
+  multi?: true;
 }
 
 export interface SchemaDescriptor {

@@ -1,38 +1,73 @@
-/** Evaluates one field's operator filter (equals/in/gt/gte/lt/lte) against a value. */
-export function matchesFieldFilter(value: unknown, filter: Record<string, unknown>): boolean {
-  if (value === null || value === undefined) return false;
+/** Evaluates one non-null, present value against a single scalar operator (equals/in/gt/.../not). */
+function matchesValueOp(value: unknown, op: string, opValue: unknown): boolean {
+  switch (op) {
+    case "equals":
+      return value === opValue;
+    case "not":
+      return value !== opValue;
+    case "in":
+      return (opValue as unknown[]).includes(value);
+    case "gt":
+      return (value as number | string) > (opValue as number | string);
+    case "gte":
+      return (value as number | string) >= (opValue as number | string);
+    case "lt":
+      return (value as number | string) < (opValue as number | string);
+    case "lte":
+      return (value as number | string) <= (opValue as number | string);
+    case "startsWith":
+      return (value as string).startsWith(opValue as string);
+    case "endsWith":
+      return (value as string).endsWith(opValue as string);
+    case "contains":
+      return (value as string).includes(opValue as string);
+    default:
+      throw new Error(`static-shard: unsupported operator "${op}"`);
+  }
+}
+
+/** `some` (T7): existential match over a multi-valued field's elements — shorthand value ≡ `{ equals: value }`. */
+function matchesSome(values: unknown[], someFilter: unknown): boolean {
+  if (typeof someFilter === "object" && someFilter !== null) {
+    return values.some((element) =>
+      Object.entries(someFilter as Record<string, unknown>).every(([op, opValue]) =>
+        matchesValueOp(element, op, opValue),
+      ),
+    );
+  }
+  return values.includes(someFilter);
+}
+
+/**
+ * Evaluates one field's operator filter against a record (T7): `isNull`/`isAbsent`/`exists`
+ * distinguish an explicit `null` from a genuinely missing key; every other operator
+ * (including `some` and the `not` rider) requires a present, non-null value.
+ */
+export function matchesFieldFilter(record: Record<string, unknown>, field: string, filter: Record<string, unknown>): boolean {
+  const isAbsent = !(field in record);
+  const value = isAbsent ? undefined : record[field];
+  const isNull = !isAbsent && value === null;
+
   for (const [op, opValue] of Object.entries(filter)) {
-    switch (op) {
-      case "equals":
-        if (value !== opValue) return false;
-        break;
-      case "in":
-        if (!(opValue as unknown[]).includes(value)) return false;
-        break;
-      case "gt":
-        if (!((value as number | string) > (opValue as number | string))) return false;
-        break;
-      case "gte":
-        if (!((value as number | string) >= (opValue as number | string))) return false;
-        break;
-      case "lt":
-        if (!((value as number | string) < (opValue as number | string))) return false;
-        break;
-      case "lte":
-        if (!((value as number | string) <= (opValue as number | string))) return false;
-        break;
-      case "startsWith":
-        if (!(value as string).startsWith(opValue as string)) return false;
-        break;
-      case "endsWith":
-        if (!(value as string).endsWith(opValue as string)) return false;
-        break;
-      case "contains":
-        if (!(value as string).includes(opValue as string)) return false;
-        break;
-      default:
-        throw new Error(`static-shard: unsupported operator "${op}"`);
+    if (op === "isNull") {
+      if (isNull !== opValue) return false;
+      continue;
     }
+    if (op === "isAbsent") {
+      if (isAbsent !== opValue) return false;
+      continue;
+    }
+    if (op === "exists") {
+      const exists = !isAbsent && !isNull;
+      if (exists !== opValue) return false;
+      continue;
+    }
+    if (isAbsent || isNull) return false;
+    if (op === "some") {
+      if (!matchesSome(value as unknown[], opValue)) return false;
+      continue;
+    }
+    if (!matchesValueOp(value, op, opValue)) return false;
   }
   return true;
 }
@@ -44,7 +79,7 @@ export function matchesWhere(
 ): boolean {
   if (!where) return true;
   for (const [field, filter] of Object.entries(where)) {
-    if (!matchesFieldFilter(record[field], filter)) return false;
+    if (!matchesFieldFilter(record, field, filter)) return false;
   }
   return true;
 }

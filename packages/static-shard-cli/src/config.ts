@@ -30,17 +30,52 @@ export function resolveConfig(config: StaticShardConfig, baseDir: string): Resol
   }
 
   for (const [name, field] of Object.entries(config.schema.fields)) {
-    if (!field.endsWith && !field.contains) continue;
-    const opt = field.endsWith ? "endsWith" : "contains";
-    if (field.kind !== "string") {
-      throw new Error(
-        `static-shard: field "${name}" opts into "${opt}" but is kind "${field.kind}" — endsWith/contains require kind: "string"`,
-      );
+    const isSortField = name === sortField;
+
+    if (field.endsWith || field.contains) {
+      const opt = field.endsWith ? "endsWith" : "contains";
+      if (field.kind !== "string") {
+        throw new Error(
+          `static-shard: field "${name}" opts into "${opt}" but is kind "${field.kind}" — endsWith/contains require kind: "string"`,
+        );
+      }
+      if (field.indexed !== true) {
+        throw new Error(
+          `static-shard: field "${name}" opts into "${opt}" but is not indexed — set indexed: true first (ADR-0003 §7)`,
+        );
+      }
     }
-    if (field.indexed !== true) {
-      throw new Error(
-        `static-shard: field "${name}" opts into "${opt}" but is not indexed — set indexed: true first (ADR-0003 §7)`,
-      );
+
+    if (field.multi) {
+      if (isSortField) {
+        throw new Error(
+          `static-shard: field "${name}" opts into "multi" but is the sort field — a multi-valued field cannot be the sort field`,
+        );
+      }
+      if (field.kind !== "string") {
+        throw new Error(
+          `static-shard: field "${name}" opts into "multi" but is kind "${field.kind}" — multi requires kind: "string" (T7)`,
+        );
+      }
+      if (field.indexed !== true) {
+        throw new Error(`static-shard: field "${name}" opts into "multi" but is not indexed — set indexed: true first (T7)`);
+      }
+      if (field.absent) {
+        throw new Error(
+          `static-shard: field "${name}" opts into both "multi" and "absent" — presence semantics over a multi-valued field's elements are not supported (T7)`,
+        );
+      }
+    }
+
+    if (field.absent) {
+      if (isSortField) {
+        throw new Error(
+          `static-shard: field "${name}" opts into "absent" but is the sort field — presence semantics are not supported on the sort field`,
+        );
+      }
+      if (field.indexed !== true) {
+        throw new Error(`static-shard: field "${name}" opts into "absent" but is not indexed — set indexed: true first (T7)`);
+      }
     }
   }
 
