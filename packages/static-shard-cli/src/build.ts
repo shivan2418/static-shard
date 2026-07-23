@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { resolveConfig } from "./config.js";
 import { generateClientTs, generateSchemaTs } from "./codegen.js";
+import { assertNoSchemaDrift } from "./drift.js";
 import { contentHash } from "./hash.js";
 import { readInputRecords } from "./input.js";
 import { buildManifest, computeSplitPoints } from "./manifest.js";
@@ -51,6 +52,7 @@ export function build(config: StaticShardConfig, opts: BuildOptions): BuildResul
     recordsPath: resolved.inputRecordsPath,
     fields: resolved.fields,
   });
+  assertNoSchemaDrift(records, resolved.fields);
   const sorted = [...records].sort((a, b) =>
     compareSortValues(a[resolved.sortField], b[resolved.sortField], sortKind),
   );

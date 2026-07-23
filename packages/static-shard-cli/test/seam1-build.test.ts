@@ -5,8 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { build } from "../src/build.js";
+import { loadConfigFile } from "../src/config.js";
 import { contentHash } from "../src/hash.js";
+import { init } from "../src/init.js";
 import type { StaticShardConfig } from "../src/types.js";
+import { getFormatVersion } from "../src/version.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(testDir, "../../..");
@@ -696,5 +699,154 @@ void invalid;
 `;
     assertConsumerCompiles(noPkClientOutDir, noPkConsumerSource);
     rmSync(noPkTmpDir, { recursive: true, force: true });
+  });
+});
+
+describe("seam #1 — init --yes → build (T10)", () => {
+  const PRODUCTS = [
+    { id: "p1", category: "electronics", price: 100, name: "Widget" },
+    { id: "p2", category: "electronics", price: 200, name: "Gadget" },
+    { id: "p3", category: "books", price: 15, name: "Novel" },
+    { id: "p4", category: "books", price: 20, name: "Textbook" },
+    { id: "p5", category: "toys", price: 30, name: "Blocks" },
+  ];
+
+  function writeProducts(dir: string, records: typeof PRODUCTS = PRODUCTS): void {
+    writeFileSync(path.join(dir, "products.ndjson"), records.map((p) => JSON.stringify(p)).join("\n") + "\n");
+  }
+
+  test("init --yes infers a schema and writes a config that build consumes just like a hand-authored one", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+
+    const { config: written, reinferred } = init({
+      cwd: tmpDir,
+      configPath,
+      yes: true,
+      fullScan: true,
+      inputPath: "products.ndjson",
+    });
+
+    expect(reinferred).toBe(true);
+    expect(written.$schema).toBeDefined();
+    expect(written.formatVersion).toBe(getFormatVersion());
+    expect(written.schema.sortField).toBe("price"); // the only number/date field observed
+    expect(written.schema.fields.category?.indexed).toBe(true); // low-cardinality categorical field
+    expect(written.schema.pk).toBe("id"); // unique + id-named — recommended as the user PK
+    expect(written.schema.fields.id?.indexed).toBe(true); // pk must be indexed so get(id) has a lookup path
+    expect(existsSync(configPath)).toBe(true);
+
+    const { manifest } = build(loadConfigFile(configPath), { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 });
+    expect(manifest.dataset.recordCount).toBe(PRODUCTS.length);
+    expect(manifest.dataset.sortField).toBe("price");
+  });
+
+  test("init --yes requires --yes — the interactive wizard isn't implemented yet", () => {
+    writeProducts(tmpDir);
+    expect(() =>
+      init({ cwd: tmpDir, configPath: path.join(tmpDir, "static-shard.config.json"), yes: false, inputPath: "products.ndjson" }),
+    ).toThrow(/--yes/);
+  });
+
+  test("init --yes is deterministic: identical input infers an identical baked schema on repeat runs", () => {
+    writeProducts(tmpDir);
+    const configPathA = path.join(tmpDir, "a.config.json");
+    const configPathB = path.join(tmpDir, "b.config.json");
+
+    const { config: a } = init({ cwd: tmpDir, configPath: configPathA, yes: true, fullScan: true, inputPath: "products.ndjson" });
+    const { config: b } = init({ cwd: tmpDir, configPath: configPathB, yes: true, fullScan: true, inputPath: "products.ndjson" });
+
+    expect(a).toEqual(b);
+    expect(readFileSync(configPathA, "utf8")).toBe(readFileSync(configPathB, "utf8"));
+  });
+
+  test("an explicit --sort-field flag overrides the inferred recommendation", () => {
+    // id is unique but string-kind, so it isn't inference-eligible on its own — declare a second
+    // number field so both "price" (the inferred pick) and "rank" (the override) are valid candidates.
+    const withRank = PRODUCTS.map((p, i) => ({ ...p, rank: i + 1 }));
+    writeProducts(tmpDir, withRank);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+
+    const { config } = init({
+      cwd: tmpDir,
+      configPath,
+      yes: true,
+      fullScan: true,
+      inputPath: "products.ndjson",
+      sortField: "rank",
+    });
+
+    expect(config.schema.sortField).toBe("rank");
+  });
+
+  test("--indexed fully overrides the indexed set on re-run rather than merging with it (flags > file)", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+    const { config: before } = init({ cwd: tmpDir, configPath, yes: true, fullScan: true, inputPath: "products.ndjson" });
+    expect(before.schema.fields.category?.indexed).toBe(true);
+
+    const { config: after } = init({ cwd: tmpDir, configPath, yes: true, indexedFields: ["name"] });
+
+    expect(after.schema.fields.name?.indexed).toBe(true);
+    expect(after.schema.fields.category?.indexed).toBeUndefined(); // no longer merged in from the old set
+  });
+
+  test("--ends-with/--contains opt a field into the reversed/trigram index and force it indexed", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+    init({ cwd: tmpDir, configPath, yes: true, fullScan: true, inputPath: "products.ndjson" });
+
+    const { config } = init({ cwd: tmpDir, configPath, yes: true, endsWithFields: ["name"], containsFields: ["name"] });
+
+    expect(config.schema.fields.name).toEqual({ kind: "string", indexed: true, endsWith: true, contains: true });
+  });
+
+  test("build fails loud when the input data has drifted from the baked schema's declared kind", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+    init({ cwd: tmpDir, configPath, yes: true, fullScan: true, inputPath: "products.ndjson" });
+
+    // price drifts from number to string after the schema was baked.
+    const drifted = PRODUCTS.map((p) => ({ ...p, price: String(p.price) }));
+    writeProducts(tmpDir, drifted);
+
+    expect(() => build(loadConfigFile(configPath), { baseDir: tmpDir, generatorVersion: "0.1.0", formatVersion: 0 })).toThrow(
+      /drift/i,
+    );
+  });
+
+  test("--reinfer refreshes the baked schema after the data's shape changes", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+    const { config: before } = init({ cwd: tmpDir, configPath, yes: true, fullScan: true, inputPath: "products.ndjson" });
+    expect(before.schema.fields.brand).toBeUndefined();
+
+    const withBrand = PRODUCTS.map((p) => ({ ...p, brand: p.category === "books" ? "Penguin" : "Acme" }));
+    writeProducts(tmpDir, withBrand);
+
+    const { config: after, reinferred } = init({
+      cwd: tmpDir,
+      configPath,
+      yes: true,
+      fullScan: true,
+      reinfer: true,
+    });
+
+    expect(reinferred).toBe(true);
+    expect(after.schema.fields.brand).toBeDefined();
+  });
+
+  test("without --reinfer, re-running init on an existing config reuses the baked schema untouched", () => {
+    writeProducts(tmpDir);
+    const configPath = path.join(tmpDir, "static-shard.config.json");
+    const { config: before } = init({ cwd: tmpDir, configPath, yes: true, fullScan: true, inputPath: "products.ndjson" });
+
+    const withBrand = PRODUCTS.map((p) => ({ ...p, brand: "Acme" }));
+    writeProducts(tmpDir, withBrand);
+
+    const { config: after, reinferred } = init({ cwd: tmpDir, configPath, yes: true });
+
+    expect(reinferred).toBe(false);
+    expect(after.schema).toEqual(before.schema);
   });
 });

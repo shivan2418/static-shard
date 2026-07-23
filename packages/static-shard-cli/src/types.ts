@@ -18,6 +18,10 @@ export interface FieldConfig {
 }
 
 export interface StaticShardConfig {
+  /** Editor autocomplete/validation reference to the published `config.schema.json` (ADR-0005 §3). */
+  $schema?: string;
+  /** The package major this config's baked schema was (re)inferred against — stamped by `init`. */
+  formatVersion?: number;
   /** Name the generated collection is exposed under, e.g. `db.movies`. */
   collection: string;
   input: {

@@ -1,1 +1,137 @@
-{}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "static-shard config",
+  "description": "static-shard.config.json — written by `static-shard-cli init`, consumed by `static-shard-cli build`.",
+  "type": "object",
+  "required": ["collection", "input", "schema"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor autocomplete/validation reference to this file."
+    },
+    "formatVersion": {
+      "type": "integer",
+      "description": "The static-shard-cli major version this config's baked schema was inferred against."
+    },
+    "collection": {
+      "type": "string",
+      "description": "Name the generated collection is exposed under, e.g. `db.movies`."
+    },
+    "input": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "A single file path, or a glob pattern matching same-format files to merge then shard as one dataset."
+        },
+        "format": {
+          "enum": ["ndjson", "json", "csv", "tsv"],
+          "description": "Defaults to \"ndjson\"."
+        },
+        "delimiter": {
+          "type": "string",
+          "description": "Delimited (csv/tsv) column delimiter override. Default: \",\" for csv, \"\\t\" for tsv."
+        },
+        "records": {
+          "type": "string",
+          "description": "JSON only: dot-path to the array/map of records nested within the parsed document."
+        }
+      }
+    },
+    "output": {
+      "type": "string",
+      "description": "Served data tree. Default \"public/shard-data\"."
+    },
+    "clientOut": {
+      "type": "string",
+      "description": "Generated client dir. Default \"src/shard-db\"."
+    },
+    "basePath": {
+      "type": "string",
+      "description": "Baked default for the generated `connect()`. Default \"/shard-data\"."
+    },
+    "shardBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Target compressed shard size in bytes. Default 2 MiB."
+    },
+    "indexChunkBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Target gzipped size per secondary-index chunk, in bytes. Default ~45 KB."
+    },
+    "schema": {
+      "type": "object",
+      "description": "The machine-owned baked schema block (written/refreshed by `init`/`init --reinfer`).",
+      "required": ["sortField", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "sortField": {
+          "type": "string",
+          "description": "Must name a \"number\" or \"date\" field — the sole range-partitioned field."
+        },
+        "pk": {
+          "type": "string",
+          "description": "Names a field as the user PK — unlocks the generated client's `get(id)`."
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/fieldConfig" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "fieldConfig": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["string", "number", "boolean", "date"]
+        },
+        "indexed": {
+          "type": "boolean",
+          "description": "Opt-in secondary index: builds a chunked inverted index + zonemap for this non-sort field."
+        },
+        "endsWith": {
+          "type": "boolean",
+          "description": "Opt-in reversed-value index — unlocks `endsWith`. Requires kind \"string\" and indexed: true."
+        },
+        "contains": {
+          "type": "boolean",
+          "description": "Opt-in trigram index — unlocks `contains`. Requires kind \"string\" and indexed: true."
+        },
+        "absent": {
+          "type": "boolean",
+          "description": "Value may be missing from a record (absent ≠ null) — unlocks isNull/isAbsent/exists. Requires indexed: true."
+        },
+        "multi": {
+          "type": "boolean",
+          "description": "Scalar leaf under an object-array — record value is string[], matched existentially via `some`. Requires kind \"string\" and indexed: true."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["endsWith"], "properties": { "endsWith": { "const": true } } },
+          "then": { "required": ["indexed"], "properties": { "kind": { "const": "string" }, "indexed": { "const": true } } }
+        },
+        {
+          "if": { "required": ["contains"], "properties": { "contains": { "const": true } } },
+          "then": { "required": ["indexed"], "properties": { "kind": { "const": "string" }, "indexed": { "const": true } } }
+        },
+        {
+          "if": { "required": ["multi"], "properties": { "multi": { "const": true } } },
+          "then": { "required": ["indexed"], "properties": { "kind": { "const": "string" }, "indexed": { "const": true } } }
+        },
+        {
+          "if": { "required": ["absent"], "properties": { "absent": { "const": true } } },
+          "then": { "required": ["indexed"], "properties": { "indexed": { "const": true } } }
+        }
+      ]
+    }
+  }
+}

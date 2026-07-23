@@ -1,0 +1,173 @@
+import type { FieldKind } from "./types.js";
+
+/** ISO-8601 date/date-time, e.g. "1999-03-31" or "2000-05-05T00:00:00Z" (ADR-0001: date = string + isDate). */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+/** Field names that look like an identifier, for the pk-recommendation naming heuristic. */
+const ID_LIKE_NAME_RE = /(^_?id$)|([._-]?id$)/i;
+
+/** ADR-0006 §5: `init` recommends a *small* default indexed set, not opt-out-of-everything. */
+const DEFAULT_MAX_INDEXED = 3;
+
+export interface InferredField {
+  kind: FieldKind;
+  /** Distinct non-null values observed (for multi fields: distinct elements across all arrays). */
+  cardinality: number;
+  /** The key was missing from at least one sampled record but present in another (absent ≠ null). */
+  absent: boolean;
+  /** Every observed value was a string[] — a scalar leaf under an object-array (ADR-0001). */
+  multi: boolean;
+}
+
+export interface InferenceResult {
+  recordCount: number;
+  fields: Record<string, InferredField>;
+  sortField: string;
+  pk?: string;
+  /** Recommended default opt-in indexed set (excludes the sort field). */
+  indexedFields: string[];
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+function inferKind(fieldName: string, values: unknown[]): FieldKind {
+  const nonNull = values.filter((v) => v !== null);
+  if (nonNull.length === 0) return "string";
+
+  const allBoolean = nonNull.every((v) => typeof v === "boolean");
+  if (allBoolean) return "boolean";
+  const allNumber = nonNull.every((v) => typeof v === "number");
+  if (allNumber) return "number";
+  const allString = nonNull.every((v) => typeof v === "string");
+  if (allString) {
+    const allDates = (nonNull as string[]).every((v) => ISO_DATE_RE.test(v));
+    return allDates ? "date" : "string";
+  }
+
+  throw new Error(
+    `static-shard: init inference — field "${fieldName}" has inconsistent/mixed types across the sample ` +
+      `(e.g. ${JSON.stringify(nonNull[0])} vs ${JSON.stringify(nonNull.find((v) => typeof v !== typeof nonNull[0]))}); ` +
+      `declare it explicitly in schema.fields instead of relying on inference`,
+  );
+}
+
+function distinctCount(values: unknown[]): number {
+  const seen = new Set<string>();
+  for (const v of values) seen.add(JSON.stringify(v));
+  return seen.size;
+}
+
+function inferField(fieldName: string, presentValues: unknown[], recordCount: number): InferredField {
+  const arrays = presentValues.filter((v) => Array.isArray(v));
+  const scalars = presentValues.filter((v) => !Array.isArray(v));
+
+  if (arrays.length > 0 && scalars.length > 0) {
+    throw new Error(
+      `static-shard: init inference — field "${fieldName}" mixes array and scalar values across the sample; ` +
+        `declare it explicitly in schema.fields instead of relying on inference`,
+    );
+  }
+
+  if (arrays.length > 0) {
+    if (!arrays.every(isStringArray)) {
+      throw new Error(
+        `static-shard: init inference — field "${fieldName}" is an array in every record but not consistently ` +
+          `an array of strings; multi-valued fields must be string[] (declare it explicitly in schema.fields)`,
+      );
+    }
+    const elements = (arrays as string[][]).flat();
+    return {
+      kind: "string",
+      cardinality: distinctCount(elements),
+      absent: presentValues.length < recordCount,
+      multi: true,
+    };
+  }
+
+  return {
+    kind: inferKind(fieldName, scalars),
+    cardinality: distinctCount(scalars.filter((v) => v !== null)),
+    absent: presentValues.length < recordCount,
+    multi: false,
+  };
+}
+
+/** A field is PK-shaped when its own sampled values look like an identifier: unique + id-like name. */
+function looksLikePk(name: string, f: InferredField, recordCount: number): boolean {
+  return !f.multi && !f.absent && f.cardinality === recordCount && ID_LIKE_NAME_RE.test(name);
+}
+
+function recommendSortField(fields: Record<string, InferredField>, recordCount: number): string {
+  const candidates = Object.entries(fields).filter(
+    ([, f]) => (f.kind === "number" || f.kind === "date") && !f.multi && !f.absent,
+  );
+  if (candidates.length === 0) {
+    throw new Error(
+      "static-shard: init could not infer a sort field — no always-present, single-valued number/date field " +
+        "was found in the sample; declare one explicitly with --sort-field",
+    );
+  }
+
+  candidates.sort(([nameA, a], [nameB, b]) => {
+    if (b.cardinality !== a.cardinality) return b.cardinality - a.cardinality;
+    // ADR-0002 §2: tiebreak toward the PK — judged directly off each candidate's own
+    // uniqueness + id-like name, not by deferring to recommendPk (which runs after the
+    // sort field is chosen, and pk may legitimately equal the sort field — ADR-0002 §4).
+    const aPkLike = looksLikePk(nameA, a, recordCount);
+    const bPkLike = looksLikePk(nameB, b, recordCount);
+    if (aPkLike !== bPkLike) return aPkLike ? -1 : 1;
+    return nameA < nameB ? -1 : nameA > nameB ? 1 : 0;
+  });
+
+  return candidates[0]![0];
+}
+
+function recommendPk(fields: Record<string, InferredField>, recordCount: number): string | undefined {
+  // A pk may legitimately be the sort field itself — the "free" get(id) path (ADR-0002 §4).
+  const idLike = Object.entries(fields)
+    .filter(([name, f]) => (f.kind === "number" || f.kind === "string") && looksLikePk(name, f, recordCount))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return idLike[0]?.[0];
+}
+
+function recommendIndexedFields(fields: Record<string, InferredField>, recordCount: number, sortField: string): string[] {
+  const entries = Object.entries(fields).filter(([name]) => name !== sortField);
+
+  // Multi-valued fields can only be declared correctly when indexed (T7 constraint) — always include them.
+  const forced = entries.filter(([, f]) => f.multi).map(([name]) => name);
+
+  const categorical = entries
+    .filter(([, f]) => !f.multi && f.cardinality > 1 && f.cardinality < recordCount)
+    .sort(([nameA, a], [nameB, b]) => (a.cardinality !== b.cardinality ? a.cardinality - b.cardinality : nameA < nameB ? -1 : 1))
+    .slice(0, DEFAULT_MAX_INDEXED)
+    .map(([name]) => name);
+
+  return [...forced, ...categorical];
+}
+
+/**
+ * Infers a candidate schema from a sample (or full scan) of parsed records — the only inference
+ * site (ADR-0005 §4). Pure: no I/O, no defaults from config — `init` layers flags/existing-file
+ * precedence on top of this recommendation.
+ */
+export function inferSchema(records: Record<string, unknown>[]): InferenceResult {
+  const recordCount = records.length;
+  const fieldNames = new Set<string>();
+  for (const record of records) {
+    for (const key of Object.keys(record)) fieldNames.add(key);
+  }
+
+  const fields: Record<string, InferredField> = {};
+  for (const name of fieldNames) {
+    const presentValues = records.filter((r) => Object.prototype.hasOwnProperty.call(r, name)).map((r) => r[name]);
+    fields[name] = inferField(name, presentValues, recordCount);
+  }
+
+  const sortField = recommendSortField(fields, recordCount);
+  const pk = recommendPk(fields, recordCount);
+  const indexedFields = recommendIndexedFields(fields, recordCount, sortField);
+
+  return { recordCount, fields, sortField, pk, indexedFields };
+}
