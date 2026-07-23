@@ -21,9 +21,23 @@ importers:
         specifier: latest
         version: 4.1.10(@types/node@26.1.1)(vite@7.2.7(@types/node@26.1.1))
 
-  packages/static-shard: {}
+  packages/static-shard:
+    devDependencies:
+      '@types/node':
+        specifier: latest
+        version: 26.1.1
+      static-shard-cli:
+        specifier: workspace:*
+        version: link:../static-shard-cli
 
-  packages/static-shard-cli: {}
+  packages/static-shard-cli:
+    devDependencies:
+      '@types/node':
+        specifier: latest
+        version: 26.1.1
+      static-shard:
+        specifier: workspace:*
+        version: link:../static-shard
 
 packages:
 

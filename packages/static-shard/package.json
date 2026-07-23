@@ -40,6 +40,10 @@
   },
   "homepage": "https://github.com/shivan2418/static-shard#readme",
   "bugs": "https://github.com/shivan2418/static-shard/issues",
+  "devDependencies": {
+    "@types/node": "latest",
+    "static-shard-cli": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

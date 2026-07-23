@@ -26,6 +26,10 @@
     "url": "git+https://github.com/shivan2418/static-shard.git",
     "directory": "packages/static-shard-cli"
   },
+  "devDependencies": {
+    "@types/node": "latest",
+    "static-shard": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
